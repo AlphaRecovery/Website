@@ -13,7 +13,7 @@
     position: fixed; inset: 0; background: #000;
     display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200;
   }
-  .intro-mark { width: 72px; height: 1px; margin-bottom: 2rem; background:linear-gradient(90deg,transparent,#d4001f,#ff5a6b,transparent); opacity:0; animation:fadeIn 0.8s ease 0.4s forwards; }
+  .intro-mark { width: 72px; height: 1px; margin-bottom: 2rem; background:linear-gradient(90deg,transparent,#ff1744,#ff6b7f,transparent); opacity:0; animation:fadeIn 0.8s ease 0.4s forwards; }
   .intro-globe { width:140px; height:auto; margin-bottom:1.3rem; opacity:0; filter:invert(1) brightness(1.9) drop-shadow(0 0 24px rgba(255,255,255,0.14)); animation:fadeIn 0.8s ease 0.7s forwards; }
   .intro-text { text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.55rem; }
   .brand-name { font-family:'Cormorant Garamond',serif; font-size:clamp(2.6rem,5vw,4rem); font-weight:300; letter-spacing:0.24em; color:#f5f5f5; opacity:0; animation:fadeUp 0.9s ease 2.4s forwards; line-height:1; }
@@ -21,7 +21,7 @@
   .brand-tagline { font-size:0.52rem; font-weight:300; letter-spacing:0.5em; text-transform:uppercase; color:rgba(255,255,255,0.62); opacity:0; animation:fadeUp 0.7s ease 2.8s forwards; }
 
   .progress-wrap { width:200px; height:1px; background:rgba(255,255,255,0.06); margin-top:3rem; overflow:hidden; opacity:0; animation:fadeIn 0.5s ease 3s forwards; position:relative; }
-  .progress-bar { height:100%; background:linear-gradient(90deg,#7a0012,#d4001f,#ff1744,#ff5a6b); width:0; animation:progress 5s cubic-bezier(0.4,0,0.2,1) 3s forwards; }
+  .progress-bar { height:100%; background:linear-gradient(90deg,#ff1744,#ff335b,#ff5a6b,#ff7a8c); width:0; animation:progress 5s cubic-bezier(0.4,0,0.2,1) 3s forwards; }
   @keyframes progress { 0%{width:0%} 40%{width:45%} 75%{width:78%} 95%{width:94%} 100%{width:100%} }
   .progress-pct { position:absolute; right:0; top:6px; font-size:0.45rem; font-weight:300; letter-spacing:0.15em; color:rgba(255,23,68,0.85); opacity:0; animation:fadeIn 0.5s ease 3.2s forwards; }
   .status-text { font-size:0.45rem; font-weight:300; letter-spacing:0.4em; text-transform:uppercase; color:rgba(255,255,255,0.55); margin-top:0.8rem; opacity:0; animation:fadeIn 0.5s ease 3.5s forwards; min-height:1em; }
@@ -36,7 +36,7 @@
     position:fixed; top:0; left:0; right:0; z-index:50;
     padding:1.2rem 3rem; display:flex; align-items:center; justify-content:space-between;
     background:rgba(0,0,0,0.8); backdrop-filter:blur(16px);
-    border-bottom:1px solid rgba(255,23,68,0.2);
+    border-bottom:1px solid rgba(255,23,68,0.36);
   }
   .nav-brand { display:flex; align-items:center; gap:0.85rem; text-decoration:none; }
   .nav-globe { width:42px; height:auto; flex-shrink:0; filter:invert(1) brightness(1.8) drop-shadow(0 0 16px rgba(255,255,255,0.1)); opacity:0.82; }
@@ -47,7 +47,7 @@
   .nav-links a { font-size:0.6rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.72); text-decoration:none; transition:color 0.2s; }
   .nav-links a:hover { color:#ff1744; }
   .nav-btn { font-size:0.57rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:#ff1744; border:1px solid rgba(255,23,68,0.62); padding:0.52rem 1.2rem; text-decoration:none; transition:all 0.25s; background:rgba(255,23,68,0.08); }
-  .nav-btn:hover { background:#d4001f; color:#fff; border-color:#d4001f; }
+  .nav-btn:hover { background:#ff1744; color:#fff; border-color:#ff1744; }
 
   .hero { min-height:100vh; display:flex; align-items:center; position:relative; background:#000; }
   .hero-content { position:relative; z-index:2; padding:8rem 3rem 4rem; max-width:640px; }
@@ -57,8 +57,8 @@
   h1 em { font-style:italic; color:#ff1744; }
   .hero-desc { font-size:0.84rem; font-weight:300; color:rgba(255,255,255,0.68); line-height:2; max-width:390px; margin-bottom:2.5rem; letter-spacing:0.04em; }
   .hero-btns { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; }
-  .btn-red { font-size:0.59rem; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; background:#d4001f; color:#fff; border:1px solid #d4001f; padding:0.9rem 2rem; text-decoration:none; transition:all 0.25s; }
-  .btn-red:hover { background:#ff1744; border-color:#ff1744; }
+  .btn-red { font-size:0.59rem; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; background:#ff1744; color:#fff; border:1px solid #ff1744; padding:0.9rem 2rem; text-decoration:none; transition:all 0.25s; }
+  .btn-red:hover { background:#ff4d6d; border-color:#ff4d6d; }
   .btn-ghost { font-size:0.59rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:rgba(255,255,255,0.68); text-decoration:none; display:flex; align-items:center; gap:0.5rem; transition:color 0.2s; }
   .btn-ghost:hover { color:#fff; }
 
@@ -70,24 +70,24 @@
   .section-tag { font-size:0.55rem; font-weight:300; letter-spacing:0.55em; text-transform:uppercase; color:#ff1744; display:flex; align-items:center; gap:0.8rem; margin-bottom:1rem; }
   .section-tag::before { content:''; width:24px; height:1px; background:#ff1744; }
   .section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,5vw,4rem); font-weight:300; color:#f5f5f5; margin-bottom:3rem; letter-spacing:0.05em; }
-  .services-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1px; background:rgba(255,23,68,0.18); }
-  .service-card { background:#000; padding:2.5rem 2rem; border:1px solid rgba(255,23,68,0.12); transition:border-color 0.3s,background 0.3s; }
-  .service-card:hover { background:#080808; border-color:rgba(255,23,68,0.45); }
-  .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:rgba(255,23,68,0.25); line-height:1; margin-bottom:1rem; }
+  .services-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1px; background:#ff1744; }
+  .service-card { background:#000; padding:2.5rem 2rem; border:1px solid rgba(255,23,68,0.82); transition:border-color 0.3s,background 0.3s,box-shadow 0.3s; }
+  .service-card:hover { background:#080808; border-color:#ff1744; box-shadow:inset 0 0 0 1px rgba(255,23,68,0.75); }
+  .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:#ff1744; line-height:1; margin-bottom:1rem; }
   .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; color:#f5f5f5; margin-bottom:0.75rem; letter-spacing:0.05em; }
   .service-card p { font-size:0.78rem; font-weight:300; color:rgba(255,255,255,0.66); line-height:1.9; }
 
   /* About */
-  .about { padding:6rem 3rem; background:#050505; position:relative; z-index:2; border-top:1px solid rgba(255,23,68,0.12); }
+  .about { padding:6rem 3rem; background:#050505; position:relative; z-index:2; border-top:1px solid rgba(255,23,68,0.34); }
   .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center; max-width:1100px; margin:0 auto; }
   .about-text p { font-size:0.85rem; font-weight:300; color:rgba(255,255,255,0.7); line-height:2; margin-bottom:1.2rem; }
   .about-stats { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
-  .stat { border-left:2px solid #d4001f; padding-left:1.2rem; }
+  .stat { border-left:2px solid #ff1744; padding-left:1.2rem; }
   .stat-val { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:#ff1744; line-height:1; }
   .stat-label { font-size:0.5rem; font-weight:300; letter-spacing:0.35em; text-transform:uppercase; color:rgba(255,255,255,0.62); margin-top:0.3rem; }
 
   /* Contact */
-  .contact { padding:6rem 3rem; background:#000; position:relative; z-index:2; border-top:1px solid rgba(255,23,68,0.12); }
+  .contact { padding:6rem 3rem; background:#000; position:relative; z-index:2; border-top:1px solid rgba(255,23,68,0.34); }
   .contact-inner { max-width:600px; }
   .contact-inner p { font-size:0.85rem; font-weight:300; color:rgba(255,255,255,0.7); line-height:2; margin-bottom:2rem; }
   .contact-info { display:flex; flex-direction:column; gap:0.75rem; margin-bottom:2.5rem; }
@@ -96,7 +96,7 @@
   .contact-label { font-size:0.5rem; letter-spacing:0.35em; text-transform:uppercase; color:#ff1744; display:block; margin-bottom:0.2rem; }
 
   /* Footer */
-  footer { padding:2rem 3rem; background:#000; border-top:1px solid rgba(255,23,68,0.12); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
+  footer { padding:2rem 3rem; background:#000; border-top:1px solid rgba(255,23,68,0.34); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
   footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:rgba(255,255,255,0.54); }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
@@ -125,7 +125,7 @@
   <img class="intro-globe" src="assets/globe-mark.png" alt="" />
   <div class="intro-text">
     <div class="brand-name">ALPHA <span>RECOVERY</span></div>
-    <div class="brand-tagline">Private Intelligence Agency</div>
+    <div class="brand-tagline">Intelligence Beyond Sight</div>
   </div>
   <div class="progress-wrap">
     <div class="progress-bar"></div>
@@ -144,7 +144,7 @@
       <img class="nav-globe" src="assets/globe-mark.png" alt="" />
       <div class="nav-brand-text">
         <span class="nav-title">ALPHA RECOVERY</span>
-        <span class="nav-sub">Private Intelligence</span>
+        <span class="nav-sub">Intelligence Beyond Sight</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -158,7 +158,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-content">
-      <div class="eyebrow">Private Intelligence Agency</div>
+      <div class="eyebrow">Intelligence Beyond Sight</div>
       <h1>Intelligence<br/>that<br/><em>Protects.</em></h1>
       <p class="hero-desc">Expert intelligence solutions for informed decisions and strategic success. Operating where others cannot.</p>
       <div class="hero-btns">
@@ -207,7 +207,7 @@
       <div class="about-text">
         <div class="section-tag">Who We Are</div>
         <h2 class="section-title">Alpha Recovery LLC</h2>
-        <p>Established in 2022, Alpha Recovery LLC is a private intelligence agency providing a comprehensive suite of specialized services. We combine advanced Open-Source Intelligence (OSINT) techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
+        <p>Established in 2022, Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced Open-Source Intelligence (OSINT) techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
         <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
         <p style="color:rgba(255,255,255,0.62);font-size:0.78rem;margin-top:1.5rem;">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</p>
       </div>
@@ -247,7 +247,7 @@
   <!-- FOOTER -->
   <footer>
     <p>© 2025 Alpha Recovery LLC — All Rights Reserved</p>
-    <p>Est. 2022 · Atlanta, Georgia · Private Intelligence Agency</p>
+    <p>Est. 2022 · Atlanta, Georgia · Intelligence Beyond Sight</p>
   </footer>
 </div>
 
