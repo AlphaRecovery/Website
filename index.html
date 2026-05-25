@@ -34,7 +34,7 @@
   #intro.exit { animation:exitIntro 1.2s cubic-bezier(0.4,0,1,1) forwards; }
   @keyframes exitIntro { 0%{opacity:1;transform:scale(1)} 60%{opacity:1;transform:scale(1.03)} 100%{opacity:0;transform:scale(1.08);pointer-events:none} }
 
-  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; }
+  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; scroll-padding-top:110px; }
   #site.visible { opacity:1; }
 
   nav {
@@ -69,28 +69,28 @@
 
   .accent-line { position:fixed; left:0; top:20%; bottom:20%; width:2px; background:var(--bright-red); z-index:1; opacity:1; }
   .scanlines { position:fixed; inset:0; pointer-events:none; z-index:100; }
+  section { scroll-margin-top:110px; }
 
   /* Services Section */
   .services { padding:2rem 3rem 3rem; background:var(--black); position:relative; z-index:2; }
   .section-tag { font-size:0.55rem; font-weight:300; letter-spacing:0.55em; text-transform:uppercase; color:var(--bright-red); display:flex; align-items:center; gap:0.8rem; margin-bottom:0.7rem; }
   .section-tag::before { content:''; width:24px; height:1px; background:var(--bright-red); }
   .section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,5vw,4rem); font-weight:300; color:var(--bright-white); margin-bottom:1.8rem; letter-spacing:0.05em; }
-  .services-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1px; background:var(--bright-red); }
-  .service-card { appearance:none; width:100%; background:var(--black); padding:2rem 2rem; border:1px solid var(--bright-red); color:inherit; font:inherit; text-align:left; cursor:pointer; transition:border-color 0.3s,background 0.3s,box-shadow 0.3s,transform 0.3s; }
-  .service-card:hover, .service-card:focus-visible, .service-card.active { background:var(--black); border-color:var(--bright-red); box-shadow:inset 0 0 0 2px var(--bright-red); transform:translateY(-3px); outline:none; }
-  .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; margin-bottom:0.7rem; }
-  .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; color:var(--bright-white); margin-bottom:0.55rem; letter-spacing:0.05em; }
-  .service-card p { font-size:0.78rem; font-weight:300; color:var(--bright-white); line-height:1.75; }
-  .service-detail { border:1px solid var(--bright-red); border-top:0; padding:1.5rem 2rem; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1.5rem; align-items:center; }
-  .service-detail h3 { font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:400; color:var(--bright-white); margin-bottom:0.45rem; letter-spacing:0.05em; }
-  .service-detail p { font-size:0.84rem; line-height:1.75; color:var(--bright-white); max-width:720px; }
-  .service-indicator { color:var(--bright-red); font-size:0.6rem; font-weight:600; letter-spacing:0.28em; text-transform:uppercase; white-space:nowrap; }
+  .services-grid { display:flex; flex-direction:column; gap:1rem; }
+  .service-card { appearance:none; width:100%; min-height:170px; background:var(--black); border:1px solid var(--bright-red); color:inherit; font:inherit; text-align:left; cursor:pointer; display:grid; grid-template-columns:260px minmax(0,1fr); overflow:hidden; transition:box-shadow 0.3s,transform 0.3s; }
+  .service-card:hover, .service-card:focus-visible, .service-card.active { box-shadow:inset 0 0 0 2px var(--bright-red); transform:translateY(-2px); outline:none; }
+  .service-card img { width:100%; height:100%; min-height:170px; object-fit:cover; filter:grayscale(1) contrast(1.25); border-right:1px solid var(--bright-red); }
+  .service-body { padding:1.5rem 1.75rem; display:grid; grid-template-columns:auto minmax(0,1fr); gap:0.85rem 1.25rem; align-items:start; }
+  .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; grid-row:1 / span 2; }
+  .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:400; color:var(--bright-white); margin:0; letter-spacing:0.05em; }
+  .service-card p { display:none; font-size:0.82rem; font-weight:300; color:var(--bright-white); line-height:1.75; max-width:720px; }
+  .service-card.active p { display:block; }
 
   /* About */
   .about { padding:3rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
   .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:3rem; align-items:center; max-width:1100px; margin:0 auto; }
   .about-text p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:1.8; margin-bottom:0.9rem; }
-  .about-stats { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; }
+  .about-stats { display:flex; flex-direction:column; gap:1.2rem; }
   .stat { border-left:2px solid var(--bright-red); padding-left:1.2rem; }
   .stat-val { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; }
   .stat-label { font-size:0.5rem; font-weight:300; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-white); margin-top:0.3rem; }
@@ -107,6 +107,7 @@
   /* Footer */
   footer { padding:1.4rem 3rem; background:var(--black); border-top:1px solid var(--bright-red); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
   footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:var(--bright-white); }
+  footer p:last-child { color:var(--bright-red); }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -120,7 +121,10 @@
     .nav-links { display:none; }
     .hero-content { padding:5.5rem 1.5rem 1.5rem; }
     .services, .about, .contact { padding:2rem 1.5rem; }
-    .service-detail { grid-template-columns:1fr; padding:1.25rem 1.5rem; }
+    .service-card { grid-template-columns:1fr; }
+    .service-card img { height:170px; border-right:0; border-bottom:1px solid var(--bright-red); }
+    .service-body { grid-template-columns:1fr; gap:0.65rem; }
+    .service-num { grid-row:auto; }
     .about-grid { grid-template-columns:1fr; gap:2rem; }
     footer { flex-direction:column; gap:1rem; text-align:center; }
   }
@@ -187,33 +191,38 @@
       <div class="section-tag">What We Do</div>
       <h2 class="section-title">Core Services</h2>
       <div class="services-grid">
-        <button class="service-card active" type="button" data-service="security" aria-pressed="true">
-          <div class="service-num">01</div>
-          <h3>Security & Intelligence</h3>
-          <p>Advanced intelligence assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
+        <button class="service-card" type="button" aria-expanded="false">
+          <img src="assets/services/security.jpg" alt="" />
+          <div class="service-body">
+            <div class="service-num">01</div>
+            <h3>Security & Intelligence</h3>
+            <p>Advanced intelligence assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
+          </div>
         </button>
-        <button class="service-card" type="button" data-service="fugitive" aria-pressed="false">
-          <div class="service-num">02</div>
-          <h3>Fugitive Recovery</h3>
-          <p>Precision fugitive apprehension operations leveraging advanced tracking methodologies, intelligence gathering, and inter-agency coordination.</p>
+        <button class="service-card" type="button" aria-expanded="false">
+          <img src="assets/services/fugitive.jpg" alt="" />
+          <div class="service-body">
+            <div class="service-num">02</div>
+            <h3>Fugitive Recovery</h3>
+            <p>Precision fugitive apprehension operations leveraging advanced tracking methodologies, intelligence gathering, and inter-agency coordination.</p>
+          </div>
         </button>
-        <button class="service-card" type="button" data-service="crisis" aria-pressed="false">
-          <div class="service-num">03</div>
-          <h3>Crisis Management</h3>
-          <p>Rapid-response protocols and expert strategic guidance to navigate high-stakes crises with minimal exposure and maximum resolution speed.</p>
+        <button class="service-card" type="button" aria-expanded="false">
+          <img src="assets/services/crisis.jpg" alt="" />
+          <div class="service-body">
+            <div class="service-num">03</div>
+            <h3>Crisis Management</h3>
+            <p>Rapid-response protocols and expert strategic guidance to navigate high-stakes crises with minimal exposure and maximum resolution speed.</p>
+          </div>
         </button>
-        <button class="service-card" type="button" data-service="law" aria-pressed="false">
-          <div class="service-num">04</div>
-          <h3>Law Enforcement Support</h3>
-          <p>Specialized intelligence support to law enforcement agencies - bridging the gap between traditional capabilities and advanced intelligence needs.</p>
+        <button class="service-card" type="button" aria-expanded="false">
+          <img src="assets/services/law.jpg" alt="" />
+          <div class="service-body">
+            <div class="service-num">04</div>
+            <h3>Law Enforcement Support</h3>
+            <p>Specialized intelligence support to law enforcement agencies - bridging the gap between traditional capabilities and advanced intelligence needs.</p>
+          </div>
         </button>
-      </div>
-      <div class="service-detail" aria-live="polite">
-        <div>
-          <h3 id="service-detail-title">Security & Intelligence</h3>
-          <p id="service-detail-copy">Select a service to view the operational focus, intelligence methods, and response profile behind each division.</p>
-        </div>
-        <div class="service-indicator" id="service-detail-indicator">Selected 01</div>
       </div>
     </div>
   </section>
@@ -230,7 +239,7 @@
       <div class="about-stats">
         <div class="stat"><div class="stat-val">24/7</div><div class="stat-label">Operational</div></div>
         <div class="stat"><div class="stat-val">3,000+</div><div class="stat-label">Fugitives Located or Apprehended</div></div>
-        <div class="stat"><div class="stat-val">100+</div><div class="stat-label">Cases Resolved</div></div>
+        <div class="stat"><div class="stat-val">350+</div><div class="stat-label">Cases Resolved</div></div>
       </div>
     </div>
   </section>
@@ -267,45 +276,18 @@
 </div>
 
 <script>
-const serviceDetails = {
-  security: {
-    title: 'Security & Intelligence',
-    copy: 'Threat research, cyber-intelligence, open-source analysis, and strategic reporting for organizations that need fast clarity before exposure becomes risk.',
-    indicator: 'Selected 01'
-  },
-  fugitive: {
-    title: 'Fugitive Recovery',
-    copy: 'Location intelligence, field coordination, and recovery support focused on finding fugitives quickly, lawfully, and with operational discipline.',
-    indicator: 'Selected 02'
-  },
-  crisis: {
-    title: 'Crisis Management',
-    copy: 'Rapid intelligence support for high-pressure situations, helping clients assess exposure, prioritize action, and move with confidence.',
-    indicator: 'Selected 03'
-  },
-  law: {
-    title: 'Law Enforcement Support',
-    copy: 'Specialized intelligence support that helps agencies extend investigative reach through research, analysis, and actionable reporting.',
-    indicator: 'Selected 04'
-  }
-};
-
 const serviceCards = document.querySelectorAll('.service-card');
-const serviceTitle = document.getElementById('service-detail-title');
-const serviceCopy = document.getElementById('service-detail-copy');
-const serviceIndicator = document.getElementById('service-detail-indicator');
-
 serviceCards.forEach((card) => {
   card.addEventListener('click', () => {
-    const detail = serviceDetails[card.dataset.service];
-    if (!detail) return;
+    const willOpen = !card.classList.contains('active');
     serviceCards.forEach((item) => {
-      item.classList.toggle('active', item === card);
-      item.setAttribute('aria-pressed', item === card ? 'true' : 'false');
+      item.classList.remove('active');
+      item.setAttribute('aria-expanded', 'false');
     });
-    serviceTitle.textContent = detail.title;
-    serviceCopy.textContent = detail.copy;
-    serviceIndicator.textContent = detail.indicator;
+    if (willOpen) {
+      card.classList.add('active');
+      card.setAttribute('aria-expanded', 'true');
+    }
   });
 });
 
