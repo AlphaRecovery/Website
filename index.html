@@ -8,7 +8,6 @@
 <style>
   :root {
     --bright-red: #ff1744;
-    --bright-gray: #d6d8de;
     --bright-white: #ffffff;
     --black: #000000;
   }
@@ -24,13 +23,13 @@
   .intro-text { text-align:center; display:flex; flex-direction:column; align-items:center; gap:0.55rem; }
   .brand-name { font-family:'Cormorant Garamond',serif; font-size:clamp(2.6rem,5vw,4rem); font-weight:300; letter-spacing:0.24em; color:var(--bright-white); opacity:0; animation:fadeUp 0.9s ease 2.4s forwards; line-height:1; }
   .brand-name span { color:var(--bright-red); }
-  .brand-tagline { font-size:0.52rem; font-weight:300; letter-spacing:0.5em; text-transform:uppercase; color:var(--bright-gray); opacity:0; animation:fadeUp 0.7s ease 2.8s forwards; }
+  .brand-tagline { font-size:0.52rem; font-weight:300; letter-spacing:0.5em; text-transform:uppercase; color:var(--bright-white); opacity:0; animation:fadeUp 0.7s ease 2.8s forwards; }
 
-  .progress-wrap { width:200px; height:1px; background:var(--bright-gray); margin-top:3rem; overflow:hidden; opacity:0; animation:fadeIn 0.5s ease 3s forwards; position:relative; }
+  .progress-wrap { width:200px; height:1px; background:var(--bright-white); margin-top:3rem; overflow:hidden; opacity:0; animation:fadeIn 0.5s ease 3s forwards; position:relative; }
   .progress-bar { height:100%; background:var(--bright-red); width:0; animation:progress 5s cubic-bezier(0.4,0,0.2,1) 3s forwards; }
   @keyframes progress { 0%{width:0%} 40%{width:45%} 75%{width:78%} 95%{width:94%} 100%{width:100%} }
   .progress-pct { position:absolute; right:0; top:6px; font-size:0.45rem; font-weight:300; letter-spacing:0.15em; color:var(--bright-red); opacity:0; animation:fadeIn 0.5s ease 3.2s forwards; }
-  .status-text { font-size:0.45rem; font-weight:300; letter-spacing:0.4em; text-transform:uppercase; color:var(--bright-gray); margin-top:0.8rem; opacity:0; animation:fadeIn 0.5s ease 3.5s forwards; min-height:1em; }
+  .status-text { font-size:0.45rem; font-weight:300; letter-spacing:0.4em; text-transform:uppercase; color:var(--bright-white); margin-top:0.8rem; opacity:0; animation:fadeIn 0.5s ease 3.5s forwards; min-height:1em; }
 
   #intro.exit { animation:exitIntro 1.2s cubic-bezier(0.4,0,1,1) forwards; }
   @keyframes exitIntro { 0%{opacity:1;transform:scale(1)} 60%{opacity:1;transform:scale(1.03)} 100%{opacity:0;transform:scale(1.08);pointer-events:none} }
@@ -50,7 +49,7 @@
   .nav-title { font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:400; letter-spacing:0.18em; color:var(--bright-white); }
   .nav-sub { font-size:0.46rem; font-weight:300; letter-spacing:0.38em; text-transform:uppercase; color:var(--bright-red); }
   .nav-links { display:flex; gap:2.5rem; list-style:none; }
-  .nav-links a { font-size:0.6rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-gray); text-decoration:none; transition:color 0.2s; }
+  .nav-links a { font-size:0.6rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-white); text-decoration:none; transition:color 0.2s; }
   .nav-links a:hover { color:var(--bright-red); }
   .nav-btn { font-size:0.57rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:var(--bright-red); border:1px solid var(--bright-red); padding:0.52rem 1.2rem; text-decoration:none; transition:all 0.25s; background:var(--black); }
   .nav-btn:hover { background:var(--bright-red); color:var(--bright-white); border-color:var(--bright-red); }
@@ -61,11 +60,11 @@
   .eyebrow::before { content:''; width:26px; height:1px; background:var(--bright-red); flex-shrink:0; }
   h1 { font-family:'Cormorant Garamond',serif; font-size:clamp(3.8rem,8vw,7rem); font-weight:300; line-height:0.92; color:var(--bright-white); margin-bottom:1.5rem; }
   h1 em { font-style:italic; color:var(--bright-red); }
-  .hero-desc { font-size:0.84rem; font-weight:300; color:var(--bright-gray); line-height:2; max-width:390px; margin-bottom:2.5rem; letter-spacing:0.04em; }
+  .hero-desc { font-size:0.84rem; font-weight:300; color:var(--bright-white); line-height:2; max-width:390px; margin-bottom:2.5rem; letter-spacing:0.04em; }
   .hero-btns { display:flex; align-items:center; gap:2rem; flex-wrap:wrap; }
   .btn-red { font-size:0.59rem; font-weight:600; letter-spacing:0.22em; text-transform:uppercase; background:var(--bright-red); color:var(--bright-white); border:1px solid var(--bright-red); padding:0.9rem 2rem; text-decoration:none; transition:all 0.25s; }
   .btn-red:hover { background:var(--bright-red); border-color:var(--bright-red); }
-  .btn-ghost { font-size:0.59rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-gray); text-decoration:none; display:flex; align-items:center; gap:0.5rem; transition:color 0.2s; }
+  .btn-ghost { font-size:0.59rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-white); text-decoration:none; display:flex; align-items:center; gap:0.5rem; transition:color 0.2s; }
   .btn-ghost:hover { color:var(--bright-white); }
 
   .accent-line { position:fixed; left:0; top:20%; bottom:20%; width:2px; background:var(--bright-red); z-index:1; opacity:1; }
@@ -81,29 +80,29 @@
   .service-card:hover { background:var(--black); border-color:var(--bright-red); box-shadow:inset 0 0 0 1px var(--bright-red); }
   .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; margin-bottom:1rem; }
   .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; color:var(--bright-white); margin-bottom:0.75rem; letter-spacing:0.05em; }
-  .service-card p { font-size:0.78rem; font-weight:300; color:var(--bright-gray); line-height:1.9; }
+  .service-card p { font-size:0.78rem; font-weight:300; color:var(--bright-white); line-height:1.9; }
 
   /* About */
   .about { padding:6rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
   .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:5rem; align-items:center; max-width:1100px; margin:0 auto; }
-  .about-text p { font-size:0.85rem; font-weight:300; color:var(--bright-gray); line-height:2; margin-bottom:1.2rem; }
+  .about-text p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:2; margin-bottom:1.2rem; }
   .about-stats { display:grid; grid-template-columns:1fr 1fr; gap:2rem; }
   .stat { border-left:2px solid var(--bright-red); padding-left:1.2rem; }
   .stat-val { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; }
-  .stat-label { font-size:0.5rem; font-weight:300; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-gray); margin-top:0.3rem; }
+  .stat-label { font-size:0.5rem; font-weight:300; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-white); margin-top:0.3rem; }
 
   /* Contact */
   .contact { padding:6rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
   .contact-inner { max-width:600px; }
-  .contact-inner p { font-size:0.85rem; font-weight:300; color:var(--bright-gray); line-height:2; margin-bottom:2rem; }
+  .contact-inner p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:2; margin-bottom:2rem; }
   .contact-info { display:flex; flex-direction:column; gap:0.75rem; margin-bottom:2.5rem; }
-  .contact-info a, .contact-info span { font-size:0.8rem; font-weight:300; color:var(--bright-gray); text-decoration:none; letter-spacing:0.05em; transition:color 0.2s; }
+  .contact-info a, .contact-info span { font-size:0.8rem; font-weight:300; color:var(--bright-white); text-decoration:none; letter-spacing:0.05em; transition:color 0.2s; }
   .contact-info a:hover { color:var(--bright-red); }
   .contact-label { font-size:0.5rem; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-red); display:block; margin-bottom:0.2rem; }
 
   /* Footer */
   footer { padding:2rem 3rem; background:var(--black); border-top:1px solid var(--bright-red); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
-  footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:var(--bright-gray); }
+  footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:var(--bright-white); }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -215,7 +214,7 @@
         <h2 class="section-title">Alpha Recovery LLC</h2>
         <p>Established in 2022, Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced Open-Source Intelligence (OSINT) techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
         <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
-        <p style="color:var(--bright-gray);font-size:0.78rem;margin-top:1.5rem;">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</p>
+        <p style="color:var(--bright-white);font-size:0.78rem;margin-top:1.5rem;">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</p>
       </div>
       <div class="about-stats">
         <div class="stat"><div class="stat-val">2022</div><div class="stat-label">Established</div></div>
