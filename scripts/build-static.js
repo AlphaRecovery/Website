@@ -9,8 +9,22 @@ function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
+function copyDir(src, dest) {
+  if (!fs.existsSync(src)) return;
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDir(from, to);
+    } else {
+      copyFile(from, to);
+    }
+  }
+}
+
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 copyFile(path.join(root, 'index.html'), path.join(outDir, 'index.html'));
+copyDir(path.join(root, 'assets'), path.join(outDir, 'assets'));
 
 console.log('Static site copied to build/');
