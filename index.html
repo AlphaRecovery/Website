@@ -19,7 +19,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200;
     overflow:hidden;
   }
-  #intro::before { content:''; position:absolute; inset:0; background:url('assets/atlanta-skyline.webp') center/cover no-repeat; filter:brightness(0.72) contrast(1.12) saturate(1.05); transform:scale(1.02); }
+  #intro::before { content:''; position:absolute; inset:0; background:url('assets/atlanta-skyline.webp') center/contain no-repeat; filter:brightness(0.72) contrast(1.12) saturate(1.05); }
   #intro::after { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(0,0,0,0.42),rgba(0,0,0,0.78)); }
   #intro > * { position:relative; z-index:1; }
   .intro-mark { width: 72px; height: 1px; margin-bottom: 2rem; background:var(--bright-red); opacity:0; animation:fadeIn 0.8s ease 0.4s forwards; }
