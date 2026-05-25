@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
@@ -76,11 +76,15 @@
   .section-tag::before { content:''; width:24px; height:1px; background:var(--bright-red); }
   .section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,5vw,4rem); font-weight:300; color:var(--bright-white); margin-bottom:1.8rem; letter-spacing:0.05em; }
   .services-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:1px; background:var(--bright-red); }
-  .service-card { background:var(--black); padding:2rem 2rem; border:1px solid var(--bright-red); transition:border-color 0.3s,background 0.3s,box-shadow 0.3s; }
-  .service-card:hover { background:var(--black); border-color:var(--bright-red); box-shadow:inset 0 0 0 1px var(--bright-red); }
+  .service-card { appearance:none; width:100%; background:var(--black); padding:2rem 2rem; border:1px solid var(--bright-red); color:inherit; font:inherit; text-align:left; cursor:pointer; transition:border-color 0.3s,background 0.3s,box-shadow 0.3s,transform 0.3s; }
+  .service-card:hover, .service-card:focus-visible, .service-card.active { background:var(--black); border-color:var(--bright-red); box-shadow:inset 0 0 0 2px var(--bright-red); transform:translateY(-3px); outline:none; }
   .service-num { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; margin-bottom:0.7rem; }
   .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.4rem; font-weight:400; color:var(--bright-white); margin-bottom:0.55rem; letter-spacing:0.05em; }
   .service-card p { font-size:0.78rem; font-weight:300; color:var(--bright-white); line-height:1.75; }
+  .service-detail { border:1px solid var(--bright-red); border-top:0; padding:1.5rem 2rem; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:1.5rem; align-items:center; }
+  .service-detail h3 { font-family:'Cormorant Garamond',serif; font-size:1.8rem; font-weight:400; color:var(--bright-white); margin-bottom:0.45rem; letter-spacing:0.05em; }
+  .service-detail p { font-size:0.84rem; line-height:1.75; color:var(--bright-white); max-width:720px; }
+  .service-indicator { color:var(--bright-red); font-size:0.6rem; font-weight:600; letter-spacing:0.28em; text-transform:uppercase; white-space:nowrap; }
 
   /* About */
   .about { padding:3rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
@@ -116,6 +120,7 @@
     .nav-links { display:none; }
     .hero-content { padding:5.5rem 1.5rem 1.5rem; }
     .services, .about, .contact { padding:2rem 1.5rem; }
+    .service-detail { grid-template-columns:1fr; padding:1.25rem 1.5rem; }
     .about-grid { grid-template-columns:1fr; gap:2rem; }
     footer { flex-direction:column; gap:1rem; text-align:center; }
   }
@@ -182,26 +187,33 @@
       <div class="section-tag">What We Do</div>
       <h2 class="section-title">Core Services</h2>
       <div class="services-grid">
-        <div class="service-card">
+        <button class="service-card active" type="button" data-service="security" aria-pressed="true">
           <div class="service-num">01</div>
           <h3>Security & Intelligence</h3>
-          <p>OSINT-driven security assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
-        </div>
-        <div class="service-card">
+          <p>Advanced intelligence assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
+        </button>
+        <button class="service-card" type="button" data-service="fugitive" aria-pressed="false">
           <div class="service-num">02</div>
           <h3>Fugitive Recovery</h3>
           <p>Precision fugitive apprehension operations leveraging advanced tracking methodologies, intelligence gathering, and inter-agency coordination.</p>
-        </div>
-        <div class="service-card">
+        </button>
+        <button class="service-card" type="button" data-service="crisis" aria-pressed="false">
           <div class="service-num">03</div>
           <h3>Crisis Management</h3>
           <p>Rapid-response protocols and expert strategic guidance to navigate high-stakes crises with minimal exposure and maximum resolution speed.</p>
-        </div>
-        <div class="service-card">
+        </button>
+        <button class="service-card" type="button" data-service="law" aria-pressed="false">
           <div class="service-num">04</div>
           <h3>Law Enforcement Support</h3>
-          <p>Specialized intelligence support to law enforcement agencies — bridging the gap between traditional capabilities and advanced intelligence needs.</p>
+          <p>Specialized intelligence support to law enforcement agencies - bridging the gap between traditional capabilities and advanced intelligence needs.</p>
+        </button>
+      </div>
+      <div class="service-detail" aria-live="polite">
+        <div>
+          <h3 id="service-detail-title">Security & Intelligence</h3>
+          <p id="service-detail-copy">Select a service to view the operational focus, intelligence methods, and response profile behind each division.</p>
         </div>
+        <div class="service-indicator" id="service-detail-indicator">Selected 01</div>
       </div>
     </div>
   </section>
@@ -212,14 +224,12 @@
       <div class="about-text">
         <div class="section-tag">Who We Are</div>
         <h2 class="section-title">Alpha Recovery LLC</h2>
-        <p>Established in 2022, Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced Open-Source Intelligence (OSINT) techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
+        <p>Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced intelligence techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
         <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
-        <p style="color:var(--bright-white);font-size:0.78rem;margin-top:1.5rem;">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</p>
       </div>
       <div class="about-stats">
-        <div class="stat"><div class="stat-val">2022</div><div class="stat-label">Established</div></div>
         <div class="stat"><div class="stat-val">24/7</div><div class="stat-label">Operational</div></div>
-        <div class="stat"><div class="stat-val">4</div><div class="stat-label">Core Divisions</div></div>
+        <div class="stat"><div class="stat-val">3,000+</div><div class="stat-label">Fugitives Located or Apprehended</div></div>
         <div class="stat"><div class="stat-val">100+</div><div class="stat-label">Cases Resolved</div></div>
       </div>
     </div>
@@ -251,12 +261,54 @@
 
   <!-- FOOTER -->
   <footer>
-    <p>© 2025 Alpha Recovery LLC — All Rights Reserved</p>
-    <p>Est. 2022 · Atlanta, Georgia · Intelligence Beyond Sight</p>
+    <p>&copy; 2026 Alpha Recovery LLC - All Rights Reserved</p>
+    <p>Intelligence Beyond Sight</p>
   </footer>
 </div>
 
 <script>
+const serviceDetails = {
+  security: {
+    title: 'Security & Intelligence',
+    copy: 'Threat research, cyber-intelligence, open-source analysis, and strategic reporting for organizations that need fast clarity before exposure becomes risk.',
+    indicator: 'Selected 01'
+  },
+  fugitive: {
+    title: 'Fugitive Recovery',
+    copy: 'Location intelligence, field coordination, and recovery support focused on finding fugitives quickly, lawfully, and with operational discipline.',
+    indicator: 'Selected 02'
+  },
+  crisis: {
+    title: 'Crisis Management',
+    copy: 'Rapid intelligence support for high-pressure situations, helping clients assess exposure, prioritize action, and move with confidence.',
+    indicator: 'Selected 03'
+  },
+  law: {
+    title: 'Law Enforcement Support',
+    copy: 'Specialized intelligence support that helps agencies extend investigative reach through research, analysis, and actionable reporting.',
+    indicator: 'Selected 04'
+  }
+};
+
+const serviceCards = document.querySelectorAll('.service-card');
+const serviceTitle = document.getElementById('service-detail-title');
+const serviceCopy = document.getElementById('service-detail-copy');
+const serviceIndicator = document.getElementById('service-detail-indicator');
+
+serviceCards.forEach((card) => {
+  card.addEventListener('click', () => {
+    const detail = serviceDetails[card.dataset.service];
+    if (!detail) return;
+    serviceCards.forEach((item) => {
+      item.classList.toggle('active', item === card);
+      item.setAttribute('aria-pressed', item === card ? 'true' : 'false');
+    });
+    serviceTitle.textContent = detail.title;
+    serviceCopy.textContent = detail.copy;
+    serviceIndicator.textContent = detail.indicator;
+  });
+});
+
 // Progress counter
 const pctEl = document.getElementById('pct');
 const statusEl = document.getElementById('status-text');
