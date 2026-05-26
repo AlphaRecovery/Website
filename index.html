@@ -74,6 +74,8 @@
   .accent-line { position:fixed; left:0; top:20%; bottom:20%; width:2px; background:var(--bright-red); z-index:1; opacity:1; }
   .scanlines { position:fixed; inset:0; pointer-events:none; z-index:100; }
   section { scroll-margin-top:110px; }
+  .scroll-reveal { opacity:0; transform:translateY(34px); transition:opacity 0.7s ease, transform 0.7s ease; }
+  .scroll-reveal.in-view { opacity:1; transform:translateY(0); }
 
   /* Services Section */
   .services { padding:2rem 3rem 3rem; background:var(--black); position:relative; z-index:2; }
@@ -287,6 +289,20 @@ serviceCards.forEach((card) => {
     }
   });
 });
+
+const revealSections = document.querySelectorAll('.services, .about, .contact, footer');
+revealSections.forEach((section) => section.classList.add('scroll-reveal'));
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    entry.target.classList.toggle('in-view', entry.isIntersecting);
+  });
+}, {
+  root: document.getElementById('site'),
+  threshold: 0.18
+});
+
+revealSections.forEach((section) => revealObserver.observe(section));
 
 // Progress counter
 const pctEl = document.getElementById('pct');
