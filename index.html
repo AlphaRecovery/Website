@@ -295,11 +295,16 @@ revealSections.forEach((section) => section.classList.add('scroll-reveal'));
 
 const revealObserver = new IntersectionObserver((entries) => {
   entries.forEach((entry) => {
-    entry.target.classList.toggle('in-view', entry.isIntersecting);
+    if (entry.intersectionRatio > 0.12) {
+      entry.target.classList.add('in-view');
+    } else if (entry.boundingClientRect.top > entry.rootBounds.height || entry.boundingClientRect.bottom < 0) {
+      entry.target.classList.remove('in-view');
+    }
   });
 }, {
   root: document.getElementById('site'),
-  threshold: 0.18
+  threshold: [0, 0.12, 0.35],
+  rootMargin: '-8% 0px -8% 0px'
 });
 
 revealSections.forEach((section) => revealObserver.observe(section));
