@@ -40,7 +40,7 @@
   #intro.exit { animation:exitIntro 1.2s cubic-bezier(0.4,0,1,1) forwards; }
   @keyframes exitIntro { 0%{opacity:1;transform:scale(1)} 60%{opacity:1;transform:scale(1.03)} 100%{opacity:0;transform:scale(1.08);pointer-events:none} }
 
-  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; scroll-padding-top:110px; padding-bottom:30vh; }
+  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; scroll-padding-top:110px; }
   #site.visible { opacity:1; }
 
   nav {
@@ -130,6 +130,7 @@
   footer { padding:1.4rem 3rem; background:var(--black); border-top:1px solid var(--bright-red); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
   footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:var(--bright-white); }
   footer p:last-child { color:var(--bright-red); }
+  .scroll-end { height:30vh; min-height:180px; pointer-events:none; }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -289,6 +290,7 @@
     <p data-content="footer.copyright">&copy; 2026 Alpha Recovery LLC - All Rights Reserved</p>
     <p data-content="footer.tagline">Intelligence Beyond Sight</p>
   </footer>
+  <div class="scroll-end" aria-hidden="true"></div>
 </div>
 
 <script>
