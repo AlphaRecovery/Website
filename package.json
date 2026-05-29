@@ -11,6 +11,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "node scripts/build-static.js",
+    "editor": "node scripts/editor.js",
+    "preview": "npm run build && node scripts/preview.js",
     "test": "react-scripts test"
   },
   "browserslist": {

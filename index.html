@@ -4,7 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Alpha Recovery</title>
+<meta name="description" content="Alpha Recovery LLC provides specialized intelligence, fugitive recovery, crisis management, and law enforcement support services." />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@200;300;400;600&display=swap" rel="stylesheet" />
+<style id="custom-site-css"></style>
 <style>
   :root {
     --bright-red: #ff1744;
@@ -38,7 +40,7 @@
   #intro.exit { animation:exitIntro 1.2s cubic-bezier(0.4,0,1,1) forwards; }
   @keyframes exitIntro { 0%{opacity:1;transform:scale(1)} 60%{opacity:1;transform:scale(1.03)} 100%{opacity:0;transform:scale(1.08);pointer-events:none} }
 
-  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; scroll-padding-top:110px; }
+  #site { position:fixed; inset:0; opacity:0; transition:opacity 1.2s ease; overflow-y:auto; scroll-padding-top:110px; padding-bottom:30vh; }
   #site.visible { opacity:1; }
 
   nav {
@@ -157,8 +159,8 @@
   <div class="intro-mark"></div>
   <img class="intro-globe" src="assets/globe-mark.png" alt="" />
   <div class="intro-text">
-    <div class="brand-name">ALPHA <span>RECOVERY</span></div>
-    <div class="brand-tagline">Intelligence Beyond Sight</div>
+    <div class="brand-name" data-content="intro.brand">ALPHA <span>RECOVERY</span></div>
+    <div class="brand-tagline" data-content="intro.tagline">Intelligence Beyond Sight</div>
   </div>
   <div class="progress-wrap">
     <div class="progress-bar"></div>
@@ -176,8 +178,8 @@
     <a class="nav-brand" href="#">
       <img class="nav-globe" src="assets/globe-mark.png" alt="" />
       <div class="nav-brand-text">
-        <span class="nav-title">ALPHA RECOVERY</span>
-        <span class="nav-sub">Intelligence Beyond Sight</span>
+        <span class="nav-title" data-content="nav.title">ALPHA RECOVERY</span>
+        <span class="nav-sub" data-content="nav.subtitle">Intelligence Beyond Sight</span>
       </div>
     </a>
     <ul class="nav-links">
@@ -185,18 +187,18 @@
       <li><a href="#about">About</a></li>
       <li><a href="#contact">Contact</a></li>
     </ul>
-    <a class="nav-btn" href="#contact">Get Started</a>
+    <a class="nav-btn" href="#contact" data-content="nav.button">Get Started</a>
   </nav>
 
   <!-- HERO -->
   <section class="hero">
     <div class="hero-content">
-      <h1>Intelligence<br/>that<br/><em>Protects.</em></h1>
-      <p class="hero-desc">Expert intelligence solutions for informed decisions and strategic success. Operating where others cannot.</p>
+      <h1 data-content="hero.title">Intelligence<br/>that<br/><em>Protects.</em></h1>
+      <p class="hero-desc" data-content="hero.description">Expert intelligence solutions for informed decisions and strategic success. Operating where others cannot.</p>
       <div class="hero-btns">
-        <a class="btn-red" href="#contact">Request Consultation</a>
+        <a class="btn-red" href="#contact" data-content="hero.primaryButton">Request Consultation</a>
         <a class="btn-ghost" href="#services">
-          Explore Services
+          <span data-content="hero.secondaryButton">Explore Services</span>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
       </div>
@@ -206,35 +208,35 @@
   <!-- SERVICES -->
   <section class="services" id="services">
     <div style="max-width:1100px;margin:0 auto">
-      <div class="section-tag">What We Do</div>
-      <h2 class="section-title">Core Services</h2>
+      <div class="section-tag" data-content="services.tag">What We Do</div>
+      <h2 class="section-title" data-content="services.title">Core Services</h2>
       <div class="services-grid">
-        <button class="service-card" type="button" aria-expanded="false">
-          <img src="assets/services/security.jpg" alt="" />
+        <button class="service-card" type="button" aria-expanded="false" data-service-index="0">
+          <img src="assets/services/security.jpg" alt="" data-content="service.image" />
           <div class="service-body">
-            <h3>Security & Intelligence</h3>
-            <p>Advanced intelligence assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
+            <h3 data-content="service.title">Security & Intelligence</h3>
+            <p data-content="service.description">Advanced intelligence assessments, cyber-intelligence, competitive intelligence, and geopolitical analysis powered by cutting-edge AI technology.</p>
           </div>
         </button>
-        <button class="service-card" type="button" aria-expanded="false">
-          <img src="assets/services/fugitive-recovery.jpg" alt="" />
+        <button class="service-card" type="button" aria-expanded="false" data-service-index="1">
+          <img src="assets/services/fugitive-recovery.jpg" alt="" data-content="service.image" />
           <div class="service-body">
-            <h3>Fugitive Recovery</h3>
-            <p>Precision fugitive apprehension operations leveraging advanced tracking methodologies, intelligence gathering, and inter-agency coordination.</p>
+            <h3 data-content="service.title">Fugitive Recovery</h3>
+            <p data-content="service.description">Precision fugitive apprehension operations leveraging advanced tracking methodologies, intelligence gathering, and inter-agency coordination.</p>
           </div>
         </button>
-        <button class="service-card" type="button" aria-expanded="false">
-          <img src="assets/services/crisis.jpg" alt="" />
+        <button class="service-card" type="button" aria-expanded="false" data-service-index="2">
+          <img src="assets/services/crisis.jpg" alt="" data-content="service.image" />
           <div class="service-body">
-            <h3>Crisis Management</h3>
-            <p>Rapid-response protocols and expert strategic guidance to navigate high-stakes crises with minimal exposure and maximum resolution speed.</p>
+            <h3 data-content="service.title">Crisis Management</h3>
+            <p data-content="service.description">Rapid-response protocols and expert strategic guidance to navigate high-stakes crises with minimal exposure and maximum resolution speed.</p>
           </div>
         </button>
-        <button class="service-card" type="button" aria-expanded="false">
-          <img src="assets/services/law-badge.jpg" alt="" />
+        <button class="service-card" type="button" aria-expanded="false" data-service-index="3">
+          <img src="assets/services/law-badge.jpg" alt="" data-content="service.image" />
           <div class="service-body">
-            <h3>Law Enforcement Support</h3>
-            <p>Specialized intelligence support to law enforcement agencies - bridging the gap between traditional capabilities and advanced intelligence needs.</p>
+            <h3 data-content="service.title">Law Enforcement Support</h3>
+            <p data-content="service.description">Specialized intelligence support to law enforcement agencies - bridging the gap between traditional capabilities and advanced intelligence needs.</p>
           </div>
         </button>
       </div>
@@ -245,8 +247,8 @@
   <section class="about" id="about">
     <div class="about-grid">
       <div class="about-text">
-        <div class="section-tag">Who We Are</div>
-        <h2 class="section-title">Alpha Recovery LLC</h2>
+        <div class="section-tag" data-content="about.tag">Who We Are</div>
+        <h2 class="section-title" data-content="about.title">Alpha Recovery LLC</h2>
         <p>Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced intelligence techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
         <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
       </div>
@@ -261,64 +263,223 @@
   <!-- CONTACT -->
   <section class="contact" id="contact">
     <div class="contact-inner">
-      <div class="section-tag">Get In Touch</div>
-      <h2 class="section-title">Contact Us</h2>
-      <p>Ready to get started? Our team is available 24/7 for urgent matters. All inquiries are treated with strict confidentiality.</p>
+      <div class="section-tag" data-content="contact.tag">Get In Touch</div>
+      <h2 class="section-title" data-content="contact.title">Contact Us</h2>
+      <p data-content="contact.description">Ready to get started? Our team is available 24/7 for urgent matters. All inquiries are treated with strict confidentiality.</p>
       <div class="contact-info">
         <div>
           <span class="contact-label">Email</span>
-          <a href="mailto:Admin@alpharecovery.org">Admin@alpharecovery.org</a>
+          <a href="mailto:Admin@alpharecovery.org" data-content="contact.email">Admin@alpharecovery.org</a>
         </div>
         <div>
           <span class="contact-label">Phone</span>
-          <a href="tel:2142644347">214-264-4347</a>
+          <a href="tel:2142644347" data-content="contact.phone">214-264-4347</a>
         </div>
         <div>
           <span class="contact-label">Address</span>
-          <span>8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</span>
+          <span data-content="contact.address">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</span>
         </div>
       </div>
-      <a class="btn-red" href="mailto:Admin@alpharecovery.org">Send Us a Message</a>
+      <a class="btn-red" href="mailto:Admin@alpharecovery.org" data-content="contact.button">Send Us a Message</a>
     </div>
   </section>
 
   <!-- FOOTER -->
   <footer>
-    <p>&copy; 2026 Alpha Recovery LLC - All Rights Reserved</p>
-    <p>Intelligence Beyond Sight</p>
+    <p data-content="footer.copyright">&copy; 2026 Alpha Recovery LLC - All Rights Reserved</p>
+    <p data-content="footer.tagline">Intelligence Beyond Sight</p>
   </footer>
 </div>
 
 <script>
-const serviceCards = document.querySelectorAll('.service-card');
-serviceCards.forEach((card) => {
-  card.addEventListener('click', () => {
-    const willOpen = !card.classList.contains('active');
-    serviceCards.forEach((item) => {
-      item.classList.remove('active');
-      item.setAttribute('aria-expanded', 'false');
+const editorMode = new URLSearchParams(window.location.search).get('editor') === '1';
+
+function getContentValue(content, path) {
+  return path.split('.').reduce((value, key) => value && value[key], content);
+}
+
+function setText(selector, value) {
+  const element = document.querySelector(selector);
+  if (element && typeof value === 'string') element.textContent = value;
+}
+
+function createServiceCard(service, index) {
+  const card = document.createElement('button');
+  card.className = 'service-card';
+  card.type = 'button';
+  card.setAttribute('aria-expanded', 'false');
+  card.dataset.serviceIndex = String(index);
+  card.innerHTML = `
+    <img src="${service.image || ''}" alt="" data-content="service.image" />
+    <div class="service-body">
+      <h3 data-content="service.title"></h3>
+      <p data-content="service.description"></p>
+    </div>
+  `;
+  card.querySelector('h3').textContent = service.title || '';
+  card.querySelector('p').textContent = service.description || '';
+  return card;
+}
+
+function bindServiceCards() {
+  const serviceCards = document.querySelectorAll('.service-card');
+  serviceCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      const willOpen = !card.classList.contains('active');
+      serviceCards.forEach((item) => {
+        item.classList.remove('active');
+        item.setAttribute('aria-expanded', 'false');
+      });
+      if (willOpen) {
+        card.classList.add('active');
+        card.setAttribute('aria-expanded', 'true');
+      }
     });
-    if (willOpen) {
-      card.classList.add('active');
-      card.setAttribute('aria-expanded', 'true');
+  });
+}
+
+function renderBrand(element, value) {
+  if (!element || !value) return;
+  const parts = value.trim().split(/\s+/);
+  const last = parts.pop();
+  element.textContent = parts.join(' ') + ' ';
+  const accent = document.createElement('span');
+  accent.textContent = last || '';
+  element.appendChild(accent);
+}
+
+function renderHeroTitle(lines, accentLine) {
+  const title = document.querySelector('[data-content="hero.title"]');
+  if (!title || !Array.isArray(lines)) return;
+  title.textContent = '';
+  lines.forEach((line, index) => {
+    if (index > 0) title.appendChild(document.createElement('br'));
+    const isAccent = index === Number(accentLine || 0);
+    const node = isAccent ? document.createElement('em') : document.createTextNode(line);
+    if (isAccent) node.textContent = line;
+    title.appendChild(node);
+  });
+}
+
+function applySiteContent(content) {
+  if (content.seo) {
+    document.title = content.seo.title || document.title;
+    const description = document.querySelector('meta[name="description"]');
+    if (description && content.seo.description) description.setAttribute('content', content.seo.description);
+    const customCss = document.getElementById('custom-site-css');
+    if (customCss) customCss.textContent = content.seo.customCss || '';
+  }
+
+  if (content.design) {
+    const root = document.documentElement;
+    if (content.design.primaryRed) root.style.setProperty('--bright-red', content.design.primaryRed);
+    if (content.design.text) root.style.setProperty('--bright-white', content.design.text);
+    if (content.design.background) root.style.setProperty('--black', content.design.background);
+  }
+
+  renderBrand(document.querySelector('[data-content="intro.brand"]'), content.intro && content.intro.brand);
+  document.querySelectorAll('[data-content]').forEach((element) => {
+    const key = element.dataset.content;
+    if (key === 'intro.brand' || key === 'hero.title' || key.startsWith('service.')) return;
+    const value = getContentValue(content, key);
+    if (typeof value !== 'string') return;
+    if (element.tagName === 'IMG') {
+      element.src = value;
+    } else {
+      element.textContent = value;
     }
   });
-});
+
+  renderHeroTitle(content.hero && content.hero.titleLines, content.hero && content.hero.accentLine);
+
+  const servicesGrid = document.querySelector('.services-grid');
+  if (servicesGrid && Array.isArray(content.services && content.services.items)) {
+    servicesGrid.textContent = '';
+    content.services.items.forEach((service, index) => servicesGrid.appendChild(createServiceCard(service, index)));
+    bindServiceCards();
+  }
+
+  const aboutText = document.querySelector('.about-text');
+  if (aboutText && Array.isArray(content.about && content.about.paragraphs)) {
+    aboutText.querySelectorAll('p').forEach((paragraph) => paragraph.remove());
+    content.about.paragraphs.forEach((text) => {
+      const paragraph = document.createElement('p');
+      paragraph.textContent = text;
+      aboutText.appendChild(paragraph);
+    });
+  }
+
+  if (Array.isArray(content.about && content.about.stats)) {
+    const statsWrap = document.querySelector('.about-stats');
+    if (statsWrap) {
+      statsWrap.textContent = '';
+      content.about.stats.forEach((item) => {
+        const stat = document.createElement('div');
+        stat.className = 'stat';
+        stat.innerHTML = '<div class="stat-val"></div><div class="stat-label"></div>';
+        stat.querySelector('.stat-val').textContent = item.value || '';
+        stat.querySelector('.stat-label').textContent = item.label || '';
+        statsWrap.appendChild(stat);
+      });
+    }
+  }
+
+  if (Array.isArray(content.blocks)) {
+    document.querySelectorAll('.content-block').forEach((block) => block.remove());
+    const contact = document.querySelector('.contact');
+    content.blocks.filter((block) => block.enabled).forEach((block) => {
+      const section = document.createElement('section');
+      section.className = 'content-block scroll-reveal in-view';
+      section.innerHTML = '<div style="max-width:1100px;margin:0 auto"><div class="section-tag"></div><h2 class="section-title"></h2><p></p></div>';
+      section.querySelector('.section-tag').textContent = block.type || 'Content';
+      section.querySelector('.section-title').textContent = block.title || '';
+      section.querySelector('p').textContent = block.description || '';
+      if (block.image) {
+        const image = document.createElement('img');
+        image.src = block.image;
+        image.alt = '';
+        image.style.cssText = 'width:100%;max-height:360px;object-fit:cover;border:1px solid var(--bright-red);margin-top:1rem;';
+        section.querySelector('div').appendChild(image);
+      }
+      if (contact) contact.before(section);
+    });
+  }
+
+  const email = content.contact && content.contact.email;
+  const phone = content.contact && content.contact.phone;
+  const emailLinks = document.querySelectorAll('a[href^="mailto:"]');
+  const phoneLink = document.querySelector('a[href^="tel:"]');
+  emailLinks.forEach((link) => { if (email) link.href = `mailto:${email}`; });
+  if (phoneLink && phone) phoneLink.href = `tel:${phone.replace(/\D/g, '')}`;
+
+  if (!editorMode && content.seo && content.seo.customBodyScript) {
+    const script = document.createElement('script');
+    script.textContent = content.seo.customBodyScript;
+    document.body.appendChild(script);
+  }
+}
+
+fetch('content/site.json', { cache: 'no-store' })
+  .then((response) => response.ok ? response.json() : null)
+  .then((content) => { if (content) applySiteContent(content); })
+  .catch(() => {});
+
+bindServiceCards();
 
 const revealSections = document.querySelectorAll('.services, .about, .contact, footer');
-revealSections.forEach((section) => section.classList.add('scroll-reveal'));
-
-const revealObserver = new IntersectionObserver((entries) => {
-  entries.forEach((entry) => {
-    entry.target.classList.toggle('in-view', entry.isIntersecting);
+if (!editorMode) {
+  revealSections.forEach((section) => section.classList.add('scroll-reveal'));
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      entry.target.classList.toggle('in-view', entry.isIntersecting);
+    });
+  }, {
+    root: document.getElementById('site'),
+    threshold: 0,
+    rootMargin: '-20% 0px -20% 0px'
   });
-}, {
-  root: document.getElementById('site'),
-  threshold: 0,
-  rootMargin: '-20% 0px -20% 0px'
-});
-
-revealSections.forEach((section) => revealObserver.observe(section));
+  revealSections.forEach((section) => revealObserver.observe(section));
+}
 
 // Progress counter
 const pctEl = document.getElementById('pct');
@@ -331,19 +492,27 @@ const statuses = [
   'Access granted.'
 ];
 let si = 0;
-const statusTimer = setInterval(() => { si = Math.min(si + 1, statuses.length - 1); statusEl.textContent = statuses[si]; }, 1500);
+let statusTimer = null;
 let pct = 0;
-const pctTimer = setInterval(() => { pct = Math.min(pct + 1, 100); pctEl.textContent = pct + '%'; if (pct >= 100) clearInterval(pctTimer); }, 50);
+let pctTimer = null;
 
 // Transition at 8 seconds
-setTimeout(() => {
-  clearInterval(statusTimer);
+if (editorMode) {
+  document.body.classList.add('editor-static');
+  document.getElementById('intro').style.display = 'none';
+  document.getElementById('site').classList.add('visible');
+} else {
+  statusTimer = setInterval(() => { si = Math.min(si + 1, statuses.length - 1); statusEl.textContent = statuses[si]; }, 1500);
+  pctTimer = setInterval(() => { pct = Math.min(pct + 1, 100); pctEl.textContent = pct + '%'; if (pct >= 100) clearInterval(pctTimer); }, 50);
+  setTimeout(() => {
+    clearInterval(statusTimer);
   document.getElementById('intro').classList.add('exit');
   document.getElementById('site').classList.add('visible');
   setTimeout(() => {
     document.getElementById('intro').style.display = 'none';
   }, 1200);
-}, 8000);
+  }, 8000);
+}
 </script>
 </body>
 </html>

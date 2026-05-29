@@ -26,6 +26,7 @@ fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 copyFile(path.join(root, 'index.html'), path.join(outDir, 'index.html'));
 copyDir(path.join(root, 'assets'), path.join(outDir, 'assets'));
+copyDir(path.join(root, 'content'), path.join(outDir, 'content'));
 if (fs.existsSync(path.join(root, '_headers'))) {
   copyFile(path.join(root, '_headers'), path.join(outDir, '_headers'));
 }
