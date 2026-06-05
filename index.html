@@ -55,13 +55,20 @@
   .nav-title { font-family:'Cormorant Garamond',serif; font-size:1.1rem; font-weight:400; letter-spacing:0.18em; color:var(--bright-white); }
   .nav-sub { font-size:0.46rem; font-weight:300; letter-spacing:0.38em; text-transform:uppercase; color:var(--bright-red); }
   .nav-links { display:flex; gap:2.5rem; list-style:none; }
+  .nav-item { position:relative; }
   .nav-links a { font-size:0.6rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-white); text-decoration:none; transition:color 0.2s; }
+  .nav-dropdown-toggle { border:0; background:transparent; padding:0; font-size:0.6rem; font-weight:300; letter-spacing:0.22em; text-transform:uppercase; color:var(--bright-white); cursor:pointer; }
   .nav-links a:hover { color:var(--bright-red); }
-  .nav-btn { font-size:0.57rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:var(--bright-red); border:1px solid var(--bright-red); padding:0.52rem 1.2rem; text-decoration:none; transition:all 0.25s; background:var(--black); }
+  .nav-dropdown { position:absolute; top:1.5rem; left:0; min-width:230px; display:grid; gap:0; background:var(--black); border:1px solid var(--bright-red); opacity:0; visibility:hidden; transform:translateY(8px); transition:opacity 0.2s, transform 0.2s, visibility 0.2s; }
+  .nav-dropdown a { display:block; padding:0.8rem 0.9rem; border-bottom:1px solid var(--bright-red); white-space:nowrap; background:var(--black); }
+  .nav-dropdown a:last-child { border-bottom:0; }
+  .nav-item:hover .nav-dropdown, .nav-item:focus-within .nav-dropdown { opacity:1; visibility:visible; transform:translateY(0); }
+  .nav-actions { display:flex; align-items:center; gap:0.7rem; }
+  .nav-btn { font-size:0.57rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:var(--bright-red); border:1px solid var(--bright-red); padding:0.52rem 1.2rem; text-decoration:none; transition:all 0.25s; background:var(--black); white-space:nowrap; }
   .nav-btn:hover { background:var(--bright-red); color:var(--bright-white); border-color:var(--bright-red); }
 
-  .hero { min-height:auto; display:flex; align-items:flex-start; position:relative; background:var(--black); }
-  .hero-content { position:relative; z-index:2; padding:5.25rem 3rem 1.75rem; max-width:640px; }
+  .hero { min-height:42vh; display:flex; align-items:flex-start; position:relative; background:var(--black); }
+  .hero-content { position:relative; z-index:2; padding:6.5rem 3rem 2.75rem; max-width:640px; }
   .eyebrow { display:flex; align-items:center; gap:0.8rem; font-size:0.57rem; font-weight:300; letter-spacing:0.5em; text-transform:uppercase; color:var(--bright-red); margin-bottom:1rem; }
   .eyebrow::before { content:''; width:26px; height:1px; background:var(--bright-red); flex-shrink:0; }
   h1 { font-family:'Cormorant Garamond',serif; font-size:clamp(3.8rem,8vw,7rem); font-weight:300; line-height:0.92; color:var(--bright-white); margin-bottom:1rem; }
@@ -80,6 +87,7 @@
   .scroll-reveal .services-grid,
   .scroll-reveal .about-text p,
   .scroll-reveal .about-stats,
+  .scroll-reveal .mission-vision-grid,
   .scroll-reveal .contact-inner > p,
   .scroll-reveal .contact-info,
   .scroll-reveal .contact .btn-red,
@@ -88,28 +96,30 @@
   .scroll-reveal.in-view .services-grid,
   .scroll-reveal.in-view .about-text p,
   .scroll-reveal.in-view .about-stats,
+  .scroll-reveal.in-view .mission-vision-grid,
   .scroll-reveal.in-view .contact-inner > p,
   .scroll-reveal.in-view .contact-info,
   .scroll-reveal.in-view .contact .btn-red,
   footer.scroll-reveal.in-view p { opacity:1; transform:translateY(0); }
 
   /* Services Section */
-  .services { padding:2rem 3rem 3rem; background:var(--black); position:relative; z-index:2; }
+  .services { padding:6.5rem 3rem; background:var(--black); position:relative; z-index:2; }
   .section-tag { font-size:0.55rem; font-weight:300; letter-spacing:0.55em; text-transform:uppercase; color:var(--bright-red); display:flex; align-items:center; gap:0.8rem; margin-bottom:0.7rem; }
   .section-tag::before { content:''; width:24px; height:1px; background:var(--bright-red); }
   .section-tag, .section-tag::before { opacity:1; transform:none; transition:none; }
   .section-title { font-family:'Cormorant Garamond',serif; font-size:clamp(2.5rem,5vw,4rem); font-weight:300; color:var(--bright-white); margin-bottom:1.8rem; letter-spacing:0.05em; }
-  .services-grid { display:flex; flex-direction:column; gap:1rem; }
-  .service-card { appearance:none; width:100%; height:220px; background:var(--black); border:1px solid var(--bright-red); color:inherit; font:inherit; text-align:left; cursor:pointer; display:grid; grid-template-columns:260px minmax(0,1fr); overflow:hidden; transition:box-shadow 0.3s,transform 0.3s; }
-  .service-card:hover, .service-card:focus-visible, .service-card.active { box-shadow:inset 0 0 0 2px var(--bright-red); transform:translateY(-2px); outline:none; }
-  .service-card img { width:100%; height:220px; object-fit:contain; background:var(--black); filter:grayscale(1) contrast(1.25); border-right:1px solid var(--bright-red); }
-  .service-body { height:100%; padding:1.5rem 1.75rem; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.85rem; text-align:center; }
-  .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.5rem; font-weight:400; color:var(--bright-white); margin:0; letter-spacing:0.05em; }
-  .service-card p { display:none; font-size:0.82rem; font-weight:300; color:var(--bright-white); line-height:1.75; max-width:720px; margin:0 auto; }
+  .services-grid { display:flex; flex-direction:column; gap:1rem; margin-top:1.4rem; }
+  .service-card { position:relative; appearance:none; width:100%; min-height:360px; background:var(--black); border:1px solid var(--bright-red); color:inherit; font:inherit; text-align:left; cursor:pointer; display:grid; grid-template-columns:minmax(320px,420px) minmax(0,1fr); overflow:visible; transition:box-shadow 0.35s,transform 0.35s; }
+  .service-card:hover, .service-card:focus-visible, .service-card.active { box-shadow:inset 0 0 0 2px var(--bright-red); transform:translateY(-3px); outline:none; }
+  .service-card img { width:100%; height:clamp(340px,34vw,440px); object-fit:contain; object-position:center; padding:1.1rem; background:var(--black); filter:grayscale(1) contrast(1.25); border-right:1px solid var(--bright-red); transition:filter 0.45s; align-self:center; }
+  .service-card:hover img, .service-card.active img { filter:grayscale(0) contrast(1.1); }
+  .service-body { position:relative; z-index:1; height:100%; padding:1.5rem 2rem; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.7rem; text-align:center; }
+  .service-card h3 { font-family:'Cormorant Garamond',serif; font-size:1.7rem; font-weight:400; color:var(--bright-white); margin:0; letter-spacing:0.04em; }
+  .service-card p { display:none; font-size:0.82rem; font-weight:300; color:rgba(255,255,255,0.8); line-height:1.75; max-width:640px; margin:0 auto; }
   .service-card.active p { display:block; }
 
   /* About */
-  .about { padding:3rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
+  .about { padding:6.5rem 3rem; background:var(--black); position:relative; z-index:2; }
   .about-grid { display:grid; grid-template-columns:1fr 1fr; gap:3rem; align-items:center; max-width:1100px; margin:0 auto; }
   .about-text p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:1.8; margin-bottom:0.9rem; }
   .about-stats { display:flex; flex-direction:column; gap:1.2rem; }
@@ -117,8 +127,22 @@
   .stat-val { font-family:'Cormorant Garamond',serif; font-size:3rem; font-weight:300; color:var(--bright-red); line-height:1; }
   .stat-label { font-size:0.5rem; font-weight:300; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-white); margin-top:0.3rem; }
 
+  /* Mission / Vision */
+  .mission-vision { padding:6.5rem 3rem; background:var(--black); position:relative; z-index:2; overflow:hidden; }
+  .mission-vision-inner { max-width:1100px; margin:0 auto; position:relative; z-index:1; }
+  .mission-vision-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-top:2.2rem; border:1px solid var(--bright-red); }
+  .statement-panel { position:relative; padding:2.6rem 2.4rem 2.8rem; overflow:hidden; transition:background 0.35s ease; }
+  .statement-panel:first-child { border-right:1px solid var(--bright-red); }
+  .statement-panel:hover { background:rgba(255,23,68,0.04); }
+  .panel-eyebrow { display:flex; align-items:center; gap:0.7rem; font-size:0.5rem; font-weight:400; letter-spacing:0.45em; text-transform:uppercase; color:var(--bright-red); margin-bottom:1.1rem; }
+  .panel-eyebrow::before { content:''; width:20px; height:1px; background:var(--bright-red); }
+  .statement-panel h3 { font-family:'Cormorant Garamond',serif; font-size:clamp(1.9rem,3vw,2.8rem); font-weight:300; color:var(--bright-white); letter-spacing:0.04em; margin-bottom:1.1rem; position:relative; }
+  .statement-panel p { font-size:0.84rem; font-weight:300; color:var(--bright-white); line-height:1.9; letter-spacing:0.025em; position:relative; }
+  .panel-foot { display:flex; align-items:center; gap:0.6rem; margin-top:1.6rem; font-size:0.46rem; font-weight:300; letter-spacing:0.38em; text-transform:uppercase; color:rgba(255,255,255,0.55); }
+  .panel-foot::before { content:''; width:8px; height:8px; background:var(--bright-red); flex-shrink:0; transform:rotate(45deg); }
+
   /* Contact */
-  .contact { padding:3rem 3rem; background:var(--black); position:relative; z-index:2; border-top:1px solid var(--bright-red); }
+  .contact { padding:6.5rem 3rem; background:var(--black); position:relative; z-index:2; }
   .contact-inner { max-width:600px; }
   .contact-inner p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:1.8; margin-bottom:1.2rem; }
   .contact-info { display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.5rem; }
@@ -127,9 +151,10 @@
   .contact-label { font-size:0.5rem; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-red); display:block; margin-bottom:0.2rem; }
 
   /* Footer */
-  footer { padding:1.4rem 3rem; background:var(--black); border-top:1px solid var(--bright-red); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
+  footer { padding:2.4rem 3rem; background:var(--black); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
   footer p { font-size:0.5rem; font-weight:300; letter-spacing:0.3em; text-transform:uppercase; color:var(--bright-white); }
   footer p:last-child { color:var(--bright-red); }
+  .section-deleted { display:none !important; }
 
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -141,12 +166,18 @@
     .nav-title { font-size:0.95rem; letter-spacing:0.14em; }
     .nav-sub { font-size:0.42rem; letter-spacing:0.28em; }
     .nav-links { display:none; }
-    .hero-content { padding:5.5rem 1.5rem 1.5rem; }
-    .services, .about, .contact { padding:2rem 1.5rem; }
-    .service-card { height:390px; grid-template-columns:1fr; grid-template-rows:190px 1fr; }
-    .service-card img { height:190px; border-right:0; border-bottom:1px solid var(--bright-red); }
-    .service-body { gap:0.65rem; }
+    .nav-actions { gap:0.45rem; }
+    .nav-btn { padding:0.48rem 0.65rem; font-size:0.5rem; letter-spacing:0.14em; }
+    .hero { min-height:46vh; }
+    .hero-content { padding:6rem 1.5rem 2.4rem; }
+    .services, .about, .mission-vision, .contact { padding:4rem 1.5rem; }
+    .service-card { min-height:0; grid-template-columns:1fr; }
+    .service-card img { height:min(86vw,420px); border-right:0; border-bottom:1px solid var(--bright-red); }
+    .service-body { gap:0.65rem; padding:1.4rem 1.5rem; }
     .about-grid { grid-template-columns:1fr; gap:2rem; }
+    .mission-vision-grid { grid-template-columns:1fr; gap:0; }
+    .statement-panel { padding:2rem 1.5rem 2.2rem; }
+    .statement-panel:first-child { border-right:0; border-bottom:1px solid var(--bright-red); }
     footer { flex-direction:column; gap:1rem; text-align:center; }
   }
 </style>
@@ -185,9 +216,19 @@
     <ul class="nav-links">
       <li><a href="#services">Services</a></li>
       <li><a href="#about">About</a></li>
+      <li class="nav-item">
+        <button class="nav-dropdown-toggle" type="button">Careers</button>
+        <div class="nav-dropdown">
+          <a href="why-join-alpha.html">Why Join Alpha</a>
+          <a href="opportunities.html">Current Opportunities</a>
+        </div>
+      </li>
       <li><a href="#contact">Contact</a></li>
     </ul>
-    <a class="nav-btn" href="#contact" data-content="nav.button">Get Started</a>
+    <div class="nav-actions">
+      <a class="nav-btn" href="#contact" data-content="nav.button">Get Started</a>
+      <a class="nav-btn" href="/login">Portal</a>
+    </div>
   </nav>
 
   <!-- HERO -->
@@ -201,6 +242,39 @@
           <span data-content="hero.secondaryButton">Explore Services</span>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- MISSION / VISION -->
+  <section class="mission-vision" id="about">
+    <div class="mission-vision-inner">
+      <div class="section-tag" data-content="about.tag">Who We Are</div>
+      <h2 class="section-title" data-content="about.title">We Are Alpha!</h2>
+      <div class="about-grid">
+        <div class="about-text">
+          <p>Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced intelligence techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
+          <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
+        </div>
+        <div class="about-stats">
+          <div class="stat"><div class="stat-val">24/7</div><div class="stat-label">Operational</div></div>
+          <div class="stat"><div class="stat-val">3,000+</div><div class="stat-label">Fugitives Located or Apprehended</div></div>
+          <div class="stat"><div class="stat-val">350+</div><div class="stat-label">Cases Resolved</div></div>
+        </div>
+      </div>
+      <div class="mission-vision-grid">
+        <article class="statement-panel" data-index="01">
+          <div class="panel-eyebrow">Where We're Going</div>
+          <h3 data-content="missionVision.visionTitle">Vision Statement</h3>
+          <p data-content="missionVision.visionText">To be the world's most trusted intelligence and operational services company, recognized for delivering mission-critical solutions that help governments, organizations, and communities solve complex challenges. Alpha Recovery envisions a future where intelligence, technology, and operational expertise work together to provide greater awareness, stronger decision-making, and more effective outcomes. Through innovation, accountability, and excellence in execution, we strive to set the standard for intelligence-driven services worldwide.</p>
+          <div class="panel-foot">The Standard We Set</div>
+        </article>
+        <article class="statement-panel" data-index="02">
+          <div class="panel-eyebrow">What We Do</div>
+          <h3 data-content="missionVision.missionTitle">Mission Statement</h3>
+          <p data-content="missionVision.missionText">Alpha Recovery delivers intelligence, investigative, operational, and mission support services that enable clients to make informed decisions, manage risk, and achieve their objectives. By combining skilled personnel, advanced technology, and proven operational practices, we provide actionable intelligence, operational insight, and professional support across complex environments. Our commitment to integrity, accountability, and excellence drives our efforts to support those who rely on accurate information, disciplined execution, and dependable results.</p>
+          <div class="panel-foot">Disciplined Execution</div>
+        </article>
       </div>
     </div>
   </section>
@@ -243,22 +317,6 @@
     </div>
   </section>
 
-  <!-- ABOUT -->
-  <section class="about" id="about">
-    <div class="about-grid">
-      <div class="about-text">
-        <div class="section-tag" data-content="about.tag">Who We Are</div>
-        <h2 class="section-title" data-content="about.title">Alpha Recovery LLC</h2>
-        <p>Alpha Recovery LLC provides a comprehensive suite of specialized intelligence services. We combine advanced intelligence techniques with cutting-edge AI technology to tackle the world's most pressing security challenges.</p>
-        <p>We stand at the forefront of intelligence, ready to confront the evolving global landscape with precision, integrity, and unwavering commitment.</p>
-      </div>
-      <div class="about-stats">
-        <div class="stat"><div class="stat-val">24/7</div><div class="stat-label">Operational</div></div>
-        <div class="stat"><div class="stat-val">3,000+</div><div class="stat-label">Fugitives Located or Apprehended</div></div>
-        <div class="stat"><div class="stat-val">350+</div><div class="stat-label">Cases Resolved</div></div>
-      </div>
-    </div>
-  </section>
 
   <!-- CONTACT -->
   <section class="contact" id="contact">
@@ -377,6 +435,21 @@ function applySiteContent(content) {
     if (content.design.background) root.style.setProperty('--black', content.design.background);
   }
 
+  if (content.sections) {
+    [
+      ['intro', document.getElementById('intro')],
+      ['nav', document.querySelector('nav')],
+      ['hero', document.querySelector('.hero')],
+      ['about', document.querySelector('.mission-vision')],
+      ['services', document.querySelector('.services')],
+      ['contact', document.querySelector('.contact')],
+      ['footer', document.querySelector('footer')]
+    ].forEach(([key, element]) => {
+      if (!element || content.sections[key] === undefined) return;
+      element.classList.toggle('section-deleted', content.sections[key] === false);
+    });
+  }
+
   renderBrand(document.querySelector('[data-content="intro.brand"]'), content.intro && content.intro.brand);
   document.querySelectorAll('[data-content]').forEach((element) => {
     const key = element.dataset.content;
@@ -438,15 +511,51 @@ function applySiteContent(content) {
         const image = document.createElement('img');
         image.src = block.image;
         image.alt = '';
-        image.style.cssText = 'width:100%;max-height:360px;object-fit:cover;border:1px solid var(--bright-red);margin-top:1rem;';
+        image.style.cssText = 'width:100%;max-height:360px;object-fit:contain;object-position:center;background:var(--black);border:1px solid var(--bright-red);margin-top:1rem;';
         section.querySelector('div').appendChild(image);
       }
       if (contact) contact.before(section);
     });
   }
 
-  const email = content.contact && content.contact.email;
-  const phone = content.contact && content.contact.phone;
+  const contactInfo = document.querySelector('.contact-info');
+  if (contactInfo && content.contact) {
+    const methods = Array.isArray(content.contact.methods) ? content.contact.methods : [
+      content.contact.email ? { label: 'Email', value: content.contact.email, type: 'email' } : null,
+      content.contact.phone ? { label: 'Phone', value: content.contact.phone, type: 'phone' } : null,
+      content.contact.address ? { label: 'Address', value: content.contact.address, type: 'text' } : null
+    ].filter(Boolean);
+    contactInfo.textContent = '';
+    methods.filter((method) => method && method.enabled !== false && method.value).forEach((method) => {
+      const wrap = document.createElement('div');
+      const label = document.createElement('span');
+      label.className = 'contact-label';
+      label.textContent = method.label || 'Contact';
+      wrap.appendChild(label);
+      if (method.type === 'email') {
+        const link = document.createElement('a');
+        link.href = `mailto:${method.value}`;
+        link.textContent = method.value;
+        wrap.appendChild(link);
+      } else if (method.type === 'phone') {
+        const link = document.createElement('a');
+        link.href = `tel:${String(method.value).replace(/\D/g, '')}`;
+        link.textContent = method.value;
+        wrap.appendChild(link);
+      } else {
+        const value = document.createElement('span');
+        value.textContent = method.value;
+        wrap.appendChild(value);
+      }
+      contactInfo.appendChild(wrap);
+    });
+  }
+
+  const contactMethods = content.contact && Array.isArray(content.contact.methods) ? content.contact.methods : [];
+  const emailMethod = contactMethods.find((method) => method && method.enabled !== false && method.type === 'email' && method.value);
+  const phoneMethod = contactMethods.find((method) => method && method.enabled !== false && method.type === 'phone' && method.value);
+  const email = (emailMethod && emailMethod.value) || (content.contact && content.contact.email);
+  const phone = (phoneMethod && phoneMethod.value) || (content.contact && content.contact.phone);
   const emailLinks = document.querySelectorAll('a[href^="mailto:"]');
   const phoneLink = document.querySelector('a[href^="tel:"]');
   emailLinks.forEach((link) => { if (email) link.href = `mailto:${email}`; });
@@ -459,14 +568,73 @@ function applySiteContent(content) {
   }
 }
 
+function animateCount(el) {
+  const raw = (el.dataset.countTarget || el.textContent || '').trim();
+  const match = raw.match(/^([\d,]+)(\+)?$/);
+  if (!match) return;
+  const target = parseInt(match[1].replace(/,/g, ''), 10);
+  if (!isFinite(target)) return;
+  const suffix = el.dataset.countSuffix || match[2] || '';
+  const duration = 2600;
+  const start = performance.now();
+  el.textContent = '0' + suffix;
+  function step(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.floor(eased * target).toLocaleString() + suffix;
+    if (t < 1) requestAnimationFrame(step);
+    else el.textContent = target.toLocaleString() + suffix;
+  }
+  requestAnimationFrame(step);
+}
+
+function isInSiteView(el) {
+  const site = document.getElementById('site');
+  const rect = el.getBoundingClientRect();
+  const rootRect = site ? site.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
+  return rect.top < rootRect.bottom - 80 && rect.bottom > rootRect.top + 80;
+}
+
+function runVisibleStatCounters() {
+  const site = document.getElementById('site');
+  if (!editorMode && site && !site.classList.contains('visible')) return;
+  document.querySelectorAll('.stat-val[data-count-ready]:not([data-counted])').forEach((val) => {
+    if (!val.dataset.countTarget || !isInSiteView(val)) return;
+    val.setAttribute('data-counted', '1');
+    animateCount(val);
+  });
+}
+
+function setupStatCounters() {
+  const vals = document.querySelectorAll('.stat-val:not([data-count-ready])');
+  if (!vals.length) return;
+  vals.forEach((val) => {
+    const raw = (val.textContent || '').trim();
+    const match = raw.match(/^([\d,]+)(\+)?$/);
+    val.setAttribute('data-count-ready', '1');
+    if (!match) return;
+    val.dataset.countTarget = match[1];
+    val.dataset.countSuffix = match[2] || '';
+    val.textContent = '0' + val.dataset.countSuffix;
+  });
+  const site = document.getElementById('site');
+  site.addEventListener('scroll', runVisibleStatCounters, { passive: true });
+  window.addEventListener('resize', runVisibleStatCounters);
+  requestAnimationFrame(runVisibleStatCounters);
+  setTimeout(runVisibleStatCounters, 500);
+}
+
 fetch('content/site.json', { cache: 'no-store' })
   .then((response) => response.ok ? response.json() : null)
-  .then((content) => { if (content) applySiteContent(content); })
+  .then((content) => {
+    if (content) applySiteContent(content);
+    setupStatCounters();
+  })
   .catch(() => {});
 
 bindServiceCards();
 
-const revealSections = document.querySelectorAll('.services, .about, .contact, footer');
+const revealSections = document.querySelectorAll('.services, .about, .mission-vision, .contact');
 if (!editorMode) {
   revealSections.forEach((section) => section.classList.add('scroll-reveal'));
   const revealObserver = new IntersectionObserver((entries) => {
@@ -501,6 +669,7 @@ if (editorMode) {
   document.body.classList.add('editor-static');
   document.getElementById('intro').style.display = 'none';
   document.getElementById('site').classList.add('visible');
+  runVisibleStatCounters();
 } else {
   statusTimer = setInterval(() => { si = Math.min(si + 1, statuses.length - 1); statusEl.textContent = statuses[si]; }, 1500);
   pctTimer = setInterval(() => { pct = Math.min(pct + 1, 100); pctEl.textContent = pct + '%'; if (pct >= 100) clearInterval(pctTimer); }, 50);
@@ -508,8 +677,10 @@ if (editorMode) {
     clearInterval(statusTimer);
   document.getElementById('intro').classList.add('exit');
   document.getElementById('site').classList.add('visible');
+  runVisibleStatCounters();
   setTimeout(() => {
     document.getElementById('intro').style.display = 'none';
+    runVisibleStatCounters();
   }, 1200);
   }, 8000);
 }

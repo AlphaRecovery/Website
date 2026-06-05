@@ -24,7 +24,11 @@ function copyDir(src, dest) {
 
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
-copyFile(path.join(root, 'index.html'), path.join(outDir, 'index.html'));
+for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+  if (entry.isFile() && path.extname(entry.name).toLowerCase() === '.html') {
+    copyFile(path.join(root, entry.name), path.join(outDir, entry.name));
+  }
+}
 copyDir(path.join(root, 'assets'), path.join(outDir, 'assets'));
 copyDir(path.join(root, 'content'), path.join(outDir, 'content'));
 if (fs.existsSync(path.join(root, '_headers'))) {

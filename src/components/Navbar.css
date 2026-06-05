@@ -101,6 +101,10 @@
   gap: 1rem;
 }
 
+.navbar-right .btn-outline {
+  background: transparent;
+}
+
 .hamburger {
   display: none;
   flex-direction: column;

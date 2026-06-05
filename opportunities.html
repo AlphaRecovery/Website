@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Current Opportunities | Alpha Recovery</title>
+<meta name="description" content="Current jobs and contractor opportunities available at Alpha Recovery LLC." />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@200;300;400;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/careers.css" />
+<style id="custom-site-css"></style>
+</head>
+<body>
+<div class="accent-line"></div>
+<nav>
+  <a class="nav-brand" href="index.html">
+    <img class="nav-globe" src="assets/globe-mark.png" alt="" />
+    <div class="nav-brand-text">
+      <span class="nav-title" data-content="nav.title">ALPHA RECOVERY</span>
+      <span class="nav-sub" data-content="nav.subtitle">Intelligence Beyond Sight</span>
+    </div>
+  </a>
+  <ul class="nav-links">
+    <li><a href="index.html#services">Services</a></li>
+    <li><a href="index.html#about">About</a></li>
+    <li class="nav-item">
+      <button class="nav-dropdown-toggle active" type="button">Careers</button>
+      <div class="nav-dropdown">
+        <a href="why-join-alpha.html">Why Join Alpha</a>
+        <a class="active" href="opportunities.html">Current Opportunities</a>
+      </div>
+    </li>
+    <li><a href="index.html#contact">Contact</a></li>
+  </ul>
+  <a class="nav-btn" href="index.html#contact" data-content="nav.button">Get Started</a>
+</nav>
+<main>
+  <section class="careers-hero">
+    <div class="careers-hero-inner">
+      <div class="section-tag">Current Opportunities</div>
+      <h1>Jobs at Alpha Recovery</h1>
+      <p class="lead">Search open roles by keyword, service, department, employment type, location, and clearance requirement. Select a position to review the full job description and begin the Alpha applicant process.</p>
+    </div>
+  </section>
+  <section class="jobs-board" id="open-positions">
+    <div class="section-tag">Open Positions</div>
+    <h2>Available Roles</h2>
+    <div class="search-panel">
+      <div class="search-row">
+        <input id="keywordFilter" type="search" placeholder="Keyword" />
+      </div>
+      <div class="filter-row">
+        <select id="serviceFilter"><option value="">Service</option></select>
+        <select id="departmentFilter"><option value="">Department</option></select>
+        <select id="employmentFilter"><option value="">Employment Type</option></select>
+        <select id="locationFilter"><option value="">Location</option></select>
+        <select id="clearanceFilter"><option value="">Clearance Requirement</option></select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn-red" id="applyFilters" type="button">Apply Filters</button>
+        <button class="btn-ghost" id="clearFilters" type="button">Clear Filters</button>
+      </div>
+    </div>
+    <div class="job-count" id="jobCount">Loading positions...</div>
+    <div class="jobs-grid" id="jobsGrid"></div>
+  </section>
+</main>
+<footer>
+  <p data-content="footer.copyright">&copy; 2026 Alpha Recovery LLC - All Rights Reserved</p>
+  <p data-content="footer.tagline">Intelligence Beyond Sight</p>
+</footer>
+<script src="assets/careers.js"></script>
+<script>
+fetch('content/site.json', { cache: 'no-store' })
+  .then((response) => response.ok ? response.json() : null)
+  .then((content) => { if (content) window.AlphaCareers.initCareersLanding(content); })
+  .catch(() => { document.getElementById('jobCount').textContent = 'Unable to load positions.'; });
+</script>
+</body>
+</html>

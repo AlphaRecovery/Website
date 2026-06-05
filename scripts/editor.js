@@ -5,9 +5,11 @@ const { execFileSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const buildDir = path.join(root, 'build');
+const portalDist = path.join(root, 'portal', 'client', 'dist');
 const contentPath = path.join(root, 'content', 'site.json');
 const uploadDir = path.join(root, 'assets', 'uploads');
 const port = Number(process.env.PORT || 4180);
+const portalApiPort = Number(process.env.PORTAL_API_PORT || 8787);
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -26,6 +28,19 @@ function runBuild() {
     cwd: root,
     stdio: 'inherit'
   });
+}
+
+function runPortalBuild() {
+  const portalPackage = path.join(root, 'portal', 'package.json');
+  if (!fs.existsSync(portalPackage)) return;
+  if (process.platform === 'win32') {
+    execFileSync(process.env.ComSpec || 'cmd.exe', ['/d', '/s', '/c', 'npm', '--prefix', path.join(root, 'portal'), 'run', 'build'], {
+      cwd: root,
+      stdio: 'inherit'
+    });
+    return;
+  }
+  execFileSync('npm', ['--prefix', path.join(root, 'portal'), 'run', 'build'], { cwd: root, stdio: 'inherit' });
 }
 
 function readContent() {
@@ -98,6 +113,37 @@ function serveFile(res, baseDir, urlPath) {
     }
     send(res, 200, data, mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream');
   });
+}
+
+function servePortalApp(res, urlPath) {
+  if (!fs.existsSync(path.join(portalDist, 'index.html'))) {
+    send(res, 503, 'Portal app is not built yet. Run: cd portal && npm run build');
+    return;
+  }
+  serveFile(res, portalDist, urlPath.startsWith('/portal-app') ? urlPath.replace(/^\/portal-app/, '') || '/' : '/');
+}
+
+function proxyPortalApi(req, res) {
+  const options = {
+    hostname: '127.0.0.1',
+    port: portalApiPort,
+    path: req.url,
+    method: req.method,
+    headers: req.headers
+  };
+  delete options.headers.host;
+
+  const proxy = http.request(options, (upstream) => {
+    const headers = { ...upstream.headers };
+    res.writeHead(upstream.statusCode || 502, headers);
+    upstream.pipe(res);
+  });
+
+  proxy.on('error', () => {
+    send(res, 502, `Portal API is not running on http://127.0.0.1:${portalApiPort}`);
+  });
+
+  req.pipe(proxy);
 }
 
 function editorHtml(content) {
@@ -185,13 +231,14 @@ function editorHtml(content) {
 </div>
 <script>
 let state = ${initial};
-let activeTab = 'content';
+let activeTab = 'sections';
 let media = [];
 let history = [JSON.stringify(state)];
 let historyIndex = 0;
 let saveTimer = null;
 
 const tabs = [
+  ['sections', 'Sections'],
   ['content', 'Content'],
   ['design', 'Design'],
   ['media', 'Media'],
@@ -253,8 +300,101 @@ function imageSelect(path) {
   return '<label><span>Image</span><select data-path="' + path + '"><option value="' + escapeHtml(value) + '">' + escapeHtml(value || 'Choose image') + '</option>' + options + '</select></label>';
 }
 
+function selectField(label, path, options) {
+  const value = getPath(path);
+  return '<label><span>' + label + '</span><select data-path="' + path + '">' + options.map((option) => {
+    const selected = String(value) === String(option.value) ? ' selected' : '';
+    return '<option value="' + escapeHtml(option.value) + '"' + selected + '>' + escapeHtml(option.label) + '</option>';
+  }).join('') + '</select></label>';
+}
+
+function isSectionLive(key) {
+  state.sections = state.sections || {};
+  return state.sections[key] !== false;
+}
+
+function sectionCard(key, title, body) {
+  const live = isSectionLive(key);
+  return \`
+    <section class="section-editor-card \${live ? '' : 'deleted'}" data-section-key="\${key}">
+      <div class="row">
+        <h2 style="flex:1;margin:0">\${title}</h2>
+        <button class="\${live ? 'ghost delete-section' : 'secondary restore-section'}" data-section="\${key}" type="button">\${live ? 'Delete Section' : 'Add Section Back'}</button>
+      </div>
+      \${live ? body : '<p class="hint">This section is deleted from the public page. Add it back to edit or show it again.</p>'}
+    </section>
+  \`;
+}
+
 function renderTabs() {
   document.getElementById('tabs').innerHTML = tabs.map(([id, label]) => '<button type="button" class="tab ' + (activeTab === id ? 'active' : '') + '" data-tab="' + id + '">' + label + '</button>').join('');
+}
+
+function renderSections() {
+  state.sections = state.sections || { intro: true, nav: true, hero: true, about: true, services: true, contact: true, footer: true };
+  state.contact = state.contact || {};
+  state.contact.methods = state.contact.methods || [];
+  panel.innerHTML = \`
+    \${sectionCard('intro', 'Loading Screen', \`
+      <div class="grid">\${field('Brand', 'intro.brand')}\${field('Tagline', 'intro.tagline')}</div>
+    \`)}
+    \${sectionCard('nav', 'Navigation / Header', \`
+      <div class="grid">\${field('Brand Title', 'nav.title')}\${field('Subtitle', 'nav.subtitle')}</div>
+      \${field('Get Started Button', 'nav.button')}
+      <p class="hint">Dropdown links are controlled by the Careers pages and route files.</p>
+    \`)}
+    \${sectionCard('hero', 'First Section / Hero', \`
+      \${field('Hero Line 1', 'hero.titleLines.0')}
+      \${field('Hero Line 2', 'hero.titleLines.1')}
+      \${field('Hero Line 3 Red', 'hero.titleLines.2')}
+      \${field('Description', 'hero.description', 'textarea')}
+      <div class="grid">\${field('Primary Button', 'hero.primaryButton')}\${field('Secondary Button', 'hero.secondaryButton')}</div>
+    \`)}
+    \${sectionCard('about', 'Who We Are / Mission & Vision', \`
+      <div class="grid">\${field('Section Label', 'about.tag')}\${field('Section Title', 'about.title')}</div>
+      <div class="row"><button id="addParagraph" class="secondary" type="button">Add Paragraph</button><button id="addStat" class="secondary" type="button">Add Stat</button></div>
+      \${(state.about?.paragraphs || []).map((paragraph, index) => \`<div class="block-card"><div class="row"><h3 style="flex:1">Paragraph \${index + 1}</h3><button class="ghost remove-paragraph" data-index="\${index}" type="button">Delete Paragraph</button></div>\${field('Text', 'about.paragraphs.' + index, 'textarea')}</div>\`).join('')}
+      <div class="grid">\${(state.about?.stats || []).map((stat, index) => \`<div class="stat"><div class="row"><h3 style="flex:1">Stat \${index + 1}</h3><button class="ghost remove-stat" data-index="\${index}" type="button">Delete Stat</button></div>\${field('Value', 'about.stats.' + index + '.value')}\${field('Label', 'about.stats.' + index + '.label')}</div>\`).join('')}</div>
+      <div class="grid">\${field('Vision Title', 'missionVision.visionTitle')}\${field('Mission Title', 'missionVision.missionTitle')}</div>
+      \${field('Vision Statement', 'missionVision.visionText', 'textarea')}
+      \${field('Mission Statement', 'missionVision.missionText', 'textarea')}
+    \`)}
+    \${sectionCard('services', 'Core Services', \`
+      <div class="grid">\${field('Section Label', 'services.tag')}\${field('Section Title', 'services.title')}</div>
+      <div class="row"><button id="addService" class="secondary" type="button">Add Service</button></div>
+      \${(state.services?.items || []).map((service, index) => \`
+        <div class="service" draggable="true" data-service="\${index}">
+          <div class="row"><h3 style="flex:1">Service \${index + 1}</h3><button class="ghost move" data-index="\${index}" data-dir="-1" type="button">Up</button><button class="ghost move" data-index="\${index}" data-dir="1" type="button">Down</button><button class="ghost remove-service" data-index="\${index}" type="button">Delete Service</button></div>
+          \${field('Name', 'services.items.' + index + '.title')}
+          \${field('Description', 'services.items.' + index + '.description', 'textarea')}
+          \${imageSelect('services.items.' + index + '.image')}
+        </div>
+      \`).join('')}
+    \`)}
+    \${sectionCard('contact', 'Contact', \`
+      <div class="grid">\${field('Section Label', 'contact.tag')}\${field('Section Title', 'contact.title')}</div>
+      \${field('Description', 'contact.description', 'textarea')}
+      <div class="row"><button id="addContactMethod" class="secondary" type="button">Add Contact Option</button></div>
+      \${(state.contact.methods || []).map((method, index) => \`
+        <div class="block-card">
+          <div class="row"><h3 style="flex:1">\${escapeHtml(method.label || 'Contact Option')}</h3><button class="ghost remove-contact-method" data-index="\${index}" type="button">Delete Full Option</button></div>
+          <div class="grid">\${field('Label', 'contact.methods.' + index + '.label')}\${selectField('Type', 'contact.methods.' + index + '.type', [{ value: 'email', label: 'Email' }, { value: 'phone', label: 'Phone' }, { value: 'text', label: 'Text / Address' }])}</div>
+          \${field('Value', 'contact.methods.' + index + '.value')}
+          \${selectField('Display', 'contact.methods.' + index + '.enabled', [{ value: 'true', label: 'On Page' }, { value: 'false', label: 'Deleted From Page' }])}
+        </div>
+      \`).join('')}
+      \${field('Button', 'contact.button')}
+    \`)}
+    \${sectionCard('footer', 'Footer', \`
+      \${field('Copyright', 'footer.copyright')}
+      \${field('Tagline', 'footer.tagline')}
+    \`)}
+    <section>
+      <h2>Main Blocks / Added Sections</h2>
+      <p class="hint">These are additional page sections. You can add, edit, reorder, disable, or delete them.</p>
+      <div class="row"><button class="secondary" data-tab-jump="blocks" type="button">Open Block Editor</button></div>
+    </section>
+  \`;
 }
 
 function renderContent() {
@@ -293,11 +433,59 @@ function renderContent() {
       </div>
     </section>
     <section>
+      <h2>Mission & Vision</h2>
+      <div class="grid">\${field('Vision Title', 'missionVision.visionTitle')}\${field('Mission Title', 'missionVision.missionTitle')}</div>
+      \${field('Vision Statement', 'missionVision.visionText', 'textarea')}
+      \${field('Mission Statement', 'missionVision.missionText', 'textarea')}
+    </section>
+    <section>
+      <h2>Careers</h2>
+      <div class="grid">\${field('Section Label', 'careers.tag')}\${field('Section Title', 'careers.title')}</div>
+      \${field('Description', 'careers.description', 'textarea')}
+      <div class="row"><button id="addCareer" class="secondary" type="button">Add Career Card</button></div>
+      \${(state.careers?.positions || []).map((position, index) => \`
+        <div class="block-card">
+          <div class="row"><h3 style="flex:1">Career Card \${index + 1}</h3><button class="ghost remove-career" data-index="\${index}" type="button">Delete</button></div>
+          \${field('Title', 'careers.positions.' + index + '.title')}
+          \${field('Description', 'careers.positions.' + index + '.description', 'textarea')}
+          <div class="grid">\${field('Type', 'careers.positions.' + index + '.type')}\${field('Location', 'careers.positions.' + index + '.location')}</div>
+        </div>
+      \`).join('')}
+      \${field('CTA Text', 'careers.ctaText', 'textarea')}
+      <div class="grid">\${field('Button Text', 'careers.button')}\${field('Button Link', 'careers.buttonHref')}</div>
+    </section>
+    <section>
+      <h2>Current Opportunities</h2>
+      <p class="hint">These populate the standalone Current Opportunities page. Each role opens into a detail panel when clicked.</p>
+      <div class="row"><button id="addJob" class="secondary" type="button">Add Job</button></div>
+      \${(state.opportunities?.jobs || []).map((job, index) => \`
+        <div class="block-card">
+          <div class="row"><h3 style="flex:1">Job \${index + 1}</h3><button class="ghost remove-job" data-index="\${index}" type="button">Delete</button></div>
+          \${field('Title', 'opportunities.jobs.' + index + '.title')}
+          <div class="grid">\${field('Slug', 'opportunities.jobs.' + index + '.slug')}\${field('Status', 'opportunities.jobs.' + index + '.status')}</div>
+          <div class="grid">\${field('Department', 'opportunities.jobs.' + index + '.department')}\${field('Location', 'opportunities.jobs.' + index + '.location')}</div>
+          <div class="grid">\${field('Employment Type', 'opportunities.jobs.' + index + '.employmentType')}\${field('Clearance', 'opportunities.jobs.' + index + '.clearanceRequirement')}</div>
+          <div class="grid">\${field('Reports To', 'opportunities.jobs.' + index + '.reportsTo')}\${field('Pay Range', 'opportunities.jobs.' + index + '.payRange')}</div>
+          <div class="grid">\${field('Travel', 'opportunities.jobs.' + index + '.travelRequirement')}\${field('Background', 'opportunities.jobs.' + index + '.backgroundRequirement')}</div>
+          \${field('Apply Link', 'opportunities.jobs.' + index + '.applyUrl')}
+          \${field('Summary', 'opportunities.jobs.' + index + '.summary', 'textarea')}
+          \${field('Position Summary', 'opportunities.jobs.' + index + '.positionSummary', 'textarea')}
+        </div>
+      \`).join('')}
+    </section>
+    <section>
       <h2>Contact</h2>
       <div class="grid">\${field('Section Label', 'contact.tag')}\${field('Section Title', 'contact.title')}</div>
       \${field('Description', 'contact.description', 'textarea')}
-      <div class="grid">\${field('Email', 'contact.email')}\${field('Phone', 'contact.phone')}</div>
-      \${field('Address', 'contact.address')}
+      <div class="row"><button id="addContactMethod" class="secondary" type="button">Add Contact Option</button></div>
+      \${(state.contact?.methods || []).map((method, index) => \`
+        <div class="block-card">
+          <div class="row"><h3 style="flex:1">\${escapeHtml(method.label || 'Contact Option')}</h3><button class="ghost remove-contact-method" data-index="\${index}" type="button">Delete Full Option</button></div>
+          <div class="grid">\${field('Label', 'contact.methods.' + index + '.label')}\${selectField('Type', 'contact.methods.' + index + '.type', [{ value: 'email', label: 'Email' }, { value: 'phone', label: 'Phone' }, { value: 'text', label: 'Text / Address' }])}</div>
+          \${field('Value', 'contact.methods.' + index + '.value')}
+          \${selectField('Display', 'contact.methods.' + index + '.enabled', [{ value: 'true', label: 'On Page' }, { value: 'false', label: 'Deleted From Page' }])}
+        </div>
+      \`).join('')}
       \${field('Button', 'contact.button')}
     </section>
     <section><h2>Footer</h2>\${field('Copyright', 'footer.copyright')}\${field('Tagline', 'footer.tagline')}</section>
@@ -347,14 +535,14 @@ function renderBlocks() {
   panel.innerHTML = \`
     <section>
       <h2>Content Blocks & Templates</h2>
-      <p class="hint">Add reusable sections now. Rendering these blocks on the public site is the next layout step once you approve how they should appear.</p>
+      <p class="hint">Add reusable sections here. Enabled blocks render on the public homepage before Contact.</p>
       <div class="row">
         <button class="secondary add-block" data-type="text" type="button">Add Text Block</button>
         <button class="secondary add-block" data-type="testimonial" type="button">Add Testimonial</button>
         <button class="secondary add-block" data-type="jobs" type="button">Add Jobs Block</button>
         <button class="secondary add-block" data-type="image" type="button">Add Image Block</button>
       </div>
-      \${(state.blocks || []).map((block, index) => \`<div class="block-card"><div class="row"><h3 style="flex:1">\${escapeHtml(block.type || 'block')} Block</h3><button class="ghost remove-block" data-index="\${index}" type="button">Delete</button></div><label><span>Enabled</span><select data-path="blocks.\${index}.enabled"><option value="true" \${block.enabled ? 'selected' : ''}>Enabled</option><option value="false" \${!block.enabled ? 'selected' : ''}>Disabled</option></select></label>\${field('Title', 'blocks.' + index + '.title')}\${field('Description', 'blocks.' + index + '.description', 'textarea')}\${block.image !== undefined ? imageSelect('blocks.' + index + '.image') : ''}</div>\`).join('')}
+      \${(state.blocks || []).map((block, index) => \`<div class="block-card"><div class="row"><h3 style="flex:1">\${escapeHtml(block.type || 'block')} Block</h3><button class="ghost move-block" data-index="\${index}" data-dir="-1" type="button">Up</button><button class="ghost move-block" data-index="\${index}" data-dir="1" type="button">Down</button><button class="ghost remove-block" data-index="\${index}" type="button">Delete</button></div><label><span>Enabled</span><select data-path="blocks.\${index}.enabled"><option value="true" \${block.enabled ? 'selected' : ''}>Enabled</option><option value="false" \${!block.enabled ? 'selected' : ''}>Disabled</option></select></label>\${field('Title', 'blocks.' + index + '.title')}\${field('Description', 'blocks.' + index + '.description', 'textarea')}\${block.image !== undefined ? imageSelect('blocks.' + index + '.image') : ''}</div>\`).join('')}
     </section>
   \`;
 }
@@ -392,6 +580,7 @@ function renderAdmin() {
 
 function renderPanel() {
   renderTabs();
+  if (activeTab === 'sections') renderSections();
   if (activeTab === 'content') renderContent();
   if (activeTab === 'design') renderDesign();
   if (activeTab === 'media') renderMedia();
@@ -410,6 +599,25 @@ function bindControls() {
     });
   });
   document.querySelectorAll('.move').forEach((button) => button.addEventListener('click', () => moveService(Number(button.dataset.index), Number(button.dataset.dir))));
+  document.querySelectorAll('[data-tab-jump]').forEach((button) => button.addEventListener('click', () => {
+    activeTab = button.dataset.tabJump;
+    renderPanel();
+  }));
+  document.querySelectorAll('.delete-section').forEach((button) => button.addEventListener('click', () => {
+    state.sections = state.sections || {};
+    state.sections[button.dataset.section] = false;
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  }));
+  document.querySelectorAll('.restore-section').forEach((button) => button.addEventListener('click', () => {
+    state.sections = state.sections || {};
+    state.sections[button.dataset.section] = true;
+    ensureSectionDefaults(button.dataset.section);
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  }));
   const addService = document.getElementById('addService');
   if (addService) addService.addEventListener('click', () => {
     state.services.items.push({
@@ -453,6 +661,71 @@ function bindControls() {
     scheduleSave();
     renderPanel();
   }));
+  const addCareer = document.getElementById('addCareer');
+  if (addCareer) addCareer.addEventListener('click', () => {
+    state.careers = state.careers || { tag: 'Careers', title: 'Join Alpha Recovery', description: '', positions: [], ctaText: '', button: 'Apply Now', buttonHref: 'mailto:Admin@alpharecovery.org?subject=Alpha%20Recovery%20Careers' };
+    state.careers.positions = state.careers.positions || [];
+    state.careers.positions.push({ title: 'New Role', description: 'Describe the opportunity.', type: 'Contract', location: 'Nationwide' });
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  });
+  document.querySelectorAll('.remove-career').forEach((button) => button.addEventListener('click', () => {
+    state.careers.positions.splice(Number(button.dataset.index), 1);
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  }));
+  const addJob = document.getElementById('addJob');
+  if (addJob) addJob.addEventListener('click', () => {
+    state.opportunities = state.opportunities || { jobs: [] };
+    state.opportunities.jobs = state.opportunities.jobs || [];
+    state.opportunities.jobs.push({
+      id: 'new-role-' + Date.now(),
+      slug: 'new-role-' + Date.now(),
+      title: 'New Role',
+      department: 'Operations',
+      location: 'Nationwide',
+      employmentType: 'Contract',
+      clearanceRequirement: 'Background Investigation Required',
+      reportsTo: 'Hiring Manager',
+      payRange: 'Based on assignment',
+      travelRequirement: 'Varies by assignment',
+      backgroundRequirement: 'Background investigation may be required',
+      status: 'open',
+      summary: 'Describe the opportunity.',
+      positionSummary: 'Describe the position overview.',
+      responsibilities: ['Add responsibility.'],
+      requiredQualifications: ['Add required qualification.'],
+      preferredQualifications: ['Add preferred qualification.'],
+      workEnvironment: ['Add work environment.'],
+      applyUrl: '/portal/register?job=new-role'
+    });
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  });
+  document.querySelectorAll('.remove-job').forEach((button) => button.addEventListener('click', () => {
+    state.opportunities.jobs.splice(Number(button.dataset.index), 1);
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  }));
+  const addContactMethod = document.getElementById('addContactMethod');
+  if (addContactMethod) addContactMethod.addEventListener('click', () => {
+    state.contact = state.contact || {};
+    state.contact.methods = state.contact.methods || [];
+    state.contact.methods.push({ label: 'New Option', value: 'Add contact detail', type: 'text', enabled: true });
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  });
+  document.querySelectorAll('.remove-contact-method').forEach((button) => button.addEventListener('click', () => {
+    state.contact.methods.splice(Number(button.dataset.index), 1);
+    pushHistory();
+    scheduleSave();
+    renderPanel();
+  }));
   document.querySelectorAll('.add-block').forEach((button) => button.addEventListener('click', () => {
     const type = button.dataset.type;
     const block = { type, title: 'New Block', enabled: true, description: 'Add content here.' };
@@ -464,6 +737,9 @@ function bindControls() {
     pushHistory();
     scheduleSave();
     renderPanel();
+  }));
+  document.querySelectorAll('.move-block').forEach((button) => button.addEventListener('click', () => {
+    reorderBlock(Number(button.dataset.index), Number(button.dataset.index) + Number(button.dataset.dir));
   }));
   document.querySelectorAll('.remove-block').forEach((button) => button.addEventListener('click', () => {
     state.blocks.splice(Number(button.dataset.index), 1);
@@ -508,6 +784,37 @@ function reorderService(from, to) {
   pushHistory();
   scheduleSave();
   renderPanel();
+}
+
+function reorderBlock(from, to) {
+  state.blocks = state.blocks || [];
+  if (to < 0 || to >= state.blocks.length) return;
+  const [item] = state.blocks.splice(from, 1);
+  state.blocks.splice(to, 0, item);
+  pushHistory();
+  scheduleSave();
+  renderPanel();
+}
+
+function ensureSectionDefaults(key) {
+  if (key === 'intro') state.intro = state.intro || { brand: 'ALPHA RECOVERY', tagline: 'Intelligence Beyond Sight' };
+  if (key === 'nav') state.nav = state.nav || { title: 'ALPHA RECOVERY', subtitle: 'Intelligence Beyond Sight', button: 'Get Started' };
+  if (key === 'hero') state.hero = state.hero || { titleLines: ['Intelligence', 'that', 'Protects.'], accentLine: 2, description: '', primaryButton: 'Request Consultation', secondaryButton: 'Explore Services' };
+  if (key === 'about') {
+    state.about = state.about || { tag: 'Who We Are', title: 'We Are Alpha!', paragraphs: ['Add about text here.'], stats: [] };
+    state.about.paragraphs = state.about.paragraphs || [];
+    state.about.stats = state.about.stats || [];
+    state.missionVision = state.missionVision || { visionTitle: 'Vision Statement', visionText: '', missionTitle: 'Mission Statement', missionText: '' };
+  }
+  if (key === 'services') {
+    state.services = state.services || { tag: 'What We Do', title: 'Core Services', items: [] };
+    state.services.items = state.services.items || [];
+  }
+  if (key === 'contact') {
+    state.contact = state.contact || { tag: 'Get In Touch', title: 'Contact Us', description: '', button: 'Send Us a Message', methods: [] };
+    state.contact.methods = state.contact.methods || [{ label: 'Email', value: 'Admin@alpharecovery.org', type: 'email', enabled: true }];
+  }
+  if (key === 'footer') state.footer = state.footer || { copyright: '© 2026 Alpha Recovery LLC - All Rights Reserved', tagline: 'Intelligence Beyond Sight' };
 }
 
 async function uploadMedia(event) {
@@ -602,6 +909,7 @@ loadMedia().then(() => {
 }
 
 runBuild();
+runPortalBuild();
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/') {
@@ -651,6 +959,21 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && req.url.startsWith('/site')) {
     serveFile(res, buildDir, req.url);
+    return;
+  }
+
+  if (req.url.startsWith('/api/')) {
+    proxyPortalApi(req, res);
+    return;
+  }
+
+  if (req.method === 'GET' && req.url.startsWith('/portal-app/')) {
+    servePortalApp(res, req.url);
+    return;
+  }
+
+  if (req.method === 'GET' && /^\/(apply|admin|login|portal)(\/|$)/.test(req.url.split('?')[0])) {
+    servePortalApp(res, '/');
     return;
   }
 
