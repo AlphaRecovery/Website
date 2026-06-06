@@ -43,7 +43,7 @@ export default function Navbar() {
 
         <div className="navbar-right">
           <Link to="/contact" className="btn"><span>Get Started</span></Link>
-          <a href="/login" className="btn btn-outline"><span>Portal</span></a>
+          <a href="https://portal.alpharecovery.org/login" className="btn btn-outline"><span>Portal</span></a>
           <button
             className={`hamburger${menuOpen ? ' active' : ''}`}
             onClick={() => setMenuOpen(v => !v)}
@@ -64,7 +64,7 @@ export default function Navbar() {
         <Link to="/contact" className="btn-solid" style={{marginTop:'1rem',display:'inline-block',padding:'0.75rem 1.5rem',fontFamily:'var(--font-cond)',fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase',fontSize:'0.8rem',color:'var(--black)',background:'var(--gold)',border:'1px solid var(--gold)'}}>
           Get Started
         </Link>
-        <a href="/login" className="btn-solid" style={{marginTop:'0.75rem',display:'inline-block',padding:'0.75rem 1.5rem',fontFamily:'var(--font-cond)',fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase',fontSize:'0.8rem',color:'var(--gold)',background:'transparent',border:'1px solid var(--gold)'}}>
+        <a href="https://portal.alpharecovery.org/login" className="btn-solid" style={{marginTop:'0.75rem',display:'inline-block',padding:'0.75rem 1.5rem',fontFamily:'var(--font-cond)',fontWeight:700,letterSpacing:'0.15em',textTransform:'uppercase',fontSize:'0.8rem',color:'var(--gold)',background:'transparent',border:'1px solid var(--gold)'}}>
           Portal
         </a>
       </div>
