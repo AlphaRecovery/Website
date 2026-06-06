@@ -21,7 +21,7 @@ npm start
 ```bash
 npm install -g netlify-cli
 npm run build
-netlify deploy --prod --dir=build
+netlify deploy --prod --dir=dist
 ```
 
 ### Option B: Netlify Dashboard (Recommended)
@@ -29,7 +29,7 @@ netlify deploy --prod --dir=build
 2. Go to https://app.netlify.com → "Add new site" → "Import from Git"
 3. Select your repo
 4. Build command: `npm run build`
-5. Publish directory: `build`
+5. Publish directory: `dist`
 6. Click "Deploy site"
 
 ## Connect Your GoDaddy Domain
@@ -57,4 +57,5 @@ After first deploy, go to **Netlify → Forms** to see submissions.
   REACT_APP_SUPABASE_URL=your-project-url
   REACT_APP_SUPABASE_ANON_KEY=your-anon-key
   ```
-- Portal routes: `/portal`, `/portal/applications`, `/portal/contractors`
+- Portal is deployed separately at `https://portal.alpharecovery.org`
+- Public job postings should use `/apply/<role-slug>` so the site can hand applicants to the portal domain

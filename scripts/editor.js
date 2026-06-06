@@ -699,7 +699,7 @@ function bindControls() {
       requiredQualifications: ['Add required qualification.'],
       preferredQualifications: ['Add preferred qualification.'],
       workEnvironment: ['Add work environment.'],
-      applyUrl: '/portal/register?job=new-role'
+      applyUrl: '/apply/new-role'
     });
     pushHistory();
     scheduleSave();

@@ -2,7 +2,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 
-const root = path.resolve(__dirname, '..', 'build');
+const root = path.resolve(__dirname, '..', 'dist');
 const port = Number(process.env.PORT || 4173);
 
 const types = {

@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.resolve(__dirname, '..');
-const outDir = path.join(root, 'build');
+const outDir = path.join(root, 'dist');
 
 function copyFile(src, dest) {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -35,4 +35,4 @@ if (fs.existsSync(path.join(root, '_headers'))) {
   copyFile(path.join(root, '_headers'), path.join(outDir, '_headers'));
 }
 
-console.log('Static site copied to build/');
+console.log('Static site copied to dist/');

@@ -115,7 +115,7 @@
     ],
     "ctaText": "Explore current opportunities and start your Alpha applicant profile.",
     "button": "Apply Now",
-    "buttonHref": "/portal/register"
+    "buttonHref": "https://portal.alpharecovery.org/register"
   },
   "opportunities": {
     "aboutAlpha": "Alpha Recovery LLC is committed to excellence, professionalism, and integrity in every aspect of our organization. We believe that success is achieved through strong leadership, personal accountability, teamwork, and an unwavering commitment to high standards. The people of Alpha Recovery represent these values every day through their dedication, professionalism, and pursuit of excellence.",
