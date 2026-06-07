@@ -1,0 +1,7 @@
+client/dist/
+server/data/dev-db.json
+server/storage/uploads/
+.env
+.env.local
+
+.vercel
