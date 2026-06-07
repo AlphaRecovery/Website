@@ -66,6 +66,22 @@
   .nav-actions { display:flex; align-items:center; gap:0.7rem; }
   .nav-btn { font-size:0.57rem; font-weight:600; letter-spacing:0.2em; text-transform:uppercase; color:var(--bright-red); border:1px solid var(--bright-red); padding:0.52rem 1.2rem; text-decoration:none; transition:all 0.25s; background:var(--black); white-space:nowrap; }
   .nav-btn:hover { background:var(--bright-red); color:var(--bright-white); border-color:var(--bright-red); }
+  .mobile-nav-toggle { display:none; width:44px; min-width:44px; height:44px; border:1px solid var(--bright-red); background:var(--black); color:var(--bright-white); align-items:center; justify-content:center; flex-direction:column; gap:5px; position:relative; z-index:61; margin-left:auto; }
+  .mobile-nav-toggle span { width:18px; height:1px; background:currentColor; display:block; transition:transform 0.25s, opacity 0.25s; }
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity:0; }
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+  .mobile-backdrop { position:fixed; inset:0; z-index:58; background:rgba(0,0,0,0.68); opacity:0; pointer-events:none; transition:opacity 0.25s ease; }
+  .mobile-drawer { position:fixed; top:0; left:0; bottom:0; z-index:60; width:min(84vw,340px); background:var(--black); border-right:1px solid var(--bright-red); transform:translateX(-100%); transition:transform 0.28s ease; padding:1rem 1.1rem 1.4rem; display:flex; flex-direction:column; gap:0; overflow-y:auto; }
+  .mobile-drawer-brand { display:flex; align-items:center; gap:0.65rem; min-height:56px; padding-bottom:1rem; border-bottom:1px solid rgba(255,23,68,0.8); text-decoration:none; }
+  .mobile-drawer-brand img { width:30px; filter:invert(1) brightness(2); }
+  .mobile-drawer-label { margin:1.1rem 0 0.35rem; font-size:0.48rem; letter-spacing:0.32em; text-transform:uppercase; color:var(--bright-red); }
+  .mobile-drawer a { min-height:46px; display:flex; align-items:center; color:var(--bright-white); text-decoration:none; border-bottom:1px solid rgba(255,23,68,0.28); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; }
+  .mobile-drawer a:active, .mobile-drawer a:focus-visible { color:var(--bright-red); outline:none; }
+  .mobile-drawer .drawer-cta { margin-top:1rem; justify-content:center; border:1px solid var(--bright-red); color:var(--bright-red); font-weight:600; }
+  .mobile-drawer .drawer-cta-primary { background:var(--bright-red); color:var(--bright-white); }
+  body.nav-open .mobile-backdrop, #site.nav-open .mobile-backdrop { opacity:1; pointer-events:auto; }
+  body.nav-open .mobile-drawer, #site.nav-open .mobile-drawer { transform:translateX(0); }
 
   .hero { min-height:42vh; display:flex; align-items:flex-start; position:relative; background:var(--black); }
   .hero-content { position:relative; z-index:2; padding:6.5rem 3rem 2.75rem; max-width:640px; }
@@ -160,20 +176,35 @@
   @keyframes fadeIn { from{opacity:0} to{opacity:1} }
 
   @media(max-width:768px) {
-    nav { padding:1rem; }
-    .nav-brand { gap:0.55rem; }
+    html, body { overflow-x:hidden; }
+    #site { width:100vw; max-width:100vw; overflow-x:hidden; }
+    #site.nav-open { overflow:hidden; }
+    nav { padding:0.75rem 1rem; min-height:68px; width:100vw; max-width:100vw; }
+    .nav-brand { gap:0.55rem; min-width:0; flex:1; }
+    .nav-brand-text { min-width:0; }
     .nav-globe { width:28px; }
-    .nav-title { font-size:0.95rem; letter-spacing:0.14em; }
-    .nav-sub { font-size:0.42rem; letter-spacing:0.28em; }
+    .nav-title { font-size:0.95rem; letter-spacing:0.14em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .nav-sub { font-size:0.42rem; letter-spacing:0.28em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .nav-links { display:none; }
-    .nav-actions { gap:0.45rem; }
-    .nav-btn { padding:0.48rem 0.65rem; font-size:0.5rem; letter-spacing:0.14em; }
-    .hero { min-height:46vh; }
-    .hero-content { padding:6rem 1.5rem 2.4rem; }
-    .services, .about, .mission-vision, .contact { padding:4rem 1.5rem; }
+    .nav-actions { display:none; }
+    .mobile-nav-toggle { display:flex; flex:0 0 44px; }
+    .accent-line, .scanlines { display:none; }
+    section { scroll-margin-top:78px; }
+    .hero { min-height:auto; align-items:flex-start; }
+    .hero-content { padding:5.2rem 1.5rem 2.5rem; max-width:100vw; width:100%; min-width:0; overflow:hidden; }
+    h1 { font-size:clamp(3.05rem,17vw,4.7rem); margin-bottom:0.85rem; }
+    h1, h2, h3, p, a { overflow-wrap:anywhere; }
+    .hero-desc { max-width:calc(100vw - 3rem); font-size:0.78rem; line-height:1.65; margin-bottom:1.25rem; }
+    .hero-btns { gap:0.8rem; align-items:stretch; flex-direction:column; }
+    .hero-btns .btn-red, .hero-btns .btn-ghost, .contact .btn-red { width:100%; min-height:46px; }
+    .btn-red, .btn-ghost { padding:0.82rem 1rem; white-space:normal; text-align:center; }
+    .services, .about, .mission-vision, .contact { padding:3rem 1.5rem; }
+    .services > div, .mission-vision-inner, .contact-inner, footer { max-width:100%; min-width:0; overflow:hidden; }
+    .section-title { font-size:clamp(2.2rem,13vw,3.2rem); margin-bottom:1.25rem; }
     .service-card { min-height:0; grid-template-columns:1fr; }
-    .service-card img { height:min(86vw,420px); border-right:0; border-bottom:1px solid var(--bright-red); }
+    .service-card img { height:min(58vw,260px); border-right:0; border-bottom:1px solid var(--bright-red); padding:0.7rem; }
     .service-body { gap:0.65rem; padding:1.4rem 1.5rem; }
+    .service-card p, .service-card.active p { display:block; }
     .about-grid { grid-template-columns:1fr; gap:2rem; }
     .mission-vision-grid { grid-template-columns:1fr; gap:0; }
     .statement-panel { padding:2rem 1.5rem 2.2rem; }
@@ -229,7 +260,29 @@
       <a class="nav-btn" href="#contact" data-content="nav.button">Get Started</a>
       <a class="nav-btn" href="https://portal.alpharecovery.org/login">Portal</a>
     </div>
+    <button class="mobile-nav-toggle" type="button" aria-label="Open menu" aria-controls="mobile-drawer" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </nav>
+  <button class="mobile-backdrop" type="button" aria-label="Close menu"></button>
+  <aside class="mobile-drawer" id="mobile-drawer" aria-label="Mobile navigation">
+    <a class="mobile-drawer-brand" href="#">
+      <img src="assets/globe-mark.png" alt="" />
+      <div class="nav-brand-text">
+        <span class="nav-title" data-content="nav.title">ALPHA RECOVERY</span>
+        <span class="nav-sub" data-content="nav.subtitle">Intelligence Beyond Sight</span>
+      </div>
+    </a>
+    <div class="mobile-drawer-label">Navigate</div>
+    <a href="#services">Services</a>
+    <a href="#about">About</a>
+    <a href="#contact">Contact</a>
+    <div class="mobile-drawer-label">Careers</div>
+    <a href="why-join-alpha.html">Why Join Alpha</a>
+    <a href="opportunities.html">Current Opportunities</a>
+    <a class="drawer-cta drawer-cta-primary" href="#contact" data-content="nav.button">Get Started</a>
+    <a class="drawer-cta" href="https://portal.alpharecovery.org/login">Portal</a>
+  </aside>
 
   <!-- HERO -->
   <section class="hero">
@@ -393,6 +446,41 @@ function bindServiceCards() {
         card.setAttribute('aria-expanded', 'true');
       }
     });
+  });
+}
+
+function setupMobileNavigation() {
+  const site = document.getElementById('site');
+  const toggle = document.querySelector('.mobile-nav-toggle');
+  const drawer = document.getElementById('mobile-drawer');
+  const backdrop = document.querySelector('.mobile-backdrop');
+  if (!toggle || !drawer || !backdrop) return;
+
+  function setOpen(open, returnFocus = true) {
+    document.body.classList.toggle('nav-open', open);
+    if (site) site.classList.toggle('nav-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    if (open) {
+      const firstLink = drawer.querySelector('a');
+      if (firstLink) firstLink.focus({ preventScroll: true });
+    } else if (returnFocus) {
+      toggle.focus({ preventScroll: true });
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+  });
+  backdrop.addEventListener('click', () => setOpen(false));
+  drawer.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setOpen(false, false));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') setOpen(false);
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768 && toggle.getAttribute('aria-expanded') === 'true') setOpen(false, false);
   });
 }
 
@@ -633,6 +721,7 @@ fetch('content/site.json', { cache: 'no-store' })
   .catch(() => {});
 
 bindServiceCards();
+setupMobileNavigation();
 
 const revealSections = document.querySelectorAll('.services, .about, .mission-vision, .contact');
 if (!editorMode) {

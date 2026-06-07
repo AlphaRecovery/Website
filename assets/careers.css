@@ -25,6 +25,23 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 1.2rem 3
 .nav-item:hover .nav-dropdown, .nav-item:focus-within .nav-dropdown { opacity: 1; visibility: visible; transform: translateY(0); }
 .nav-btn { font-size: 0.57rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bright-red); border: 1px solid var(--bright-red); padding: 0.52rem 1.2rem; text-decoration: none; background: var(--black); transition: all 0.25s; }
 .nav-btn:hover { background: var(--bright-red); color: var(--bright-white); }
+.mobile-nav-toggle { display: none; width: 44px; min-width: 44px; height: 44px; border: 1px solid var(--bright-red); background: var(--black); color: var(--bright-white); align-items: center; justify-content: center; flex-direction: column; gap: 5px; position: relative; z-index: 61; margin-left: auto; }
+.mobile-nav-toggle span { display: block; width: 18px; height: 1px; background: currentColor; transition: transform 0.25s, opacity 0.25s; }
+.mobile-nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.mobile-nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.mobile-nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+.mobile-backdrop { position: fixed; inset: 0; z-index: 58; background: rgba(0,0,0,0.68); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+.mobile-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 60; width: min(84vw, 340px); background: var(--black); border-right: 1px solid var(--bright-red); transform: translateX(-100%); transition: transform 0.28s ease; padding: 1rem 1.1rem 1.4rem; display: flex; flex-direction: column; gap: 0; overflow-y: auto; }
+.mobile-drawer-brand { display: flex; align-items: center; gap: 0.65rem; min-height: 56px; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,23,68,0.8); text-decoration: none; }
+.mobile-drawer-brand img { width: 30px; filter: invert(1) brightness(2); }
+.mobile-drawer-label { margin: 1.1rem 0 0.35rem; font-size: 0.48rem; letter-spacing: 0.32em; text-transform: uppercase; color: var(--bright-red); }
+.mobile-drawer a { min-height: 46px; display: flex; align-items: center; color: var(--bright-white); text-decoration: none; border-bottom: 1px solid rgba(255,23,68,0.28); font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; }
+.mobile-drawer a.active, .mobile-drawer a:active, .mobile-drawer a:focus-visible { color: var(--bright-red); outline: none; }
+.mobile-drawer .drawer-cta { margin-top: 1rem; justify-content: center; border: 1px solid var(--bright-red); color: var(--bright-red); font-weight: 600; }
+.mobile-drawer .drawer-cta-primary { background: var(--bright-red); color: var(--bright-white); }
+body.nav-open { overflow: hidden; }
+body.nav-open .mobile-backdrop { opacity: 1; pointer-events: auto; }
+body.nav-open .mobile-drawer { transform: translateX(0); }
 
 .accent-line { position: fixed; left: 0; top: 20%; bottom: 20%; width: 2px; background: var(--bright-red); z-index: 1; }
 main { padding-top: 86px; }
@@ -183,14 +200,34 @@ footer p { font-size: 0.5rem; font-weight: 300; letter-spacing: 0.3em; text-tran
 footer p:last-child { color: var(--bright-red); }
 
 @media(max-width: 900px) {
-  nav { padding: 1rem; }
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  nav { padding: 0.75rem 1rem; min-height: 68px; width: 100vw; max-width: 100vw; }
+  .nav-brand { min-width: 0; flex: 1; }
+  .nav-brand-text { min-width: 0; }
   .nav-globe { width: 28px; }
-  .nav-title { font-size: 0.95rem; letter-spacing: 0.14em; }
-  .nav-sub { font-size: 0.42rem; letter-spacing: 0.28em; }
+  .nav-title { font-size: 0.95rem; letter-spacing: 0.14em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nav-sub { font-size: 0.42rem; letter-spacing: 0.28em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nav-links { display: none; }
+  nav > .nav-btn { display: none; }
+  .mobile-nav-toggle { display: flex; flex: 0 0 44px; }
+  .accent-line, .why-page .scanlines { display: none; }
+  main { padding-top: 68px; width: 100vw; max-width: 100vw; overflow-x: hidden; }
+  h1, h2, h3, p, a, li, dd { overflow-wrap: anywhere; }
   .careers-hero, .job-detail-hero, .jobs-board, .content-section, .job-detail-grid { padding-left: 1.5rem; padding-right: 1.5rem; }
+  .careers-hero-inner, .content-wrap, .jobs-board, .job-detail-grid, .why-hero-inner, .pillars, .why-benefits, footer { max-width: 100%; min-width: 0; overflow: hidden; }
+  .careers-hero { min-height: auto; padding-top: 3rem; padding-bottom: 2.5rem; align-items: flex-start; }
+  .job-detail-hero { padding-top: 3rem; padding-bottom: 2rem; }
   .search-row, .filter-row, .jobs-grid, .job-detail-grid { grid-template-columns: 1fr; }
+  .filter-actions .btn-red, .filter-actions .btn-ghost, .hero-actions .btn-red, .cta-actions .btn-red, .cta-actions .btn-ghost { width: 100%; min-height: 46px; }
+  .job-card { grid-template-columns: 1fr; gap: 0.9rem; }
+  .job-card:hover { padding-left: 0; }
+  .job-detail-grid { padding-top: 2rem; padding-bottom: 2.5rem; gap: 2rem; }
+  .job-sidebar { position: static; }
+  .job-sidebar .btn-red { width: 100%; min-height: 46px; }
   .why-hero, .why-manifesto, .pillars, .impact, .why-benefits, .why-cta { padding-left: 1.5rem; padding-right: 1.5rem; }
+  .why-hero { min-height: auto; padding-top: 3rem; padding-bottom: 3rem; align-items: flex-start; }
+  .why-hero .lead { max-width: none; }
+  .scroll-cue { display: none; }
   .why-manifesto { padding-top: 4rem; padding-bottom: 4rem; }
   .pillar { grid-template-columns: 1fr; gap: 1.2rem; padding: 3.5rem 0; }
   .pillar-num { font-size: clamp(5rem, 22vw, 8rem); }
@@ -201,6 +238,15 @@ footer p:last-child { color: var(--bright-red); }
   .impact .inner { grid-template-columns: 1fr; gap: 1.6rem; }
   .benefits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .why-cta { padding-top: 5rem; padding-bottom: 5rem; }
-  .job-sidebar { position: static; }
   footer { flex-direction: column; gap: 1rem; text-align: center; }
+}
+
+@media(max-width: 520px) {
+  h1 { font-size: clamp(3rem, 17vw, 4.7rem); }
+  h2 { font-size: clamp(2rem, 12vw, 3rem); }
+  .lead, p, li { font-size: 0.8rem; line-height: 1.7; }
+  .section-tag { letter-spacing: 0.34em; }
+  .jobs-board, .content-section { padding-top: 3rem; padding-bottom: 3rem; }
+  .benefits-grid { grid-template-columns: 1fr; }
+  footer { padding-left: 1.5rem; padding-right: 1.5rem; }
 }

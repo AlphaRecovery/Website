@@ -187,4 +187,40 @@ function initWhyJoin(content) {
   targets.forEach((el) => observer.observe(el));
 }
 
+function setupMobileNavigation() {
+  const toggle = document.querySelector('.mobile-nav-toggle');
+  const drawer = document.getElementById('mobile-drawer');
+  const backdrop = document.querySelector('.mobile-backdrop');
+  if (!toggle || !drawer || !backdrop || toggle.dataset.bound === 'true') return;
+  toggle.dataset.bound = 'true';
+
+  function setOpen(open, returnFocus = true) {
+    document.body.classList.toggle('nav-open', open);
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    if (open) {
+      const firstLink = drawer.querySelector('a');
+      if (firstLink) firstLink.focus({ preventScroll: true });
+    } else if (returnFocus) {
+      toggle.focus({ preventScroll: true });
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+  });
+  backdrop.addEventListener('click', () => setOpen(false));
+  drawer.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setOpen(false, false));
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') setOpen(false);
+  });
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900 && toggle.getAttribute('aria-expanded') === 'true') setOpen(false, false);
+  });
+}
+
+setupMobileNavigation();
+
 window.AlphaCareers = { initCareersLanding, initJobDetail, initWhyJoin };
