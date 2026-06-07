@@ -51,7 +51,7 @@ const nav = {
   ]
 };
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen = false, onNavigate }) {
   const { user, logout } = useAuth();
   const items = nav[user.role] || [];
   const location = useLocation();
@@ -97,6 +97,19 @@ export default function Sidebar() {
     markSeen(countKey);
   }, [counts, items, location.pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) return undefined;
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') onNavigate?.();
+    }
+    document.body.classList.add('portal-nav-lock');
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.classList.remove('portal-nav-lock');
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileOpen, onNavigate]);
+
   async function markSeen(countKey) {
     if (!countKey || countKey === 'messages') return;
     try {
@@ -108,7 +121,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${mobileOpen ? ' open' : ''}`} id="portal-sidebar">
       <div className="sidebar-brand">
         <span>ALPHA</span>
         <strong>RECOVERY</strong>
@@ -117,7 +130,15 @@ export default function Sidebar() {
         {items.map(([label, to, countKey]) => {
           const count = countKey ? Number(counts[countKey] || 0) : 0;
           return (
-            <NavLink key={to} to={to} end={to.split('/').length <= 3} onClick={() => markSeen(countKey)}>
+            <NavLink
+              key={to}
+              to={to}
+              end={to.split('/').length <= 3}
+              onClick={() => {
+                markSeen(countKey);
+                onNavigate?.();
+              }}
+            >
               <span>{label}</span>
               {count > 0 && <span className="nav-count" aria-label={`${count} new alerts`}>{count > 99 ? '99+' : count}</span>}
             </NavLink>

@@ -25,19 +25,19 @@ nav { position: fixed; top: 0; left: 0; right: 0; z-index: 50; padding: 1.2rem 3
 .nav-item:hover .nav-dropdown, .nav-item:focus-within .nav-dropdown { opacity: 1; visibility: visible; transform: translateY(0); }
 .nav-btn { font-size: 0.57rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--bright-red); border: 1px solid var(--bright-red); padding: 0.52rem 1.2rem; text-decoration: none; background: var(--black); transition: all 0.25s; }
 .nav-btn:hover { background: var(--bright-red); color: var(--bright-white); }
-.mobile-nav-toggle { display: none; width: 44px; min-width: 44px; height: 44px; border: 1px solid var(--bright-red); background: var(--black); color: var(--bright-white); align-items: center; justify-content: center; flex-direction: column; gap: 5px; position: relative; z-index: 61; margin-left: auto; }
-.mobile-nav-toggle span { display: block; width: 18px; height: 1px; background: currentColor; transition: transform 0.25s, opacity 0.25s; }
+.mobile-nav-toggle { display: none; width: 40px; min-width: 40px; height: 40px; border: 1px solid var(--bright-red); background: var(--black); color: var(--bright-white); align-items: center; justify-content: center; flex-direction: column; gap: 5px; position: relative; margin: 0; }
+.mobile-nav-toggle span { display: block; width: 17px; height: 1px; background: currentColor; transition: transform 0.25s, opacity 0.25s; }
 .mobile-nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
 .mobile-nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
 .mobile-nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 .mobile-backdrop { position: fixed; inset: 0; z-index: 58; background: rgba(0,0,0,0.68); opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
-.mobile-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 60; width: min(84vw, 340px); background: var(--black); border-right: 1px solid var(--bright-red); transform: translateX(-100%); transition: transform 0.28s ease; padding: 1rem 1.1rem 1.4rem; display: flex; flex-direction: column; gap: 0; overflow-y: auto; }
-.mobile-drawer-brand { display: flex; align-items: center; gap: 0.65rem; min-height: 56px; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,23,68,0.8); text-decoration: none; }
-.mobile-drawer-brand img { width: 30px; filter: invert(1) brightness(2); }
-.mobile-drawer-label { margin: 1.1rem 0 0.35rem; font-size: 0.48rem; letter-spacing: 0.32em; text-transform: uppercase; color: var(--bright-red); }
-.mobile-drawer a { min-height: 46px; display: flex; align-items: center; color: var(--bright-white); text-decoration: none; border-bottom: 1px solid rgba(255,23,68,0.28); font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; }
+.mobile-drawer { position: fixed; top: 0; left: 0; bottom: 0; z-index: 60; width: min(78vw, 286px); background: var(--black); border-right: 1px solid var(--bright-red); transform: translateX(-100%); transition: transform 0.24s ease; padding: 0.85rem 0.95rem 1.1rem; display: flex; flex-direction: column; gap: 0; overflow-y: auto; }
+.mobile-drawer-brand { display: flex; align-items: center; gap: 0.55rem; min-height: 48px; padding-bottom: 0.75rem; border-bottom: 1px solid rgba(255,23,68,0.8); text-decoration: none; }
+.mobile-drawer-brand img { width: 26px; filter: invert(1) brightness(2); }
+.mobile-drawer-label { margin: 0.9rem 0 0.25rem; font-size: 0.42rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--bright-red); }
+.mobile-drawer a { min-height: 40px; display: flex; align-items: center; color: var(--bright-white); text-decoration: none; border-bottom: 1px solid rgba(255,23,68,0.28); font-size: 0.64rem; letter-spacing: 0.14em; text-transform: uppercase; }
 .mobile-drawer a.active, .mobile-drawer a:active, .mobile-drawer a:focus-visible { color: var(--bright-red); outline: none; }
-.mobile-drawer .drawer-cta { margin-top: 1rem; justify-content: center; border: 1px solid var(--bright-red); color: var(--bright-red); font-weight: 600; }
+.mobile-drawer .drawer-cta { margin-top: 0.75rem; justify-content: center; border: 1px solid var(--bright-red); color: var(--bright-red); font-weight: 600; }
 .mobile-drawer .drawer-cta-primary { background: var(--bright-red); color: var(--bright-white); }
 body.nav-open { overflow: hidden; }
 body.nav-open .mobile-backdrop { opacity: 1; pointer-events: auto; }
@@ -201,24 +201,24 @@ footer p:last-child { color: var(--bright-red); }
 
 @media(max-width: 900px) {
   html, body { overflow-x: hidden; max-width: 100vw; }
-  nav { padding: 0.75rem 1rem; min-height: 68px; width: 100vw; max-width: 100vw; }
-  .nav-brand { min-width: 0; flex: 1; }
+  nav { padding: 0.6rem 0.9rem; min-height: 58px; width: 100vw; max-width: 100vw; justify-content: flex-start; gap: 0.65rem; }
+  .nav-brand { min-width: 0; flex: 1; order: 1; }
   .nav-brand-text { min-width: 0; }
   .nav-globe { width: 28px; }
   .nav-title { font-size: 0.95rem; letter-spacing: 0.14em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nav-sub { font-size: 0.42rem; letter-spacing: 0.28em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .nav-links { display: none; }
   nav > .nav-btn { display: none; }
-  .mobile-nav-toggle { display: flex; flex: 0 0 44px; }
+  .mobile-nav-toggle { display: flex; flex: 0 0 40px; order: 0; }
   .accent-line, .why-page .scanlines { display: none; }
-  main { padding-top: 68px; width: 100vw; max-width: 100vw; overflow-x: hidden; }
+  main { padding-top: 58px; width: 100vw; max-width: 100vw; overflow-x: hidden; }
   h1, h2, h3, p, a, li, dd { overflow-wrap: anywhere; }
   .careers-hero, .job-detail-hero, .jobs-board, .content-section, .job-detail-grid { padding-left: 1.5rem; padding-right: 1.5rem; }
   .careers-hero-inner, .content-wrap, .jobs-board, .job-detail-grid, .why-hero-inner, .pillars, .why-benefits, footer { max-width: 100%; min-width: 0; overflow: hidden; }
   .careers-hero { min-height: auto; padding-top: 3rem; padding-bottom: 2.5rem; align-items: flex-start; }
   .job-detail-hero { padding-top: 3rem; padding-bottom: 2rem; }
   .search-row, .filter-row, .jobs-grid, .job-detail-grid { grid-template-columns: 1fr; }
-  .filter-actions .btn-red, .filter-actions .btn-ghost, .hero-actions .btn-red, .cta-actions .btn-red, .cta-actions .btn-ghost { width: 100%; min-height: 46px; }
+  .filter-actions .btn-red, .filter-actions .btn-ghost, .hero-actions .btn-red, .cta-actions .btn-red, .cta-actions .btn-ghost { width: 100%; min-height: 44px; }
   .job-card { grid-template-columns: 1fr; gap: 0.9rem; }
   .job-card:hover { padding-left: 0; }
   .job-detail-grid { padding-top: 2rem; padding-bottom: 2.5rem; gap: 2rem; }

@@ -25,6 +25,10 @@ body {
   color: var(--white);
 }
 
+body.portal-nav-lock {
+  overflow: hidden;
+}
+
 button,
 input,
 select,
@@ -194,6 +198,62 @@ code {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.portal-mobile-bar,
+.portal-nav-backdrop {
+  display: none;
+}
+
+.portal-menu-button {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #030303;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.portal-menu-button span {
+  width: 17px;
+  height: 1px;
+  background: var(--white);
+  display: block;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.portal-layout.nav-open .portal-menu-button span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.portal-layout.nav-open .portal-menu-button span:nth-child(2) {
+  opacity: 0;
+}
+
+.portal-layout.nav-open .portal-menu-button span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+.portal-mobile-brand {
+  display: grid;
+  gap: 0.05rem;
+  line-height: 1;
+}
+
+.portal-mobile-brand span {
+  color: var(--red);
+  font-family: "Cormorant Garamond", Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.portal-mobile-brand strong {
+  color: var(--white);
+  font-size: 0.58rem;
+  letter-spacing: 0.24em;
 }
 
 .sidebar {
@@ -3652,11 +3712,46 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 @media (max-width: 1100px) {
   .login-shell,
-  .portal-layout,
   .split-panel,
   .application-shell,
   .jobs-portal {
     grid-template-columns: 1fr;
+  }
+
+  .portal-layout {
+    grid-template-columns: 1fr;
+    padding-top: 58px;
+  }
+
+  .portal-mobile-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1900;
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--line);
+    background: rgba(0, 0, 0, 0.96);
+  }
+
+  .portal-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1800;
+    display: block;
+    background: rgba(0, 0, 0, 0.58);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .portal-layout.nav-open .portal-nav-backdrop {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .login-panel {
@@ -3664,17 +3759,65 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 
   .sidebar {
-    position: static;
-    min-height: auto;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 2000;
+    width: min(78vw, 286px);
+    min-height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar-brand {
+    padding: 0.85rem 1rem;
+  }
+
+  .sidebar-brand span {
+    font-size: 1.75rem;
+  }
+
+  .sidebar-brand strong {
+    font-size: 0.58rem;
+    letter-spacing: 0.26em;
+  }
+
+  .sidebar nav {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar a {
+    min-height: 40px;
+    padding: 0.68rem 1rem;
+    font-size: 0.68rem;
+    letter-spacing: 0.07em;
+  }
+
+  .sidebar-user {
+    padding: 0.9rem 1rem;
+    gap: 0.42rem;
+  }
+
+  .sidebar-user button {
+    min-height: 38px;
+    padding: 0.52rem 0.7rem;
+    font-size: 0.66rem;
+  }
+
+  .portal-main {
+    padding: 0.85rem;
   }
 
   .application-rail {
     position: static;
     min-height: auto;
-  }
-
-  .sidebar nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .stat-grid,
