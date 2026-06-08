@@ -544,9 +544,13 @@ export default function ApplicationForm() {
     for (const [field, fileList] of Object.entries(files)) {
       for (const file of fileList) form.append(field, file);
     }
-    const data = await api('/api/application/submit', { method: 'POST', body: form });
-    setConfirmation(data.confirmation);
-    setError('');
+    try {
+      const data = await api('/api/application/submit', { method: 'POST', body: form });
+      setConfirmation(data.confirmation);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Application submission failed. Please review your uploads and try again.');
+    }
   }
 
   function next() {
@@ -1128,13 +1132,13 @@ function UploadFieldList({ uploads, files, setFiles, intro }) {
   if (!uploads.length) return null;
   return <div className="stack-list">
     <p>{intro}</p>
-    <p>Accepted file types: PDF, JPG, PNG. Maximum file size: 10MB per file.</p>
+    <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: 10MB per file.</p>
     {uploads.map(({ field, status }) => <div className="upload-row" key={field}>
       <div>
         <strong>{UPLOAD_LABELS[field] || field}</strong>
         <small>{fileLabel(status)}</small>
       </div>
-      <input type="file" accept=".pdf,.jpg,.jpeg,.png" multiple={status !== 'required'} onChange={(event) => setFiles((current) => ({ ...current, [field]: Array.from(event.target.files || []) }))} />
+      <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple={status !== 'required'} onChange={(event) => setFiles((current) => ({ ...current, [field]: Array.from(event.target.files || []) }))} />
       {!!files[field]?.length && <small>{files[field].map((file) => file.name).join(', ')}</small>}
     </div>)}
   </div>;
