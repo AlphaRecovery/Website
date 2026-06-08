@@ -9,10 +9,16 @@ import authRoutes from './routes/auth.routes.js';
 import domainRoutes from './routes/domain.routes.js';
 import documentRoutes from './routes/documents.routes.js';
 import employmentRoutes from './routes/employment.routes.js';
+import { createRateLimiter } from './middleware/rateLimit.js';
 
 await loadDb();
 
 const app = express();
+app.set('trust proxy', 1);
+
+const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 25, keyPrefix: 'auth', methods: ['POST'] });
+const writeLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 40, keyPrefix: 'write', methods: ['POST', 'PATCH', 'DELETE'] });
+const uploadLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 30, keyPrefix: 'upload', methods: ['POST'] });
 
 app.use(cors((req, callback) => {
   const origin = req.header('origin');
@@ -46,6 +52,19 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(
+  [
+    '/api/auth/login',
+    '/api/auth/register-applicant',
+    '/api/auth/accept-invite',
+    '/api/auth/request-password-reset',
+    '/api/auth/reset-password'
+  ],
+  authLimiter
+);
+app.use(['/api/messages', '/api/tasks', '/api/documents/request', '/api/companies'], writeLimiter);
+app.use(['/api/application/submit', '/api/documents'], uploadLimiter);
+
 app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
@@ -70,6 +89,12 @@ if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
 
 app.use((error, req, res, next) => {
   console.error(error);
+  if (error?.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({ error: 'Uploaded files must be 10MB or smaller.' });
+  }
+  if (error?.message === 'Unsupported file type') {
+    return res.status(400).json({ error: 'Unsupported file type. Upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.' });
+  }
   res.status(500).json({ error: error.message || 'Server error' });
 });
 

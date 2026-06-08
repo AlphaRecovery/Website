@@ -173,7 +173,7 @@ router.post('/reset-password', async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/dev/create-invite', requireAuth, requireRole('admin'), (req, res) => {
+router.post('/dev/create-invite', requireAuth, requireRole('admin'), async (req, res) => {
   const token = crypto.randomBytes(32).toString('hex');
   const invite = insert('invites', {
     email: String(req.body.email || '').toLowerCase(),
@@ -184,13 +184,21 @@ router.post('/dev/create-invite', requireAuth, requireRole('admin'), (req, res) 
     expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
   });
   logActivity(req.user.id, 'invite_sent', { invite_id: invite.id, email: invite.email, role: invite.role });
-  sendEmail({
-    to: invite.email,
-    subject: 'Alpha Recovery Portal Invitation',
-    text: `You have been invited to the Alpha Recovery portal as ${invite.role}.\n\nAccept invite: ${portalUrl(`/accept-invite?token=${token}`)}\n\nThis invite expires in 7 days.`,
-    html: `<p>You have been invited to the Alpha Recovery portal as <strong>${invite.role}</strong>.</p><p><a href="${portalUrl(`/accept-invite?token=${token}`)}">Accept invite</a></p><p>This invite expires in 7 days.</p>`
-  }).catch((error) => console.error('Invite email failed:', error));
-  res.json({ invite, token });
+  try {
+    const email = await sendEmail({
+      to: invite.email,
+      subject: 'Alpha Recovery Portal Invitation',
+      text: `You have been invited to the Alpha Recovery portal as ${invite.role}.\n\nAccept invite: ${portalUrl(`/accept-invite?token=${token}`)}\n\nThis invite expires in 7 days.`,
+      html: `<p>You have been invited to the Alpha Recovery portal as <strong>${invite.role}</strong>.</p><p><a href="${portalUrl(`/accept-invite?token=${token}`)}">Accept invite</a></p><p>This invite expires in 7 days.</p>`
+    });
+    res.json({ invite, token, email });
+  } catch (error) {
+    console.error('Invite email failed:', error);
+    invite.email_status = 'failed';
+    invite.email_error = error.message;
+    saveDb();
+    res.status(502).json({ error: 'Invite was created, but the email failed to send.', invite, token });
+  }
 });
 
 router.patch('/users/:id/status', requireAuth, requireRole('admin'), (req, res) => {

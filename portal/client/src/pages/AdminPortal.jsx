@@ -42,13 +42,22 @@ const paths = [
 function InviteUsers({ onRefresh }) {
   const [form, setForm] = useState({ email: '', role: 'applicant' });
   const [token, setToken] = useState('');
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
 
   async function submit(event) {
     event.preventDefault();
-    const data = await api('/api/auth/dev/create-invite', { method: 'POST', body: JSON.stringify(form) });
-    setToken(data.token);
-    setForm({ email: '', role: 'applicant' });
-    onRefresh();
+    setNotice('');
+    setError('');
+    try {
+      const data = await api('/api/auth/dev/create-invite', { method: 'POST', body: JSON.stringify(form) });
+      setToken(data.token);
+      setNotice(data.email?.logged ? 'Invite created and email logged.' : 'Invite created and email sent.');
+      setForm({ email: '', role: 'applicant' });
+    } catch (err) {
+      setToken('');
+      setError(err.message);
+    }
   }
 
   return (
@@ -61,6 +70,8 @@ function InviteUsers({ onRefresh }) {
         </select>
         <button type="submit">Send Invite</button>
       </form>
+      {notice && <div className="success-message">{notice}</div>}
+      {error && <div className="error-message">{error}</div>}
       {token && <div className="invite-token">Development invite token: <code>{token}</code></div>}
     </div>
   );

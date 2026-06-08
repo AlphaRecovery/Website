@@ -51,7 +51,7 @@ const nav = {
   ]
 };
 
-export default function Sidebar({ mobileOpen = false, onNavigate }) {
+export default function Sidebar({ mobileOpen = false, isMobileNav = false, onNavigate }) {
   const { user, logout } = useAuth();
   const items = nav[user.role] || [];
   const location = useLocation();
@@ -121,7 +121,12 @@ export default function Sidebar({ mobileOpen = false, onNavigate }) {
   }
 
   return (
-    <aside className={`sidebar${mobileOpen ? ' open' : ''}`} id="portal-sidebar">
+    <aside
+      className={`sidebar${mobileOpen ? ' open' : ''}`}
+      id="portal-sidebar"
+      aria-hidden={isMobileNav && !mobileOpen ? 'true' : undefined}
+      inert={isMobileNav && !mobileOpen ? '' : undefined}
+    >
       <div className="sidebar-brand">
         <span>ALPHA</span>
         <strong>RECOVERY</strong>
