@@ -15,10 +15,19 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api('/api/auth/me')
+    api('/api/auth/me', { suppressAuthRedirect: true })
       .then((data) => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    function handleAuthRequired() {
+      setUser(null);
+      setLoading(false);
+    }
+    window.addEventListener('portal-auth-required', handleAuthRequired);
+    return () => window.removeEventListener('portal-auth-required', handleAuthRequired);
   }, []);
 
   async function login(email, password) {
@@ -31,8 +40,13 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await api('/api/auth/logout', { method: 'POST', body: '{}' });
-    setUser(null);
+    try {
+      await api('/api/auth/logout', { method: 'POST', body: '{}', suppressAuthRedirect: true });
+    } catch (err) {
+      if (err.status !== 401) throw err;
+    } finally {
+      setUser(null);
+    }
   }
 
   async function changePassword(currentPassword, newPassword) {

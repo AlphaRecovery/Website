@@ -90,8 +90,8 @@ router.post('/register-applicant', async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
-router.post('/logout', requireAuth, (req, res) => {
-  logActivity(req.user.id, 'logout');
+router.post('/logout', (req, res) => {
+  if (req.user) logActivity(req.user.id, 'logout');
   clearSession(req, res);
   res.json({ ok: true });
 });

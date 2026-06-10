@@ -1,14 +1,25 @@
 const API_URL = import.meta.env.VITE_PORTAL_API_URL || '';
 
+export class ApiError extends Error {
+  constructor(message, { status, payload, path } = {}) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
+    this.path = path;
+  }
+}
+
 export async function api(path, options = {}) {
-  const isFormData = options.body instanceof FormData;
+  const { suppressAuthRedirect = false, headers = {}, ...fetchOptions } = options;
+  const isFormData = fetchOptions.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
+    ...fetchOptions,
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(options.headers || {})
-    },
-    ...options
+      ...headers
+    }
   });
 
   const contentType = response.headers.get('content-type') || '';
@@ -16,7 +27,11 @@ export async function api(path, options = {}) {
 
   if (!response.ok) {
     const message = typeof payload === 'object' && payload.error ? payload.error : 'Request failed';
-    throw new Error(message);
+    const error = new ApiError(message, { status: response.status, payload, path });
+    if (response.status === 401 && !suppressAuthRedirect && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('portal-auth-required', { detail: { path } }));
+    }
+    throw error;
   }
 
   return payload;

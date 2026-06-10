@@ -10,10 +10,13 @@ export function usePortalData(paths) {
     setLoading(true);
     setError('');
     try {
-      const entries = await Promise.all(paths.map(async ([key, path]) => [key, await api(path)]));
-      setData(Object.fromEntries(entries));
+      const nextData = {};
+      for (const [key, path] of paths) {
+        nextData[key] = await api(path);
+      }
+      setData(nextData);
     } catch (err) {
-      setError(err.message);
+      if (err.status !== 401) setError(err.message);
     } finally {
       setLoading(false);
     }
