@@ -3,7 +3,10 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-dotenv.config({ path: path.join(root, '.env'), override: true });
+
+if (!process.env.VERCEL) {
+  dotenv.config({ path: path.join(root, '.env'), override: true });
+}
 
 export const config = {
   root,
