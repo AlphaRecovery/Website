@@ -44,20 +44,29 @@ function InviteUsers({ onRefresh }) {
   const [token, setToken] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const inviteLink = token ? `${window.location.origin}/accept-invite?token=${token}` : '';
 
   async function submit(event) {
     event.preventDefault();
     setNotice('');
     setError('');
+    setCopied(false);
     try {
       const data = await api('/api/auth/dev/create-invite', { method: 'POST', body: JSON.stringify(form) });
       setToken(data.token);
-      setNotice(data.email?.logged ? 'Invite created and email logged.' : 'Invite created and email sent.');
+      setNotice(data.warning || (data.email?.logged ? 'Invite created and email logged.' : 'Invite created and email sent.'));
       setForm({ email: '', role: 'applicant' });
     } catch (err) {
       setToken('');
       setError(err.message);
     }
+  }
+
+  async function copyInviteLink() {
+    if (!inviteLink) return;
+    await navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
   }
 
   return (
@@ -72,7 +81,13 @@ function InviteUsers({ onRefresh }) {
       </form>
       {notice && <div className="success-message">{notice}</div>}
       {error && <div className="error-message">{error}</div>}
-      {token && <div className="invite-token">Development invite token: <code>{token}</code></div>}
+      {token && (
+        <div className="invite-token">
+          <span>Invite link</span>
+          <code>{inviteLink}</code>
+          <button type="button" onClick={copyInviteLink}>{copied ? 'Copied' : 'Copy Link'}</button>
+        </div>
+      )}
     </div>
   );
 }

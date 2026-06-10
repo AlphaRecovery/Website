@@ -129,6 +129,7 @@ router.post('/accept-invite', async (req, res) => {
   });
   invite.status = 'accepted';
   saveDb();
+  createSession(user, req, res);
   logActivity(user.id, 'invite_accepted', { invite_id: invite.id, role: invite.role });
   res.json({ user: publicUser(user) });
 });
@@ -191,13 +192,20 @@ router.post('/dev/create-invite', requireAuth, requireRole('admin'), async (req,
       text: `You have been invited to the Alpha Recovery portal as ${invite.role}.\n\nAccept invite: ${portalUrl(`/accept-invite?token=${token}`)}\n\nThis invite expires in 7 days.`,
       html: `<p>You have been invited to the Alpha Recovery portal as <strong>${invite.role}</strong>.</p><p><a href="${portalUrl(`/accept-invite?token=${token}`)}">Accept invite</a></p><p>This invite expires in 7 days.</p>`
     });
+    invite.email_status = email.logged ? 'logged' : 'sent';
+    saveDb();
     res.json({ invite, token, email });
   } catch (error) {
-    console.error('Invite email failed:', error);
+    console.error('Invite email failed:', { message: error.message, to: invite.email, role: invite.role });
     invite.email_status = 'failed';
     invite.email_error = error.message;
     saveDb();
-    res.status(502).json({ error: 'Invite was created, but the email failed to send.', invite, token });
+    res.json({
+      invite,
+      token,
+      email: { ok: false, error: error.message },
+      warning: 'Invite was created, but the email failed to send. Copy the invite link below.'
+    });
   }
 });
 

@@ -5,6 +5,7 @@ import { useAuth, homeForRole } from './auth/AuthContext.jsx';
 const Login = lazy(() => import('./pages/Login.jsx'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
+const AcceptInvite = lazy(() => import('./pages/AcceptInvite.jsx'));
 const AdminPortal = lazy(() => import('./pages/AdminPortal.jsx'));
 const RecruiterPortal = lazy(() => import('./pages/RecruiterPortal.jsx'));
 const ContractorPortal = lazy(() => import('./pages/ContractorPortal.jsx'));
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/change-password" element={<ProtectedRoute roles={['admin', 'recruiter', 'contractor', 'applicant']}><ChangePassword /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
+        <Route path="/accept-invite" element={<AcceptInvite />} />
         <Route path="/apply/:roleSlug" element={<ProtectedRoute roles={['applicant']}><ApplicationForm /></ProtectedRoute>} />
         <Route path="/schedule/:token" element={<ProtectedRoute roles={['applicant']}><CandidateSchedule /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute roles={['admin', 'recruiter']}><EmploymentAdmin /></ProtectedRoute>} />

@@ -775,6 +775,13 @@ dd {
   border: 1px solid var(--red);
   padding: 0.9rem;
   color: var(--muted);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.invite-token span {
+  color: var(--white);
+  font-weight: 700;
 }
 
 .success-message {
