@@ -64,15 +64,29 @@ if (merged.length === existing.length && WORD_TYPES.every((t) => existing.includ
   process.exit(0);
 }
 
+// NOTE: updateBucket expects camelCase option keys (allowedMimeTypes,
+// fileSizeLimit). Passing snake_case keys is silently ignored and the bucket is
+// left unchanged, so always re-read afterward to confirm the change persisted.
 const { error: updateError } = await supabase.storage.updateBucket(bucket, {
   public: current.public,
-  file_size_limit: current.file_size_limit,
-  allowed_mime_types: merged
+  fileSizeLimit: current.file_size_limit,
+  allowedMimeTypes: merged
 });
 if (updateError) {
   console.error('Failed to update bucket:', updateError.message);
   process.exit(1);
 }
 
-console.log('Updated allowed_mime_types:', merged);
-console.log('Done. DOC/DOCX uploads are now accepted.');
+const { data: confirmed, error: confirmError } = await supabase.storage.getBucket(bucket);
+if (confirmError) {
+  console.error('Update sent, but failed to re-read bucket to confirm:', confirmError.message);
+  process.exit(1);
+}
+const persisted = confirmed.allowed_mime_types || [];
+const ok = WORD_TYPES.every((t) => persisted.includes(t));
+console.log('Re-read allowed_mime_types:', persisted);
+if (!ok) {
+  console.error('DOC/DOCX did NOT persist — update was not applied. Set the allowed MIME types in the Supabase dashboard instead.');
+  process.exit(1);
+}
+console.log('Confirmed. DOC/DOCX uploads are now accepted.');
