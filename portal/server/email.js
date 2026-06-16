@@ -1,9 +1,19 @@
 import { config } from './config.js';
 
-export async function sendEmail({ to, subject, text, html }) {
+export async function sendEmail({ to, cc, subject, text, html, replyTo, attachments }) {
   if (!to) return { ok: false, skipped: true };
   if (config.emailDriver !== 'resend') {
-    console.log('[email:log]', { to, subject, text });
+    console.log('[email:log]', {
+      to,
+      cc,
+      subject,
+      text,
+      attachments: (attachments || []).map((attachment) => ({
+        filename: attachment.filename,
+        contentType: attachment.content_type,
+        hasContent: !!attachment.content
+      }))
+    });
     return { ok: true, logged: true };
   }
   if (!config.resendApiKey) throw new Error('RESEND_API_KEY is required when EMAIL_DRIVER=resend.');
@@ -16,9 +26,12 @@ export async function sendEmail({ to, subject, text, html }) {
     body: JSON.stringify({
       from: config.emailFrom,
       to,
+      ...(cc ? { cc } : {}),
       subject,
       text,
-      html
+      html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments?.length ? { attachments } : {})
     })
   });
   if (!response.ok) {
@@ -31,4 +44,3 @@ export async function sendEmail({ to, subject, text, html }) {
 export function portalUrl(path = '/') {
   return `${config.publicPortalUrl.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
 }
-

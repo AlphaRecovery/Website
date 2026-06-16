@@ -4,17 +4,20 @@ import path from 'node:path';
 import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { getDb, id, insert, saveDb, updateById } from '../data/store.js';
+import { getDb, insert, saveDb, updateById } from '../data/store.js';
 import { logActivity } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotificationsForAll } from '../notifications.js';
 import { sendEmail } from '../email.js';
-import { isRemoteStoragePath, readStoredFile, storeUploadedFile } from '../storage.js';
+import { isRemoteStoragePath, readStoredFile } from '../storage.js';
 import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
 
 const router = express.Router();
 const applicationUploadsDir = path.join(config.uploadsDir, 'employment-applications');
 fs.mkdirSync(applicationUploadsDir, { recursive: true });
+
+const APPLICATION_EMAIL_TO = 'Admin@alpharecovery.org';
+const APPLICATION_EMAIL_CC = 'Topeka.mv@alpharecovery.org';
 
 const upload = multer({
   dest: applicationUploadsDir,
@@ -94,33 +97,6 @@ function requiredUploads(role, payload) {
   if (role.uploads.degree) uploads.push({ field: 'degree', status: role.uploads.degree });
   if (role.uploads.driversLicense) uploads.push({ field: 'driversLicense', status: role.uploads.driversLicense });
   return uploads.filter((item) => item.status === 'required');
-}
-
-function scoreApplication(payload, role) {
-  const isYes = (value) => String(value || '').toLowerCase() === 'yes';
-  const education = payload.education?.highestLevel ? 12 : 0;
-  const educationBonus = payload.education?.degrees?.filter((degree) => degree.school || degree.degree).length ? 8 : 0;
-  const employers = payload.employmentHistory?.employers || [];
-  const years = Number(payload.employmentHistory?.yearsRelevantExperience || 0);
-  const relevantExperience = Math.min(30, employers.length * 6 + Math.min(years, 12));
-  const certifications = Math.min(15, (payload.certifications?.selected || []).length * 4);
-  const governmentExperience = isYes(payload.governmentEligibility?.priorGovernmentContractWork) ? 15 : 0;
-  const militaryExperience = isYes(payload.militaryService?.served) ? 10 : 0;
-  const availability = payload.availability?.startDate && (role.drivingRequired ? payload.availability?.travelAvailability : true) ? 5 : 0;
-  const drivingRecord = role.drivingRequired
-    ? (isYes(payload.drivingRecord?.validLicense) && Number(payload.drivingRecord?.movingViolations || 0) <= 1 && Number(payload.drivingRecord?.accidents || 0) <= 1 ? 5 : 0)
-    : 5;
-  const breakdown = {
-    education: Math.min(20, education + educationBonus),
-    relevantExperience,
-    certifications,
-    governmentExperience,
-    militaryExperience,
-    availability,
-    drivingRecord
-  };
-  const total = Object.values(breakdown).reduce((sum, value) => sum + value, 0);
-  return { total: Math.min(100, total), breakdown };
 }
 
 function validateApplication(payload, role, files = {}) {
@@ -203,29 +179,99 @@ function sanitizePayload(payload) {
   };
 }
 
-async function uploadedFiles(files) {
-  const rows = [];
-  for (const [field, items] of Object.entries(files || {})) {
-    for (const file of items) {
-      rows.push({
-        id: id(),
-        field,
-        label: UPLOAD_LABELS[field] || field,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        path: await storeUploadedFile(file, `employment-applications/${field}`)
-      });
-    }
-  }
-  return rows;
-}
-
 function visibleEmploymentApplications(user) {
   const rows = getDb().employment_applications;
   if (user.role === 'admin' || user.role === 'recruiter') return rows;
   if (user.role === 'applicant') return rows.filter((row) => row.email === user.email || row.user_id === user.id);
   return [];
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function flattenUploadedFiles(files = {}) {
+  return Object.entries(files).flatMap(([field, items]) => (
+    (items || []).map((file) => ({
+      field,
+      label: UPLOAD_LABELS[field] || field,
+      file
+    }))
+  ));
+}
+
+function applicationEmailText({ role, payload, confirmation, uploads }) {
+  const personal = payload.personalInformation || {};
+  return [
+    `Position: ${role.title}`,
+    `Reference: ${confirmation}`,
+    '',
+    'Applicant',
+    `Name: ${personal.fullName || 'Not provided'}`,
+    `Email: ${personal.email || 'Not provided'}`,
+    `Phone: ${personal.phone || 'Not provided'}`,
+    '',
+    'Uploaded Files',
+    uploads.length ? uploads.map((upload) => `- ${upload.label}: ${upload.file.originalname}`).join('\n') : 'No files uploaded.',
+    '',
+    'Completed Application Data',
+    JSON.stringify(payload, null, 2)
+  ].join('\n');
+}
+
+function applicationEmailHtml({ role, payload, confirmation, uploads }) {
+  const personal = payload.personalInformation || {};
+  const uploadList = uploads.length
+    ? `<ul>${uploads.map((upload) => `<li><strong>${escapeHtml(upload.label)}:</strong> ${escapeHtml(upload.file.originalname)}</li>`).join('')}</ul>`
+    : '<p>No files uploaded.</p>';
+
+  return `
+    <h2>Alpha Recovery Employment Application</h2>
+    <p><strong>Position:</strong> ${escapeHtml(role.title)}</p>
+    <p><strong>Reference:</strong> ${escapeHtml(confirmation)}</p>
+    <h3>Applicant</h3>
+    <p>
+      <strong>Name:</strong> ${escapeHtml(personal.fullName || 'Not provided')}<br>
+      <strong>Email:</strong> ${escapeHtml(personal.email || 'Not provided')}<br>
+      <strong>Phone:</strong> ${escapeHtml(personal.phone || 'Not provided')}
+    </p>
+    <h3>Uploaded Files</h3>
+    ${uploadList}
+    <h3>Completed Application Data</h3>
+    <pre style="white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45;">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+  `;
+}
+
+async function emailAttachmentsForApplication(files, payload, role) {
+  const attachments = [{
+    filename: `${role.slug || 'alpha-recovery'}-completed-application.json`,
+    content: Buffer.from(JSON.stringify(payload, null, 2)).toString('base64'),
+    content_type: 'application/json'
+  }];
+
+  for (const upload of flattenUploadedFiles(files)) {
+    attachments.push({
+      filename: `${upload.label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()}-${upload.file.originalname}`,
+      content: await fs.promises.readFile(upload.file.path, { encoding: 'base64' }),
+      content_type: upload.file.mimetype || 'application/octet-stream'
+    });
+  }
+
+  return attachments;
+}
+
+async function removeTemporaryUploads(files = {}) {
+  await Promise.all(flattenUploadedFiles(files).map(async ({ file }) => {
+    try {
+      await fs.promises.unlink(file.path);
+    } catch {
+    }
+  }));
 }
 
 function interviewCompleteForEmploymentApplication(applicationId) {
@@ -314,84 +360,64 @@ router.delete('/application/draft', requireAuth, requireRole('applicant'), (req,
 });
 
 router.post('/application/submit', requireAuth, requireRole('applicant'), upload.fields(Object.keys(UPLOAD_LABELS).map((name) => ({ name, maxCount: 5 }))), (req, res) => {
+  const reject = (status, error) => {
+    void removeTemporaryUploads(req.files);
+    return res.status(status).json({ error });
+  };
   const role = ROLE_BY_SLUG[req.body.roleSlug];
-  if (!role) return res.status(404).json({ error: 'Role not found' });
+  if (!role) return reject(404, 'Role not found');
   let payload;
   try {
     payload = JSON.parse(req.body.payload || '{}');
   } catch (error) {
-    return res.status(400).json({ error: 'Application payload must be valid JSON.' });
+    return reject(400, 'Application payload must be valid JSON.');
   }
 
   const errors = validateApplication(payload, role, req.files || {});
-  if (errors.length) return res.status(400).json({ error: errors.join(' ') });
+  if (errors.length) return reject(400, errors.join(' '));
 
   const db = getDb();
   const email = payload.personalInformation.email.toLowerCase();
   const user = db.users.find((item) => item.id === req.user.id && item.role === 'applicant');
-  if (!user) return res.status(403).json({ error: 'Applicant account required.' });
-  if (email !== user.email.toLowerCase()) return res.status(400).json({ error: 'Application email must match your applicant account.' });
+  if (!user) return reject(403, 'Applicant account required.');
+  if (email !== user.email.toLowerCase()) return reject(400, 'Application email must match your applicant account.');
   const duplicate = db.employment_applications.find((row) => row.user_id === user.id && row.role_slug === role.slug);
-  if (duplicate) return res.status(409).json({ error: `You already submitted an application for ${role.title}. Your confirmation number is ${duplicate.confirmation_number || 'on file'}.` });
+  if (duplicate) return reject(409, `You already submitted an application for ${role.title}. Your confirmation number is ${duplicate.confirmation_number || 'on file'}.`);
 
   const finish = async () => {
     const safePayload = sanitizePayload(payload);
-    const score = scoreApplication(payload, role);
-    const files = await uploadedFiles(req.files);
     const personal = payload.personalInformation || {};
     const confirmation = confirmationNumberFor(role, payload);
-    const row = insert('employment_applications', {
-      confirmation_number: confirmation,
-      user_id: user.id,
-      role_slug: role.slug,
-      role_title: role.title,
-      department: role.department,
-      location: role.location,
-      employment_type: role.employmentType,
-      full_name: personal.fullName,
-      email: personal.email.toLowerCase(),
-      phone: personal.phone || '',
-      status: 'New',
-      score: score.total,
-      score_breakdown: score.breakdown,
-      payload: safePayload,
-      files,
-      hr_notes: '',
-      submitted_at: new Date().toISOString()
+    const uploads = flattenUploadedFiles(req.files);
+    const attachments = await emailAttachmentsForApplication(req.files, safePayload, role);
+
+    await sendEmail({
+      to: APPLICATION_EMAIL_TO,
+      cc: APPLICATION_EMAIL_CC,
+      replyTo: personal.email,
+      subject: `Application: ${role.title}`,
+      text: applicationEmailText({ role, payload: safePayload, confirmation, uploads }),
+      html: applicationEmailHtml({ role, payload: safePayload, confirmation, uploads }),
+      attachments
     });
 
-    db.employment_application_drafts = db.employment_application_drafts.filter((draft) => !(draft.user_id === user.id && draft.role_slug === row.role_slug));
-    db.applications.push({
-      id: id(),
-      confirmation_number: confirmation,
-      user_id: user.id,
-      company_id: null,
-      full_name: row.full_name,
-      email: row.email,
-      phone: row.phone,
-      role_applied: row.role_title,
-      employment_type: row.employment_type,
-      experience: safePayload.employmentHistory?.summary || '',
-      message: 'Submitted through Alpha employment application.',
-      status: 'submitted',
-      assigned_recruiter_id: null,
-      employment_application_id: row.id,
-      created_at: row.submitted_at
-    });
+    db.employment_application_drafts = db.employment_application_drafts.filter((draft) => !(draft.user_id === user.id && draft.role_slug === role.slug));
     saveDb();
-    logActivity(user.id, 'application_submitted', { employment_application_id: row.id, role: row.role_title });
-    pushNotificationsForAll();
+    logActivity(user.id, 'application_emailed', { role: role.title, reference: confirmation });
+
     await sendEmail({
-      to: row.email,
-      subject: `Alpha Recovery Application Received - ${confirmation}`,
-      text: `Thank you, ${row.full_name}.\n\nYour Alpha Recovery employment application for ${row.role_title} has been submitted.\nConfirmation number: ${confirmation}\n\nYou can sign in to the portal to view your application status.`,
-      html: `<p>Thank you, ${row.full_name}.</p><p>Your Alpha Recovery employment application for <strong>${row.role_title}</strong> has been submitted.</p><p>Confirmation number: <strong>${confirmation}</strong></p><p>You can sign in to the portal to view your application status.</p>`
+      to: personal.email,
+      subject: `Alpha Recovery Application Sent - ${role.title}`,
+      text: `Thank you, ${personal.fullName}.\n\nYour Alpha Recovery employment application for ${role.title} has been sent to Alpha Recovery.\nReference: ${confirmation}`,
+      html: `<p>Thank you, ${escapeHtml(personal.fullName)}.</p><p>Your Alpha Recovery employment application for <strong>${escapeHtml(role.title)}</strong> has been sent to Alpha Recovery.</p><p>Reference: <strong>${escapeHtml(confirmation)}</strong></p>`
     }).catch((error) => console.error('Application confirmation email failed:', error));
 
-    return res.json({ application: row, confirmation });
+    return res.json({ emailed: true, confirmation });
   };
 
-  finish().catch((error) => res.status(500).json({ error: error.message || 'Application submission failed.' }));
+  finish()
+    .catch((error) => res.status(500).json({ error: error.message || 'Application email failed.' }))
+    .finally(() => removeTemporaryUploads(req.files));
 });
 
 router.get('/admin/employment-applications', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
