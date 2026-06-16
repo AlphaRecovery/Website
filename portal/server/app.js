@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { loadDb } from './data/store.js';
 import { findUserBySession } from './auth.js';
 import authRoutes from './routes/auth.routes.js';
+import contactRoutes from './routes/contact.routes.js';
 import domainRoutes from './routes/domain.routes.js';
 import documentRoutes from './routes/documents.routes.js';
 import employmentRoutes from './routes/employment.routes.js';
@@ -17,6 +18,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 25, keyPrefix: 'auth', methods: ['POST'] });
+const contactLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 8, keyPrefix: 'contact', methods: ['POST'], message: 'Too many contact requests. Please try again shortly.' });
 const writeLimiter = createRateLimiter({ windowMs: 60 * 1000, max: 40, keyPrefix: 'write', methods: ['POST', 'PATCH', 'DELETE'] });
 const uploadLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 30, keyPrefix: 'upload', methods: ['POST'] });
 
@@ -62,6 +64,7 @@ app.use(
   ],
   authLimiter
 );
+app.use('/api/contact', contactLimiter);
 app.use(['/api/messages', '/api/tasks', '/api/documents/request', '/api/companies'], writeLimiter);
 app.use(['/api/application/submit', '/api/documents'], uploadLimiter);
 
@@ -76,6 +79,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use('/api', contactRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api', domainRoutes);
 app.use('/api', documentRoutes);

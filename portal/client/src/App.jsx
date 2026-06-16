@@ -4,6 +4,8 @@ import { useAuth, homeForRole } from './auth/AuthContext.jsx';
 
 const Login = lazy(() => import('./pages/Login.jsx'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword.jsx'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite.jsx'));
 const AdminPortal = lazy(() => import('./pages/AdminPortal.jsx'));
@@ -34,6 +36,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to={user ? homeForRole(user.role) : '/login'} replace />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/change-password" element={<ProtectedRoute roles={['admin', 'recruiter', 'contractor', 'applicant']}><ChangePassword /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />

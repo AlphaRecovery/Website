@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import PortalLayout from '../components/PortalLayout.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -32,7 +32,15 @@ export default function ContractorPortal() {
     if (section === 'documents') return <DocumentsPanel documents={documents} onRefresh={refresh} />;
     if (section === 'tasks') return <TasksPanel tasks={tasks} onRefresh={refresh} />;
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
-    if (section === 'settings') return <div className="panel"><h3>Settings</h3><p>{user.full_name}<br />{user.email}</p></div>;
+    if (section === 'settings') {
+      return (
+        <div className="panel">
+          <h3>Account Details</h3>
+          <p>{user.full_name}<br />{user.email}</p>
+          <Link className="button-link" to="/change-password">Change Password</Link>
+        </div>
+      );
+    }
     return <RecentPanels documents={documents} tasks={tasks} messages={messages} />;
   }
 

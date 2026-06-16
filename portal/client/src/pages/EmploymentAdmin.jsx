@@ -31,23 +31,31 @@ function flattenSection(section) {
 function ApplicationDetail({ selected, onRefresh }) {
   const [application, setApplication] = useState(selected);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [viewer, setViewer] = useState(null);
 
   useEffect(() => {
     setApplication(selected);
+    setSaveError('');
   }, [selected]);
 
   if (!application) return <div className="panel"><h3>Select an Applicant</h3><p>Choose a submitted application from the table to review the full 16-section record.</p></div>;
 
   async function save() {
     setSaving(true);
-    const data = await api(`/api/admin/employment-applications/${application.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status: application.status, hr_notes: application.hr_notes || '' })
-    });
-    setApplication(data.application);
-    await onRefresh();
-    setSaving(false);
+    setSaveError('');
+    try {
+      const data = await api(`/api/admin/employment-applications/${application.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: application.status, hr_notes: application.hr_notes || '' })
+      });
+      setApplication(data.application);
+      await onRefresh();
+    } catch (err) {
+      setSaveError(err.message || 'Saving the review failed.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const sectionMap = [
@@ -107,32 +115,33 @@ function ApplicationDetail({ selected, onRefresh }) {
           <textarea value={application.hr_notes || ''} onChange={(event) => setApplication({ ...application, hr_notes: event.target.value })} />
         </label>
       </div>
+      {saveError && <div className="form-error">{saveError}</div>}
       <button type="button" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save Review'}</button>
 
       <div className="application-review-sections">
+        <details open>
+          <summary>Uploaded Documents ({application.files?.length || 0})</summary>
+          <div className="stack-list">
+            {application.files?.length ? application.files.map((file) => (
+              <article className="list-card" key={file.id}>
+                <div>
+                  <strong>{file.label}</strong>
+                  <small>{file.originalName}</small>
+                </div>
+                <div className="table-actions">
+                  <button type="button" onClick={() => setViewer({ title: file.originalName || file.label, src: employmentFileViewUrl(application.id, file.id) })}>View</button>
+                  <a className="button-link file-download" href={employmentFileDownloadUrl(application.id, file.id)}>Download</a>
+                </div>
+              </article>
+            )) : <p>No files uploaded.</p>}
+          </div>
+        </details>
         {sectionMap.map(([key, value], index) => (
           <details key={key} open={index < 2}>
             <summary>{index + 1}. {SECTION_TITLES[index]}</summary>
-            {key === 'documentUploads' ? (
-              <div className="stack-list">
-                {application.files?.length ? application.files.map((file) => (
-                  <article className="list-card" key={file.id}>
-                    <div>
-                      <strong>{file.label}</strong>
-                      <small>{file.originalName}</small>
-                    </div>
-                    <div className="table-actions">
-                      <button type="button" onClick={() => setViewer({ title: file.originalName || file.label, src: employmentFileViewUrl(application.id, file.id) })}>View</button>
-                      <a className="button-link file-download" href={employmentFileDownloadUrl(application.id, file.id)}>Download</a>
-                    </div>
-                  </article>
-                )) : <p>No files uploaded.</p>}
-              </div>
-            ) : (
-              <dl className="details-grid">
-                {flattenSection(value).map(([label, sectionValue]) => <ValueBlock key={label} label={cleanKey(label)} value={sectionValue} />)}
-              </dl>
-            )}
+            <dl className="details-grid">
+              {flattenSection(value).map(([label, sectionValue]) => <ValueBlock key={label} label={cleanKey(label)} value={sectionValue} />)}
+            </dl>
           </details>
         ))}
       </div>

@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import PortalLayout from '../components/PortalLayout.jsx';
 import DataTable from '../components/DataTable.jsx';
@@ -126,7 +126,15 @@ export default function AdminPortal() {
       );
     }
     if (section === 'invite-users') return <InviteUsers onRefresh={refresh} />;
-    if (section === 'settings') return <div className="panel"><h3>Account Details</h3><p>{user.full_name}<br />{user.email}</p></div>;
+    if (section === 'settings') {
+      return (
+        <div className="panel">
+          <h3>Account Details</h3>
+          <p>{user.full_name}<br />{user.email}</p>
+          <Link className="button-link" to="/change-password">Change Password</Link>
+        </div>
+      );
+    }
     return (
       <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} />
     );

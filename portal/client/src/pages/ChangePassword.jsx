@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { homeForRole, useAuth } from '../auth/AuthContext.jsx';
 
 export default function ChangePassword() {
@@ -13,7 +13,7 @@ export default function ChangePassword() {
   const [busy, setBusy] = useState(false);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!user.force_password_change) return <Navigate to={(location.state?.from && location.state.from !== '/change-password') ? location.state.from : homeForRole(user.role)} replace />;
+  const forced = Boolean(user.force_password_change);
 
   async function submit(event) {
     event.preventDefault();
@@ -37,7 +37,7 @@ export default function ChangePassword() {
     <main className="login-shell">
       <section className="login-panel">
         <form className="auth-card" onSubmit={submit}>
-          <p className="eyebrow">Password Update Required</p>
+          <p className="eyebrow">{forced ? 'Password Update Required' : 'Account Security'}</p>
           <h2>Change Your Password</h2>
           <label>
             Current Password
@@ -53,7 +53,9 @@ export default function ChangePassword() {
           </label>
           {error && <div className="form-error">{error}</div>}
           <button type="submit" disabled={busy}>{busy ? 'Updating...' : 'Save New Password'}</button>
-          <small>For security, you must change the temporary password before accessing the portal.</small>
+          {forced
+            ? <small>For security, you must change the temporary password before accessing the portal.</small>
+            : <small><Link to={homeForRole(user.role)}>Cancel and return to the portal</Link></small>}
         </form>
       </section>
     </main>

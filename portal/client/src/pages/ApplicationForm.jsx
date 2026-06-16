@@ -31,10 +31,10 @@ const CRIMINAL_SCREENING = [
   ['registryRequired', 'Are you currently required to register on any state or federal offender registry?']
 ];
 
-const DISPLAY_TOTAL_SECTIONS = 17;
+const DISPLAY_TOTAL_SECTIONS = APPLICATION_TOTAL_SECTIONS;
 
 function visibleSectionNumber(sectionNumber) {
-  return sectionNumber <= 14 ? sectionNumber : sectionNumber + 1;
+  return sectionNumber;
 }
 
 function initialPayload(role, user) {
@@ -474,7 +474,6 @@ export default function ApplicationForm() {
     if (targetSection === 13) return !getSectionErrors(13).length;
     if (targetSection === 14) return !!payload.signatures.standardsOfConduct;
     if (targetSection === 15) return true;
-    if (targetSection === 15) return !getSectionErrors(15).length;
     if (targetSection === 16) return !!payload.applicantCertification.typedFullLegalName && !!payload.applicantCertification.date;
     return false;
   }
@@ -512,13 +511,18 @@ export default function ApplicationForm() {
   }
 
   async function saveDraft() {
-    await api('/api/application/draft', {
-      method: 'POST',
-      body: JSON.stringify({ roleSlug: role.slug, section, payload })
-    });
-    setSaved(`Draft saved at ${new Date().toLocaleTimeString()}`);
-    setError('');
-    return true;
+    try {
+      await api('/api/application/draft', {
+        method: 'POST',
+        body: JSON.stringify({ roleSlug: role.slug, section, payload })
+      });
+      setSaved(`Draft saved at ${new Date().toLocaleTimeString()}`);
+      setError('');
+      return true;
+    } catch (err) {
+      setError(err.message || 'Saving the draft failed. Please try again.');
+      return false;
+    }
   }
 
   async function saveAndExit() {
@@ -526,14 +530,19 @@ export default function ApplicationForm() {
   }
 
   async function deleteAndExit() {
-    await api('/api/application/draft', {
-      method: 'DELETE',
-      body: JSON.stringify({ roleSlug: role.slug })
-    });
-    setShowDeleteConfirm(false);
-    setPayload(initialPayload(role, user));
-    setFiles({});
-    navigate('/portal/applicant/application');
+    try {
+      await api('/api/application/draft', {
+        method: 'DELETE',
+        body: JSON.stringify({ roleSlug: role.slug })
+      });
+      setShowDeleteConfirm(false);
+      setPayload(initialPayload(role, user));
+      setFiles({});
+      navigate('/portal/applicant/application');
+    } catch (err) {
+      setShowDeleteConfirm(false);
+      setError(err.message || 'Deleting the draft failed. Please try again.');
+    }
   }
 
   async function submit() {
@@ -549,7 +558,7 @@ export default function ApplicationForm() {
       setConfirmation(data.confirmation);
       setError('');
     } catch (err) {
-      setError(err.message || 'Application submission failed. Please review your uploads and try again.');
+      setError(err.message || 'Application email failed. Please review your uploads and try again.');
     }
   }
 
@@ -594,10 +603,10 @@ export default function ApplicationForm() {
     return (
       <main className="application-shell">
         <section className="application-card confirmation-card">
-          <span className="eyebrow">Application Submitted</span>
+          <span className="eyebrow">Application Sent</span>
           <h1>Thank you, {payload.personalInformation.fullName}</h1>
-          <p>Your Alpha Recovery employment application for {role.title} has been submitted. Confirmation number: <strong>{confirmation}</strong>.</p>
-          <Link className="button-link" to="/portal/applicant/application">Return to My Application</Link>
+          <p>Your Alpha Recovery employment application for {role.title} has been sent by email. Reference: <strong>{confirmation}</strong>.</p>
+          <Link className="button-link" to="/portal/applicant">Return to Portal</Link>
         </section>
       </main>
     );
@@ -671,7 +680,7 @@ export default function ApplicationForm() {
 
         <div className="application-actions">
           <button type="button" disabled={section === 1} onClick={() => setSection((current) => previousApplicableSection(current - 1))}>Back</button>
-          {section < APPLICATION_TOTAL_SECTIONS ? <button type="button" onClick={next}>Continue</button> : <button type="button" onClick={submit}>Submit Application</button>}
+          {section < APPLICATION_TOTAL_SECTIONS ? <button type="button" onClick={next}>Continue</button> : <button type="button" onClick={submit}>Send Application</button>}
         </div>
       </section>
       {showDeleteConfirm && (

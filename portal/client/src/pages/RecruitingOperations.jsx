@@ -352,48 +352,64 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
 
   async function saveNewApplicant(event) {
     event.preventDefault();
-    await api('/api/applications', { method: 'POST', body: JSON.stringify(form) });
-    setModal('');
-    setForm({});
-    await refreshAfter('Applicant record created.');
+    try {
+      await api('/api/applications', { method: 'POST', body: JSON.stringify(form) });
+      setModal('');
+      setForm({});
+      await refreshAfter('Applicant record created.');
+    } catch (err) {
+      setNotice(err.message || 'Creating the applicant failed.');
+    }
   }
 
   async function sendMessage(event) {
     event.preventDefault();
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: form.recipient_id || selected?.userId,
-        related_application_id: selected?.source === 'portal' ? selected.id : null,
-        subject: form.subject,
-        body: form.body
-      })
-    });
-    setModal('');
-    setForm({});
-    await refreshAfter('Message sent.');
+    try {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: form.recipient_id || selected?.userId,
+          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          subject: form.subject,
+          body: form.body
+        })
+      });
+      setModal('');
+      setForm({});
+      await refreshAfter('Message sent.');
+    } catch (err) {
+      setNotice(err.message || 'Sending the message failed.');
+    }
   }
 
   async function createTask(event) {
     event.preventDefault();
-    await api('/api/tasks', {
-      method: 'POST',
-      body: JSON.stringify({
-        assigned_to: form.assigned_to,
-        related_application_id: selected?.source === 'portal' ? selected.id : null,
-        title: form.title,
-        description: form.description,
-        due_at: form.due_at || null
-      })
-    });
-    setModal('');
-    setForm({});
-    await refreshAfter('Task created.');
+    try {
+      await api('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          assigned_to: form.assigned_to,
+          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          title: form.title,
+          description: form.description,
+          due_at: form.due_at || null
+        })
+      });
+      setModal('');
+      setForm({});
+      await refreshAfter('Task created.');
+    } catch (err) {
+      setNotice(err.message || 'Creating the task failed.');
+    }
   }
 
   async function setWorkflowTaskStatus(task, status) {
-    await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    await refreshAfter(status === 'complete' ? 'Workflow task completed.' : 'Workflow task reopened.');
+    try {
+      await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      await refreshAfter(status === 'complete' ? 'Workflow task completed.' : 'Workflow task reopened.');
+    } catch (err) {
+      setNotice(err.message || 'Updating the task failed.');
+    }
   }
 
   function openInterviewModal(interview = null) {
@@ -455,28 +471,36 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
     delete payload.evaluation_strengths;
     delete payload.evaluation_concerns;
     delete payload.evaluation_notes;
-    if (form.id) await api(`/api/interviews/${form.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    else await api('/api/interviews', { method: 'POST', body: JSON.stringify(payload) });
-    setModal('');
-    setForm({});
-    await refreshAfter('Interview workflow saved.');
+    try {
+      if (form.id) await api(`/api/interviews/${form.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      else await api('/api/interviews', { method: 'POST', body: JSON.stringify(payload) });
+      setModal('');
+      setForm({});
+      await refreshAfter('Interview workflow saved.');
+    } catch (err) {
+      setNotice(err.message || 'Saving the interview failed.');
+    }
   }
 
   async function requestDocument(event) {
     event.preventDefault();
-    await api('/api/documents/request', {
-      method: 'POST',
-      body: JSON.stringify({
-        owner_user_id: form.owner_user_id || selected?.userId,
-        application_id: selected?.source === 'portal' ? selected.id : null,
-        name: form.name,
-        type: form.type,
-        expires_at: form.expires_at || null
-      })
-    });
-    setModal('');
-    setForm({});
-    await refreshAfter('Document request created.');
+    try {
+      await api('/api/documents/request', {
+        method: 'POST',
+        body: JSON.stringify({
+          owner_user_id: form.owner_user_id || selected?.userId,
+          application_id: selected?.source === 'portal' ? selected.id : null,
+          name: form.name,
+          type: form.type,
+          expires_at: form.expires_at || null
+        })
+      });
+      setModal('');
+      setForm({});
+      await refreshAfter('Document request created.');
+    } catch (err) {
+      setNotice(err.message || 'Requesting the document failed.');
+    }
   }
 
   function openShareDocument(doc) {
@@ -491,44 +515,56 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
 
   async function shareSelectedDocument(event) {
     event.preventDefault();
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: form.recipient_id,
-        related_application_id: selected.source === 'portal' ? selected.id : null,
-        subject: form.subject,
-        body: form.body
-      })
-    });
-    setModal('');
-    setForm({});
-    await refreshAfter('Document share message sent.');
+    try {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: form.recipient_id,
+          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          subject: form.subject,
+          body: form.body
+        })
+      });
+      setModal('');
+      setForm({});
+      await refreshAfter('Document share message sent.');
+    } catch (err) {
+      setNotice(err.message || 'Sharing the document failed.');
+    }
   }
 
   async function replyToActiveMessage(event) {
     event.preventDefault();
     if (!activeMessage || !messageReply.trim()) return;
     const recipientId = activeMessage.sender_id === user.id ? activeMessage.recipient_id : activeMessage.sender_id;
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: recipientId,
-        related_application_id: activeMessage.related_application_id || (selected?.source === 'portal' ? selected.id : null),
-        related_contractor_id: activeMessage.related_contractor_id || null,
-        subject: activeMessage.subject || `Application: ${selected?.position || 'Applicant'}`,
-        body: messageReply
-      })
-    });
-    setMessageReply('');
-    await refreshAfter('Reply sent.');
+    try {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: recipientId,
+          related_application_id: activeMessage.related_application_id || (selected?.source === 'portal' ? selected.id : null),
+          related_contractor_id: activeMessage.related_contractor_id || null,
+          subject: activeMessage.subject || `Application: ${selected?.position || 'Applicant'}`,
+          body: messageReply
+        })
+      });
+      setMessageReply('');
+      await refreshAfter('Reply sent.');
+    } catch (err) {
+      setNotice(err.message || 'Sending the reply failed.');
+    }
   }
 
   async function deleteApplicant() {
     if (!selected || selected.source !== 'portal') return;
     if (!window.confirm(`Delete ${selected.name}? This cannot be undone.`)) return;
-    await api(`/api/applications/${selected.id}`, { method: 'DELETE' });
-    setSelectedId('');
-    await refreshAfter('Applicant deleted.');
+    try {
+      await api(`/api/applications/${selected.id}`, { method: 'DELETE' });
+      setSelectedId('');
+      await refreshAfter('Applicant deleted.');
+    } catch (err) {
+      setNotice(err.message || 'Deleting the applicant failed.');
+    }
   }
 
   function exportApplicants(format) {

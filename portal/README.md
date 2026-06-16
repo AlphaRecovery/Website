@@ -39,6 +39,11 @@ Fresh local databases start empty. Create real applicant accounts through `/regi
 
 ## Environment
 
+Two env files, loaded by `server/config.js`:
+
+- `.env.local` — local development. Loaded whenever `NODE_ENV` is not `production` (i.e. `npm run dev`). Keep this pointed at the local JSON database (`DATABASE_URL=` empty), local storage, and `EMAIL_DRIVER=log` so local work can never touch production data or send real email.
+- `.env` — production credentials. Only loaded by `npm run start` (`NODE_ENV=production`) on a non-Vercel host. Vercel ignores both files and uses its own environment variables.
+
 Copy `.env.example` to `.env` for deployment-specific configuration.
 
 ```txt
@@ -57,6 +62,7 @@ PORTAL_STORAGE_DRIVER=supabase
 EMAIL_DRIVER=resend
 EMAIL_FROM=Alpha Recovery <no-reply@alpharecovery.org>
 RESEND_API_KEY=your_resend_key
+CONTACT_EMAIL=Admin@alpharecovery.org
 ```
 
 ## Auth Model
@@ -76,7 +82,7 @@ The portal uses local JSON and local uploads when production environment variabl
 
 1. Set `DATABASE_URL` to a managed Postgres connection string. The server creates and uses `portal_app_state` for the current V1 app state.
 2. Set `PORTAL_STORAGE_DRIVER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` for uploaded documents.
-3. Set `EMAIL_DRIVER=resend`, `RESEND_API_KEY`, and `EMAIL_FROM` for production email.
+3. Set `EMAIL_DRIVER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, and `CONTACT_EMAIL` for production email and public website inquiries.
 4. Set `PUBLIC_PORTAL_URL` to the public portal origin, for example `https://portal.alpharecovery.org`.
 5. Set `PORTAL_CLIENT_ORIGIN` to the browser origin allowed to call the API.
 
@@ -112,8 +118,9 @@ PORTAL_STORAGE_DRIVER=supabase
 EMAIL_DRIVER=resend
 EMAIL_FROM=Alpha Recovery <no-reply@alpharecovery.org>
 RESEND_API_KEY
+CONTACT_EMAIL=Admin@alpharecovery.org
 PUBLIC_PORTAL_URL=https://portal.alpharecovery.org
-PORTAL_CLIENT_ORIGIN=https://portal.alpharecovery.org
+PORTAL_CLIENT_ORIGIN=https://portal.alpharecovery.org,https://alpharecovery.org,https://www.alpharecovery.org
 PORTAL_COOKIE_DOMAIN=
 ```
 

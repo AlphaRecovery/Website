@@ -49,6 +49,7 @@ export default function Login() {
           </label>
           {error && <div className="form-error">{error}</div>}
           <button type="submit" disabled={busy}>{busy ? 'Verifying...' : 'Enter Portal'}</button>
+          <small><Link to="/forgot-password">Forgot password?</Link></small>
           <small>New applicant? <Link to={registerJob ? `/register?job=${encodeURIComponent(registerJob)}` : '/register'}>Create an account</Link>. Staff access is issued by Alpha Recovery.</small>
         </form>
       </section>

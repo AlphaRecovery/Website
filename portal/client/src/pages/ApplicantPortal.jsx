@@ -1,4 +1,4 @@
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import PortalLayout from '../components/PortalLayout.jsx';
 import ProgressTracker from '../components/ProgressTracker.jsx';
@@ -6,6 +6,7 @@ import Badge from '../components/Badge.jsx';
 import { useAuth } from '../auth/AuthContext.jsx';
 import { usePortalData, currentSection } from './portalData.js';
 import { DocumentsPanel, ErrorState, JobBoardPanel, LoadingState, MessagesPanel, RecentPanels, TasksPanel } from './portalShared.jsx';
+import { APPLICATION_TOTAL_SECTIONS } from '../../../shared/applicationConfig.js';
 
 const paths = [
   ['applications', '/api/applications'],
@@ -32,7 +33,7 @@ export default function ApplicantPortal() {
   const users = data.users?.users || [];
 
   function applicationPanel() {
-    if (!application && !drafts.length) return <div className="empty-state">No application is linked to this account.</div>;
+    if (!application && !drafts.length) return <div className="empty-state">No saved draft is linked to this account. Completed applications are sent to Alpha Recovery by email.</div>;
     return (
       <div className="stack-list">
         {drafts.map((draft) => (
@@ -40,7 +41,7 @@ export default function ApplicantPortal() {
             <div className="record-header">
               <div>
                 <h3>{draft.role_title || draft.payload?.positionInformation?.roleTitle || 'Draft Application'}</h3>
-                <p>Saved draft / Section {draft.section > 14 ? draft.section + 1 : draft.section} of 17 / Last saved {new Date(draft.updated_at || draft.created_at).toLocaleString()}</p>
+                <p>Saved draft / Section {draft.section} of {APPLICATION_TOTAL_SECTIONS} / Last saved {new Date(draft.updated_at || draft.created_at).toLocaleString()}</p>
               </div>
               <a className="button-link" href={`/apply/${draft.role_slug}`}>Resume Draft</a>
             </div>
@@ -98,7 +99,15 @@ export default function ApplicantPortal() {
       );
     }
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
-    if (section === 'settings') return <div className="panel"><h3>Settings</h3><p>{user.full_name}<br />{user.email}</p></div>;
+    if (section === 'settings') {
+      return (
+        <div className="panel">
+          <h3>Account Details</h3>
+          <p>{user.full_name}<br />{user.email}</p>
+          <Link className="button-link" to="/change-password">Change Password</Link>
+        </div>
+      );
+    }
     return (
       <>
         {applicationPanel()}
@@ -109,7 +118,7 @@ export default function ApplicantPortal() {
 
   return (
     <PortalLayout>
-      <PageHeader eyebrow="Applicant Portal" title={section === 'dashboard' ? 'Application Status' : section} description="Track application progress, respond to document requests, and receive portal messages." />
+      <PageHeader eyebrow="Applicant Portal" title={section === 'dashboard' ? 'Application Status' : section} description="Complete application drafts, respond to document requests, and receive portal messages." />
       <ErrorState error={error} />
       <LoadingState loading={loading} />
       {!loading && content()}

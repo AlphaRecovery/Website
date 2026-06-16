@@ -12,6 +12,23 @@ export function ErrorState({ error }) {
   return <div className="form-error panel-error">{error}</div>;
 }
 
+// Wraps async button/form handlers so API failures surface as an inline error
+// instead of an unhandled rejection that leaves the button doing nothing.
+function useActionError() {
+  const [actionError, setActionError] = useState('');
+  async function guard(action) {
+    setActionError('');
+    try {
+      await action();
+      return true;
+    } catch (err) {
+      setActionError(err?.message || 'Request failed. Please try again.');
+      return false;
+    }
+  }
+  return [actionError, guard];
+}
+
 export function LoadingState({ loading }) {
   if (!loading) return null;
   return <div className="empty-state">Loading portal data...</div>;
@@ -572,6 +589,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   const [messageBody, setMessageBody] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [timerNow, setTimerNow] = useState(Date.now());
+  const [actionError, guard] = useActionError();
   const { user } = useAuth();
   const selectedJob = jobs.find((job) => job.slug === selectedSlug) || jobs[0] || null;
   const applicationRows = useMemo(() => buildApplicationRows(applications, employmentApplications), [applications, employmentApplications]);
@@ -661,29 +679,35 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   async function saveJob(event) {
     event.preventDefault();
     const payload = buildPayload();
-    if (selectedJob && selectedSlug) {
-      await api(`/api/jobs/${selectedSlug}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    } else {
-      await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
-      setSelectedSlug(payload.slug);
-    }
-    setModal('');
-    onRefresh();
+    await guard(async () => {
+      if (selectedJob && selectedSlug) {
+        await api(`/api/jobs/${selectedSlug}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      } else {
+        await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
+        setSelectedSlug(payload.slug);
+      }
+      setModal('');
+      onRefresh();
+    });
   }
 
   async function patchJob(patch) {
     if (!selectedJob) return;
     const payload = buildPayload({ ...selectedJob, ...patch });
-    await api(`/api/jobs/${selectedJob.slug}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/jobs/${selectedJob.slug}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      onRefresh();
+    });
   }
 
   async function patchSpecificJob(job, patch) {
     if (!job) return;
     const payload = buildPayload({ ...job, ...patch });
-    await api(`/api/jobs/${job.slug}`, { method: 'PATCH', body: JSON.stringify(payload) });
-    setSelectedSlug(payload.slug);
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/jobs/${job.slug}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      setSelectedSlug(payload.slug);
+      onRefresh();
+    });
   }
 
   async function patchJobSetting(key, value) {
@@ -706,17 +730,21 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
       id: `${job.id || job.slug}-copy-${suffix}`,
       status: 'draft'
     });
-    await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
-    setSelectedSlug(payload.slug);
-    onRefresh();
+    await guard(async () => {
+      await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
+      setSelectedSlug(payload.slug);
+      onRefresh();
+    });
   }
 
   async function deleteJob(job = selectedJob) {
     if (!job || !window.confirm(`Delete ${job.title}? This cannot be undone.`)) return;
-    await api(`/api/jobs/${job.slug}`, { method: 'DELETE' });
-    setSelectedSlug('');
-    setForm({ ...emptyJob });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/jobs/${job.slug}`, { method: 'DELETE' });
+      setSelectedSlug('');
+      setForm({ ...emptyJob });
+      onRefresh();
+    });
   }
 
   function previewJob(job = selectedJob) {
@@ -749,8 +777,10 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
 
   async function moveApplication(row, status) {
     if (!row.portalRow) return;
-    await api(`/api/applications/${row.portalRow.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/applications/${row.portalRow.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      onRefresh();
+    });
   }
 
   function openApplicant(row) {
@@ -761,36 +791,40 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   async function sendApplicantMessage(event) {
     event.preventDefault();
     if (!selectedApplication?.userId || !messageBody.trim()) return;
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: selectedApplication.userId,
-        related_application_id: selectedApplication.portalRow?.id || null,
-        subject: `Update regarding ${selectedJob?.title || 'your application'}`,
-        body: messageBody
-      })
+    await guard(async () => {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: selectedApplication.userId,
+          related_application_id: selectedApplication.portalRow?.id || null,
+          subject: `Update regarding ${selectedJob?.title || 'your application'}`,
+          body: messageBody
+        })
+      });
+      setMessageBody('');
+      setModal('');
+      onRefresh();
     });
-    setMessageBody('');
-    setModal('');
-    onRefresh();
   }
 
   async function scheduleInterview(event) {
     event.preventDefault();
     if (!selectedApplication) return;
-    await api('/api/tasks', {
-      method: 'POST',
-      body: JSON.stringify({
-        assigned_to: selectedJob?.assignedRecruiterId || user.id,
-        related_application_id: selectedApplication.portalRow?.id || null,
-        title: `Schedule interview with ${selectedApplication.name}`,
-        description: `Interview task for ${selectedJob?.title || selectedApplication.roleTitle}.`,
-        due_at: taskDue || null
-      })
+    await guard(async () => {
+      await api('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          assigned_to: selectedJob?.assignedRecruiterId || user.id,
+          related_application_id: selectedApplication.portalRow?.id || null,
+          title: `Schedule interview with ${selectedApplication.name}`,
+          description: `Interview task for ${selectedJob?.title || selectedApplication.roleTitle}.`,
+          due_at: taskDue || null
+        })
+      });
+      setTaskDue('');
+      setModal('');
+      onRefresh();
     });
-    setTaskDue('');
-    setModal('');
-    onRefresh();
   }
 
   if (canManage) {
@@ -809,6 +843,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
           </div>
         </div>
 
+        <ErrorState error={actionError} />
         <div className="jmc-action-bar">
           <button type="button" onClick={startNewJob}>Add Position</button>
           <button type="button" onClick={() => patchJob({ status: 'open', settings: { ...(selectedJob?.settings || {}), publicVisibility: true } })} disabled={!selectedJob}>Publish Position</button>
@@ -1022,6 +1057,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
 
   return (
     <section className="jobs-portal">
+      <ErrorState error={actionError} />
       <div className="job-board-list panel">
         <div className="record-header">
           <div>
@@ -1119,6 +1155,7 @@ const templateDefaults = {
 export function LibraryPanel({ library, onRefresh }) {
   const [templateForm, setTemplateForm] = useState(templateDefaults);
   const [editingId, setEditingId] = useState('');
+  const [actionError, guard] = useActionError();
   const jobs = library?.jobs || [];
   const employmentApplications = library?.employmentApplications || [];
   const portalApplications = library?.portalApplications || [];
@@ -1135,28 +1172,33 @@ export function LibraryPanel({ library, onRefresh }) {
 
   async function saveTemplate(event) {
     event.preventDefault();
-    if (editingId) {
-      await api(`/api/library/templates/${editingId}`, { method: 'PATCH', body: JSON.stringify(templateForm) });
-    } else {
-      await api('/api/library/templates', { method: 'POST', body: JSON.stringify(templateForm) });
-    }
-    setEditingId('');
-    setTemplateForm(templateDefaults);
-    onRefresh();
+    await guard(async () => {
+      if (editingId) {
+        await api(`/api/library/templates/${editingId}`, { method: 'PATCH', body: JSON.stringify(templateForm) });
+      } else {
+        await api('/api/library/templates', { method: 'POST', body: JSON.stringify(templateForm) });
+      }
+      setEditingId('');
+      setTemplateForm(templateDefaults);
+      onRefresh();
+    });
   }
 
   async function deleteTemplate(template) {
     if (!window.confirm(`Delete ${template.title}?`)) return;
-    await api(`/api/library/templates/${template.id}`, { method: 'DELETE' });
-    if (editingId === template.id) {
-      setEditingId('');
-      setTemplateForm(templateDefaults);
-    }
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/library/templates/${template.id}`, { method: 'DELETE' });
+      if (editingId === template.id) {
+        setEditingId('');
+        setTemplateForm(templateDefaults);
+      }
+      onRefresh();
+    });
   }
 
   return (
     <div className="library-grid">
+      <ErrorState error={actionError} />
       <section className="panel library-card">
         <h3>Job Roles And Descriptions</h3>
         <p>{jobs.length} role descriptions in the Alpha job board.</p>
@@ -1242,17 +1284,25 @@ export function LibraryPanel({ library, onRefresh }) {
 }
 
 export function ApplicationsTable({ applications = [], users = [], onRefresh, allowAssign = false }) {
+  const [actionError, guard] = useActionError();
+
   async function updateStatus(row, status) {
-    await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      onRefresh();
+    });
   }
 
   async function assignRecruiter(row, recruiterId) {
-    await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
+      onRefresh();
+    });
   }
 
   return (
+    <>
+    <ErrorState error={actionError} />
     <DataTable
       rows={applications}
       columns={[
@@ -1281,21 +1331,26 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
         }
       ]}
     />
+    </>
   );
 }
 
 export function CompaniesPanel({ companies = [], onRefresh, canCreate = false }) {
   const [form, setForm] = useState({ name: '', type: 'private investigation firm', point_of_contact: '', email: '', phone: '' });
+  const [actionError, guard] = useActionError();
 
   async function createCompany(event) {
     event.preventDefault();
-    await api('/api/companies', { method: 'POST', body: JSON.stringify(form) });
-    setForm({ name: '', type: 'private investigation firm', point_of_contact: '', email: '', phone: '' });
-    onRefresh();
+    await guard(async () => {
+      await api('/api/companies', { method: 'POST', body: JSON.stringify(form) });
+      setForm({ name: '', type: 'private investigation firm', point_of_contact: '', email: '', phone: '' });
+      onRefresh();
+    });
   }
 
   return (
     <div className="split-panel">
+      <ErrorState error={actionError} />
       {canCreate && (
         <form className="panel-form" onSubmit={createCompany}>
           <h3>Create Company</h3>
@@ -1323,12 +1378,18 @@ export function CompaniesPanel({ companies = [], onRefresh, canCreate = false })
 }
 
 export function ContractorsTable({ contractors = [], onRefresh, canManage = false }) {
+  const [actionError, guard] = useActionError();
+
   async function setStatus(row, status) {
-    await api(`/api/contractors/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/contractors/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      onRefresh();
+    });
   }
 
   return (
+    <>
+    <ErrorState error={actionError} />
     <DataTable
       rows={contractors}
       columns={[
@@ -1347,6 +1408,7 @@ export function ContractorsTable({ contractors = [], onRefresh, canManage = fals
         }
       ]}
     />
+    </>
   );
 }
 
@@ -1355,40 +1417,48 @@ export function DocumentsPanel({ documents = [], users = [], onRefresh, canReque
   const [shareDoc, setShareDoc] = useState(null);
   const [shareForm, setShareForm] = useState({ recipient_id: '', body: '' });
   const [viewer, setViewer] = useState(null);
+  const [actionError, guard] = useActionError();
 
   async function requestDoc(event) {
     event.preventDefault();
-    await api('/api/documents/request', { method: 'POST', body: JSON.stringify(form) });
-    setForm({ owner_user_id: '', name: '', type: 'resume' });
-    onRefresh();
+    await guard(async () => {
+      await api('/api/documents/request', { method: 'POST', body: JSON.stringify(form) });
+      setForm({ owner_user_id: '', name: '', type: 'resume' });
+      onRefresh();
+    });
   }
 
   async function upload(id, file) {
     if (!file) return;
-    await uploadDocument(id, file);
-    onRefresh();
+    await guard(async () => {
+      await uploadDocument(id, file);
+      onRefresh();
+    });
   }
 
   async function shareDocument(event) {
     event.preventDefault();
     if (!shareDoc || !shareForm.recipient_id) return;
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: shareForm.recipient_id,
-        related_application_id: shareDoc.application_id || null,
-        related_contractor_id: shareDoc.contractor_id || null,
-        subject: `Shared document: ${shareDoc.name}`,
-        body: `${shareForm.body || 'Please review the attached document record.'}\n\nDocument: ${shareDoc.name}\nType: ${displayLabel(shareDoc.type)}\nView: ${window.location.origin}${documentViewUrl(shareDoc.id)}`
-      })
+    await guard(async () => {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: shareForm.recipient_id,
+          related_application_id: shareDoc.application_id || null,
+          related_contractor_id: shareDoc.contractor_id || null,
+          subject: `Shared document: ${shareDoc.name}`,
+          body: `${shareForm.body || 'Please review the attached document record.'}\n\nDocument: ${shareDoc.name}\nType: ${displayLabel(shareDoc.type)}\nView: ${window.location.origin}${documentViewUrl(shareDoc.id)}`
+        })
+      });
+      setShareDoc(null);
+      setShareForm({ recipient_id: '', body: '' });
+      onRefresh();
     });
-    setShareDoc(null);
-    setShareForm({ recipient_id: '', body: '' });
-    onRefresh();
   }
 
   return (
     <div className="split-panel">
+      <ErrorState error={actionError} />
       {canRequest && (
         <form className="panel-form" onSubmit={requestDoc}>
           <h3>Request Document</h3>
@@ -1446,21 +1516,27 @@ export function DocumentsPanel({ documents = [], users = [], onRefresh, canReque
 
 export function TasksPanel({ tasks = [], users = [], onRefresh, canCreate = false }) {
   const [form, setForm] = useState({ assigned_to: '', title: '', description: '' });
+  const [actionError, guard] = useActionError();
 
   async function createTask(event) {
     event.preventDefault();
-    await api('/api/tasks', { method: 'POST', body: JSON.stringify(form) });
-    setForm({ assigned_to: '', title: '', description: '' });
-    onRefresh();
+    await guard(async () => {
+      await api('/api/tasks', { method: 'POST', body: JSON.stringify(form) });
+      setForm({ assigned_to: '', title: '', description: '' });
+      onRefresh();
+    });
   }
 
   async function setTaskStatus(task, status) {
-    await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/tasks/${task.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      onRefresh();
+    });
   }
 
   return (
     <div className="split-panel">
+      <ErrorState error={actionError} />
       {canCreate && (
         <form className="panel-form" onSubmit={createTask}>
           <h3>Create Task</h3>
@@ -1496,6 +1572,7 @@ export function MessagesPanel({ messages = [], users = [], onRefresh }) {
   const [form, setForm] = useState({ recipient_id: '', subject: '', body: '' });
   const [reply, setReply] = useState('');
   const [activeThreadId, setActiveThreadId] = useState('');
+  const [actionError, guard] = useActionError();
 
   const userMap = useMemo(() => Object.fromEntries(users.map((item) => [item.id, item])), [users]);
   const threads = useMemo(() => {
@@ -1554,26 +1631,30 @@ export function MessagesPanel({ messages = [], users = [], onRefresh }) {
 
   async function sendMessage(event) {
     event.preventDefault();
-    await api('/api/messages', { method: 'POST', body: JSON.stringify(form) });
-    setForm({ recipient_id: '', subject: '', body: '' });
-    onRefresh();
-    window.dispatchEvent(new Event('portal-notifications-refresh'));
+    await guard(async () => {
+      await api('/api/messages', { method: 'POST', body: JSON.stringify(form) });
+      setForm({ recipient_id: '', subject: '', body: '' });
+      onRefresh();
+      window.dispatchEvent(new Event('portal-notifications-refresh'));
+    });
   }
 
   async function sendReply(event) {
     event.preventDefault();
     if (!activeThread || !reply.trim()) return;
-    await api('/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipient_id: activeThread.otherUserId,
-        subject: activeThread.subject,
-        body: reply
-      })
+    await guard(async () => {
+      await api('/api/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: activeThread.otherUserId,
+          subject: activeThread.subject,
+          body: reply
+        })
+      });
+      setReply('');
+      onRefresh();
+      window.dispatchEvent(new Event('portal-notifications-refresh'));
     });
-    setReply('');
-    onRefresh();
-    window.dispatchEvent(new Event('portal-notifications-refresh'));
   }
 
   function nameFor(id) {
@@ -1583,6 +1664,7 @@ export function MessagesPanel({ messages = [], users = [], onRefresh }) {
 
   return (
     <div className="messages-shell">
+      <ErrorState error={actionError} />
       <aside className="thread-list">
         <form className="new-message-form" onSubmit={sendMessage}>
           <h3>New Message</h3>
@@ -1642,13 +1724,16 @@ export function MessagesPanel({ messages = [], users = [], onRefresh }) {
 
 export function NotesPanel({ application, onRefresh }) {
   const [note, setNote] = useState('');
+  const [actionError, guard] = useActionError();
 
   async function addNote(event) {
     event.preventDefault();
     if (!application || !note.trim()) return;
-    await api(`/api/applications/${application.id}/notes`, { method: 'POST', body: JSON.stringify({ note, visibility: 'internal' }) });
-    setNote('');
-    onRefresh();
+    await guard(async () => {
+      await api(`/api/applications/${application.id}/notes`, { method: 'POST', body: JSON.stringify({ note, visibility: 'internal' }) });
+      setNote('');
+      onRefresh();
+    });
   }
 
   if (!application) return <div className="empty-state">Select an application to add notes.</div>;
@@ -1657,6 +1742,7 @@ export function NotesPanel({ application, onRefresh }) {
     <form className="panel-form" onSubmit={addNote}>
       <h3>Add Internal Note</h3>
       <p>{application.full_name} - {application.role_applied}</p>
+      <ErrorState error={actionError} />
       <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Internal note" />
       <button type="submit">Add Note</button>
     </form>

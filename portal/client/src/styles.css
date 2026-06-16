@@ -3696,6 +3696,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--app-text);
 }
 
+/* Authorization cards (Background Investigation) stack heading over body
+   instead of inheriting the two-column .list-card layout used by list rows. */
+.application-shell .conduct-text .list-card {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.application-shell .conduct-text .list-card strong {
+  color: var(--app-red);
+}
+.application-shell .conduct-text .list-card p,
+.application-shell .conduct-text .list-card li {
+  color: var(--app-muted);
+}
+
 /* Criminal history fair-chance / informational notice */
 .application-shell .legal-notice {
   display: grid;
@@ -3762,6 +3776,416 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .application-shell .confirm-modal h2,
 .application-shell .confirm-modal p {
   color: var(--app-text);
+}
+
+/* ============================================================
+   LIGHT PORTAL THEME
+   Matches the employment application surfaces while leaving the
+   standalone login/auth pages on the existing dark treatment.
+   ============================================================ */
+.portal-layout {
+  --portal-bg: #eef1f5;
+  --portal-surface: #ffffff;
+  --portal-surface-2: #f7f9fc;
+  --portal-border: #e3e7ee;
+  --portal-border-strong: #cfd5e0;
+  --portal-text: #161b24;
+  --portal-muted: #5c6473;
+  --portal-faint: #8a92a1;
+  --portal-red: #e11d2e;
+  --portal-red-hover: #c2182a;
+  --portal-red-soft: #fdecef;
+  --portal-green: #15803d;
+  --portal-green-soft: #ecfdf3;
+  --portal-green-border: #abe0bd;
+  --portal-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.06);
+  background: var(--portal-bg);
+  color: var(--portal-text);
+}
+
+.portal-layout .portal-main {
+  background: var(--portal-bg);
+}
+
+.portal-layout .sidebar,
+.portal-layout .portal-mobile-bar {
+  background: var(--portal-surface);
+  border-color: var(--portal-border);
+  color: var(--portal-text);
+}
+
+.portal-layout .sidebar-brand,
+.portal-layout .sidebar-user,
+.portal-layout .sidebar a,
+.portal-layout .portal-mobile-bar {
+  border-color: var(--portal-border);
+}
+
+.portal-layout .sidebar-brand span,
+.portal-layout .portal-mobile-brand span,
+.portal-layout .eyebrow,
+.portal-layout .stat-value,
+.portal-layout .pipeline-list strong,
+.portal-layout .activity-feed time {
+  color: var(--portal-red);
+}
+
+.portal-layout .sidebar-brand strong,
+.portal-layout .portal-mobile-brand strong,
+.portal-layout .sidebar a,
+.portal-layout .sidebar-user,
+.portal-layout .page-header h1,
+.portal-layout h1,
+.portal-layout h2,
+.portal-layout h3,
+.portal-layout code,
+.portal-layout .stat-name,
+.portal-layout .table-sort {
+  color: var(--portal-text);
+}
+
+.portal-layout p,
+.portal-layout .sidebar-user small,
+.portal-layout small,
+.portal-layout label,
+.portal-layout .empty-state,
+.portal-layout .activity-feed small,
+.portal-layout .upload-row small {
+  color: var(--portal-muted);
+}
+
+.portal-layout .sidebar a:hover,
+.portal-layout .sidebar a.active {
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .nav-count {
+  border-color: var(--portal-red);
+  background: var(--portal-red);
+  color: #fff;
+}
+
+.portal-layout .portal-menu-button {
+  border-color: var(--portal-border-strong);
+  background: var(--portal-surface);
+}
+
+.portal-layout .portal-menu-button span {
+  background: var(--portal-text);
+}
+
+.portal-layout .page-header {
+  border-bottom-color: var(--portal-border);
+}
+
+.portal-layout .panel,
+.portal-layout .panel-form,
+.portal-layout .stat-card,
+.portal-layout .empty-state,
+.portal-layout .list-card,
+.portal-layout .message-card,
+.portal-layout .upload-row,
+.portal-layout .check-row,
+.portal-layout .score-grid div,
+.portal-layout .application-review-sections details,
+.portal-layout .jmc-panel,
+.portal-layout .jmc-list-block,
+.portal-layout .jmc-bars,
+.portal-layout .jmc-settings-group {
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  background: var(--portal-surface);
+  box-shadow: var(--portal-shadow);
+}
+
+.portal-layout .panel,
+.portal-layout .panel-form {
+  padding: 1rem;
+}
+
+.portal-layout .portal-main .panel,
+.portal-layout .portal-main .panel-form,
+.portal-layout .portal-main .table-wrap,
+.portal-layout .portal-main .empty-state,
+.portal-layout .portal-main .list-card,
+.portal-layout .portal-main .message-card {
+  border-color: var(--portal-border);
+  background: var(--portal-surface);
+}
+
+.portal-layout .portal-main .list-card,
+.portal-layout .portal-main .message-card {
+  border-bottom: 1px solid var(--portal-border);
+  padding: 1rem;
+}
+
+.portal-layout .portal-main .list-card:last-child,
+.portal-layout .portal-main .message-card:last-child {
+  border-bottom: 1px solid var(--portal-border);
+}
+
+.portal-layout .table-wrap,
+.portal-layout .portal-main .table-wrap,
+.portal-layout .jmc-table {
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  background: var(--portal-surface);
+  box-shadow: var(--portal-shadow);
+}
+
+.portal-layout table,
+.portal-layout .portal-main table {
+  background: var(--portal-surface);
+}
+
+.portal-layout th,
+.portal-layout .jmc-table-head {
+  background: var(--portal-surface-2);
+}
+
+.portal-layout td,
+.portal-layout th,
+.portal-layout .portal-main td,
+.portal-layout .portal-main th,
+.portal-layout .jmc-table-head,
+.portal-layout .jmc-table-row,
+.portal-layout .ops-table-head,
+.portal-layout .ops-table-row,
+.portal-layout .activity-feed div,
+.portal-layout .pipeline-list div,
+.portal-layout .system-list div,
+.portal-layout .application-review-sections details,
+.portal-layout .application-review-sections summary,
+.portal-layout .jmc-meta-grid,
+.portal-layout .jmc-tabs,
+.portal-layout .jmc-activity-timeline div {
+  border-color: var(--portal-border);
+}
+
+.portal-layout input,
+.portal-layout select,
+.portal-layout textarea {
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 8px;
+  background: var(--portal-surface);
+  color: var(--portal-text);
+  min-height: 42px;
+  color-scheme: light;
+}
+
+.portal-layout input::placeholder,
+.portal-layout textarea::placeholder {
+  color: var(--portal-faint);
+}
+
+.portal-layout input:focus,
+.portal-layout select:focus,
+.portal-layout textarea:focus {
+  border-color: var(--portal-red);
+  box-shadow: 0 0 0 3px rgba(225, 29, 46, 0.14);
+}
+
+.portal-layout button,
+.portal-layout .button-link,
+.portal-layout .jmc-row-actions button,
+.portal-layout .jmc-row-actions select,
+.portal-layout .jmc-tabs button,
+.portal-layout .jmc-card-menu-button,
+.portal-layout .jmc-card-menu button {
+  border: 1px solid var(--portal-border-strong);
+  border-radius: 8px;
+  background: var(--portal-surface);
+  color: var(--portal-text);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.portal-layout button:hover:not(:disabled),
+.portal-layout .button-link:hover {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .button-link,
+.portal-layout button[type="submit"] {
+  border-color: var(--portal-red);
+  background: var(--portal-red);
+  color: #fff;
+}
+
+.portal-layout .button-link:hover,
+.portal-layout button[type="submit"]:hover:not(:disabled) {
+  border-color: var(--portal-red-hover);
+  background: var(--portal-red-hover);
+  color: #fff;
+}
+
+.portal-layout .form-error,
+.portal-layout .error-message {
+  border: 1px solid #f3b6bc;
+  border-radius: 10px;
+  background: var(--portal-red-soft);
+  color: #a4121f;
+}
+
+.portal-layout .success-message,
+.portal-layout .empty-state {
+  border: 1px solid var(--portal-green-border);
+  border-radius: 10px;
+  background: var(--portal-green-soft);
+  color: var(--portal-green);
+}
+
+.portal-layout .badge,
+.portal-layout .role-badge {
+  border-color: #f5c6cd;
+  border-radius: 999px;
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .progress-tracker,
+.portal-layout .progress-step,
+.portal-layout .details-grid div {
+  border-color: var(--portal-border);
+}
+
+.portal-layout .progress-step.active,
+.portal-layout .progress-step.complete {
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .document-viewer-modal,
+.portal-layout .confirm-modal,
+.portal-layout .jmc-modal-card,
+.portal-layout .jmc-modal,
+.portal-layout .roc-modal {
+  border: 1px solid var(--portal-border);
+  border-radius: 14px;
+  background: var(--portal-surface);
+  color: var(--portal-text);
+  box-shadow: var(--portal-shadow);
+}
+
+.portal-layout .document-viewer-modal header {
+  border-bottom-color: var(--portal-border);
+}
+
+.portal-layout .jmc-card-menu {
+  border-color: var(--portal-border);
+  border-radius: 10px;
+  background: var(--portal-surface);
+  box-shadow: var(--portal-shadow);
+}
+
+.portal-layout .jmc-job-card,
+.portal-layout .jmc-mini-stats div,
+.portal-layout .jmc-stage-list div,
+.portal-layout .jmc-check,
+.portal-layout .jmc-switch i {
+  border-color: var(--portal-border);
+  background: var(--portal-surface);
+}
+
+.portal-layout .jmc-job-card.active,
+.portal-layout .jmc-tabs button.active {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .jmc-status {
+  color: var(--portal-text);
+}
+
+.portal-layout .jmc-switch input:checked + i {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+}
+
+.portal-layout .jmc-switch input:checked + i::after {
+  background: var(--portal-red);
+}
+
+.portal-layout .roc-shell {
+  --roc-bg: var(--portal-bg);
+  --roc-panel: var(--portal-surface);
+  --roc-panel-soft: var(--portal-surface-2);
+  --roc-line: var(--portal-border);
+  --roc-line-red: #f5c6cd;
+  --roc-red: var(--portal-red);
+  --roc-red-dark: var(--portal-red-hover);
+  --roc-green: var(--portal-green);
+  --roc-amber: #b76a00;
+  --roc-text: var(--portal-text);
+  --roc-muted: var(--portal-muted);
+  background: var(--portal-bg);
+  color: var(--portal-text);
+}
+
+.portal-layout .roc-panel,
+.portal-layout .roc-detail-card,
+.portal-layout .roc-profile-top,
+.portal-layout .roc-progress,
+.portal-layout .roc-bottom-grid .roc-panel,
+.portal-layout .roc-stat,
+.portal-layout .roc-applicant-card,
+.portal-layout .roc-message-detail,
+.portal-layout .roc-stack > div:not(.roc-empty),
+.portal-layout .roc-message-row,
+.portal-layout .roc-calendar-list article > div {
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+  background: var(--portal-surface);
+  color: var(--portal-text);
+  box-shadow: var(--portal-shadow);
+}
+
+.portal-layout .roc-stat,
+.portal-layout .roc-action,
+.portal-layout .roc-row-actions button,
+.portal-layout .roc-actions button,
+.portal-layout .roc-tabs button,
+.portal-layout .roc-toast button {
+  border-radius: 8px;
+  background: var(--portal-surface);
+  color: var(--portal-text);
+}
+
+.portal-layout .roc-action:hover,
+.portal-layout .roc-action-primary,
+.portal-layout .roc-tabs button.active,
+.portal-layout .roc-applicant-card.active {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .roc-kicker,
+.portal-layout .roc-red,
+.portal-layout .roc-activity-list time {
+  color: var(--portal-red);
+}
+
+.portal-layout .roc-toast {
+  border-color: var(--portal-green-border);
+  border-radius: 10px;
+  background: var(--portal-green-soft);
+  color: var(--portal-green);
+}
+
+.portal-layout .roc-modal-backdrop,
+.portal-layout .jmc-modal,
+.portal-layout .modal-backdrop {
+  border: 0;
+  border-radius: 0;
+  background: rgba(22, 27, 36, 0.45);
+  box-shadow: none;
 }
 
 @media (max-width: 1100px) {
