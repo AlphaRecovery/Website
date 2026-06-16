@@ -159,13 +159,24 @@
 
   /* Contact */
   .contact { padding:6.5rem 3rem; background:var(--black); position:relative; z-index:2; }
-  .contact-inner { max-width:600px; }
+  .contact-inner { max-width:980px; }
   .contact-inner p { font-size:0.85rem; font-weight:300; color:var(--bright-white); line-height:1.8; margin-bottom:1.2rem; }
+  .contact-layout { display:grid; grid-template-columns:minmax(240px,320px) minmax(0,1fr); gap:2rem; align-items:start; }
   .contact-info { display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1.5rem; }
   .contact-info a, .contact-info span { font-size:0.8rem; font-weight:300; color:var(--bright-white); text-decoration:none; letter-spacing:0.05em; transition:color 0.2s; }
   .contact-info a:hover { color:var(--bright-red); }
   .contact-label { font-size:0.5rem; letter-spacing:0.35em; text-transform:uppercase; color:var(--bright-red); display:block; margin-bottom:0.2rem; }
-  .contact .btn-red { display:flex; width:fit-content; max-width:100%; margin-left:auto; margin-right:auto; }
+  .contact-form { border-top:1px solid var(--bright-red); padding-top:1.25rem; display:grid; gap:0.85rem; }
+  .contact-form-row { display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; }
+  .contact-form label { display:grid; gap:0.35rem; font-size:0.5rem; letter-spacing:0.28em; text-transform:uppercase; color:var(--bright-red); }
+  .contact-form input, .contact-form select, .contact-form textarea { width:100%; min-height:42px; border:1px solid rgba(255,23,68,0.65); background:rgba(0,0,0,0.72); color:var(--bright-white); padding:0.75rem 0.85rem; font:inherit; font-size:0.78rem; letter-spacing:0.03em; outline:none; border-radius:0; }
+  .contact-form textarea { min-height:130px; resize:vertical; line-height:1.5; }
+  .contact-form input:focus, .contact-form select:focus, .contact-form textarea:focus { border-color:var(--bright-white); box-shadow:0 0 0 1px var(--bright-white); }
+  .contact-form .btn-red { border:1px solid var(--bright-red); cursor:pointer; justify-content:center; width:fit-content; max-width:100%; }
+  .contact-form .btn-red:disabled { opacity:0.6; cursor:wait; }
+  .contact-status { min-height:1.4rem; font-size:0.66rem; line-height:1.5; letter-spacing:0.08em; color:var(--bright-white); }
+  .contact-status.error { color:var(--bright-red); }
+  .contact-hp { position:absolute; left:-9999px; width:1px; height:1px; opacity:0; }
 
   /* Footer */
   footer { padding:2.4rem 3rem; background:var(--black); display:flex; align-items:center; justify-content:space-between; position:relative; z-index:2; }
@@ -197,11 +208,11 @@
     h1, h2, h3, p, a { overflow-wrap:anywhere; }
     .hero-desc { max-width:calc(100vw - 3rem); font-size:0.78rem; line-height:1.65; margin-bottom:1.25rem; }
     .hero-btns { gap:0.8rem; align-items:stretch; flex-direction:column; }
-    .hero-btns .btn-red, .hero-btns .btn-ghost, .contact .btn-red { width:100%; min-height:44px; }
+    .hero-btns .btn-red, .hero-btns .btn-ghost, .contact-form .btn-red { width:100%; min-height:44px; }
     .btn-red, .btn-ghost { padding:0.82rem 1rem; white-space:normal; text-align:center; }
     .services, .about, .mission-vision, .contact { padding:3rem 1.5rem; }
     .services > div, .mission-vision-inner, .contact-inner, footer { max-width:100%; min-width:0; overflow:hidden; }
-    .contact .btn-red { margin-left:auto; margin-right:auto; }
+    .contact-layout, .contact-form-row { grid-template-columns:1fr; }
     .section-title { font-size:clamp(2.2rem,13vw,3.2rem); margin-bottom:1.25rem; }
     .service-card { min-height:0; grid-template-columns:1fr; }
     .service-card img { height:min(58vw,260px); border-right:0; border-bottom:1px solid var(--bright-red); padding:0.7rem; }
@@ -379,21 +390,70 @@
       <div class="section-tag" data-content="contact.tag">Get In Touch</div>
       <h2 class="section-title" data-content="contact.title">Contact Us</h2>
       <p data-content="contact.description">Ready to get started? Our team is available 24/7 for urgent matters. All inquiries are treated with strict confidentiality.</p>
-      <div class="contact-info">
-        <div>
-          <span class="contact-label">Email</span>
-          <a href="mailto:Admin@alpharecovery.org" data-content="contact.email">Admin@alpharecovery.org</a>
+      <div class="contact-layout">
+        <div class="contact-info">
+          <div>
+            <span class="contact-label">Email</span>
+            <a href="mailto:Admin@alpharecovery.org" data-content="contact.email">Admin@alpharecovery.org</a>
+          </div>
+          <div>
+            <span class="contact-label">Phone</span>
+            <a href="tel:2142644347" data-content="contact.phone">214-264-4347</a>
+          </div>
+          <div>
+            <span class="contact-label">Address</span>
+            <span data-content="contact.address">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</span>
+          </div>
         </div>
-        <div>
-          <span class="contact-label">Phone</span>
-          <a href="tel:2142644347" data-content="contact.phone">214-264-4347</a>
-        </div>
-        <div>
-          <span class="contact-label">Address</span>
-          <span data-content="contact.address">8735 Dunwoody Place Ste 6828, Atlanta, GA 30350</span>
-        </div>
+        <form class="contact-form" id="contactForm">
+          <label class="contact-hp">Website
+            <input name="website" tabindex="-1" autocomplete="off" />
+          </label>
+          <div class="contact-form-row">
+            <label>Full Name
+              <input name="name" autocomplete="name" required />
+            </label>
+            <label>Email
+              <input type="email" name="email" autocomplete="email" required />
+            </label>
+          </div>
+          <div class="contact-form-row">
+            <label>Phone
+              <input name="phone" autocomplete="tel" />
+            </label>
+            <label>Organization
+              <input name="org" autocomplete="organization" />
+            </label>
+          </div>
+          <div class="contact-form-row">
+            <label>Organization Size
+              <select name="orgSize">
+                <option value="">Select size</option>
+                <option>Individual</option>
+                <option>1-10 employees</option>
+                <option>11-50 employees</option>
+                <option>51-200 employees</option>
+                <option>200+ employees</option>
+              </select>
+            </label>
+            <label>Service
+              <select name="service">
+                <option value="">Select service</option>
+                <option>Security & Intelligence</option>
+                <option>Fugitive Recovery</option>
+                <option>Crisis Management</option>
+                <option>Law Enforcement Support</option>
+                <option>Other / Custom</option>
+              </select>
+            </label>
+          </div>
+          <label>Message
+            <textarea name="message" rows="5" placeholder="Describe your needs or request..."></textarea>
+          </label>
+          <button class="btn-red" type="submit">Submit Request</button>
+          <p class="contact-status" id="contactStatus" role="status" aria-live="polite"></p>
+        </form>
       </div>
-      <a class="btn-red" href="mailto:Admin@alpharecovery.org" data-content="contact.button">Send Us a Message</a>
     </div>
   </section>
 
@@ -714,6 +774,49 @@ function setupStatCounters() {
   setTimeout(runVisibleStatCounters, 500);
 }
 
+function setupContactForm() {
+  const form = document.getElementById('contactForm');
+  const status = document.getElementById('contactStatus');
+  if (!form || !status) return;
+
+  const endpoint = window.ALPHA_CONTACT_API_URL || 'https://portal.alpharecovery.org/api/contact';
+  const button = form.querySelector('button[type="submit"]');
+  const defaultButtonText = button ? button.textContent : 'Submit Request';
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    status.classList.remove('error');
+    status.textContent = '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Sending...';
+    }
+
+    const payload = Object.fromEntries(new FormData(form).entries());
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to send your message right now.');
+      }
+      form.reset();
+      status.textContent = 'Message received. A member of our team will be in touch within 24 hours.';
+    } catch (error) {
+      status.classList.add('error');
+      status.textContent = error.message || 'Unable to send your message right now. Please email Admin@alpharecovery.org.';
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = defaultButtonText;
+      }
+    }
+  });
+}
+
 fetch('content/site.json', { cache: 'no-store' })
   .then((response) => response.ok ? response.json() : null)
   .then((content) => {
@@ -724,6 +827,7 @@ fetch('content/site.json', { cache: 'no-store' })
 
 bindServiceCards();
 setupMobileNavigation();
+setupContactForm();
 
 const revealSections = document.querySelectorAll('.services, .about, .mission-vision, .contact');
 if (!editorMode) {

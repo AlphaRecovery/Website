@@ -123,6 +123,12 @@
   cursor: not-allowed;
 }
 
+.form-error {
+  color: var(--gold);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 /* Success */
 .form-success {
   display: flex;

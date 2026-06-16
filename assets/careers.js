@@ -122,7 +122,10 @@ function initJobDetail(content) {
   setSharedContent(content);
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
-  const job = openJobs(content).find((item) => jobSlug(item) === id || item.id === id) || openJobs(content)[0];
+  const jobs = openJobs(content);
+  // Only fall back to the first job when no id was requested at all; a stale or
+  // mistyped id must show "no longer available" instead of the wrong position.
+  const job = id ? jobs.find((item) => jobSlug(item) === id || item.id === id) : jobs[0];
   const root = document.getElementById('jobDetailRoot');
   if (!root) return;
   if (!job) {

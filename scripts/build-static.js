@@ -31,8 +31,5 @@ for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
 }
 copyDir(path.join(root, 'assets'), path.join(outDir, 'assets'));
 copyDir(path.join(root, 'content'), path.join(outDir, 'content'));
-if (fs.existsSync(path.join(root, '_headers'))) {
-  copyFile(path.join(root, '_headers'), path.join(outDir, '_headers'));
-}
 
 console.log('Static site copied to dist/');

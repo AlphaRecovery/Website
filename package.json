@@ -9,7 +9,8 @@
     "react-scripts": "5.0.1"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "npm run preview",
+    "start:react": "react-scripts start",
     "build": "node scripts/build-static.js",
     "editor": "node scripts/editor.js",
     "preview": "npm run build && node scripts/preview.js",
@@ -26,7 +27,7 @@
       "last 1 firefox version"
     ]
   },
-  "description": "React-based public website for Alpha Recovery LLC. Ready for Netlify deployment.",
+  "description": "Static public website for Alpha Recovery LLC. Deployed with GitHub Pages.",
   "main": "index.js",
   "repository": {
     "type": "git",

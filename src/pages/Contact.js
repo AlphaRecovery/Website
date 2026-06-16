@@ -3,21 +3,35 @@ import './Contact.css';
 
 export default function Contact() {
   const [form, setForm] = useState({
-    name: '', phone: '', email: '', org: '', orgSize: '', service: '', message: ''
+    name: '', phone: '', email: '', org: '', orgSize: '', service: '', message: '', website: ''
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
   const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
-    // Netlify forms — add data-netlify="true" to form in prod
-    // For now simulate submission
-    await new Promise(r => setTimeout(r, 800));
-    setSubmitted(true);
-    setLoading(false);
+    setError('');
+    try {
+      const endpoint = process.env.REACT_APP_CONTACT_API_URL || 'https://portal.alpharecovery.org/api/contact';
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form)
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || 'Unable to send your message right now.');
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err.message || 'Unable to send your message right now. Please email Admin@alpharecovery.org.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,11 +84,8 @@ export default function Contact() {
                 className="contact-form"
                 onSubmit={handleSubmit}
                 name="contact"
-                data-netlify="true"
-                netlify-honeypot="bot-field"
               >
-                <input type="hidden" name="form-name" value="contact" />
-                <p style={{display:'none'}}><input name="bot-field" /></p>
+                <p style={{display:'none'}}><input name="website" value={form.website} onChange={handleChange} tabIndex="-1" autoComplete="off" /></p>
 
                 <div className="form-row">
                   <div className="form-group">
@@ -131,6 +142,7 @@ export default function Contact() {
                 <button type="submit" className="btn-solid form-submit" disabled={loading}>
                   {loading ? 'Sending...' : 'Submit Request'}
                 </button>
+                {error ? <p className="form-error" role="alert">{error}</p> : null}
               </form>
             )}
           </div>

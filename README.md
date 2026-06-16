@@ -1,11 +1,12 @@
-# Alpha Recovery LLC — Website
+# Alpha Recovery LLC - Website
 
-React-based public website for Alpha Recovery LLC. Ready for Netlify deployment.
+Static public website for Alpha Recovery LLC. The production site is built into `dist` and deployed with GitHub Pages.
 
 ## Stack
-- React 18 + React Router v6
-- Plain CSS (no Tailwind dependency)
-- Netlify Forms (contact form, zero backend)
+
+- Static HTML/CSS/JavaScript
+- Local content editing and preview scripts
+- GitHub Pages deployment
 - Ready for Supabase auth integration (portal phase)
 
 ## Local Development
@@ -15,47 +16,55 @@ npm install
 npm start
 ```
 
-## Deploy to Netlify
+## Build
 
-### Option A: Netlify CLI
 ```bash
-npm install -g netlify-cli
 npm run build
-netlify deploy --prod --dir=dist
 ```
 
-### Option B: Netlify Dashboard (Recommended)
-1. Push this folder to a GitHub repo
-2. Go to https://app.netlify.com → "Add new site" → "Import from Git"
-3. Select your repo
-4. Build command: `npm run build`
-5. Publish directory: `dist`
-6. Click "Deploy site"
+The build output is written to `dist`.
 
-## Connect Your GoDaddy Domain
+## Deploy
 
-1. In Netlify: **Site settings → Domain management → Add custom domain**
-   - Enter: `alpharecovery.org`
+Deployment is handled by `.github/workflows/pages.yml` on pushes to `main`.
 
-2. In GoDaddy DNS settings, add/update:
-   | Type  | Name | Value                        |
-   |-------|------|------------------------------|
-   | A     | @    | 75.2.60.5                    |
-   | CNAME | www  | your-site-name.netlify.app   |
+The workflow runs:
 
-3. Back in Netlify, enable **HTTPS** (free Let's Encrypt SSL) — auto-provisions within minutes.
+```bash
+npm run build
+```
 
-## Netlify Forms (Contact Page)
+Then it uploads `dist` to GitHub Pages.
 
-The contact form is already set up with `data-netlify="true"`. 
-After first deploy, go to **Netlify → Forms** to see submissions.
+## Domain
+
+The custom domain is tracked in `CNAME`:
+
+```text
+alpharecovery.org
+```
+
+Update DNS at the domain registrar according to the current GitHub Pages custom-domain settings.
+
+## Contact Form
+
+The public contact form posts to the portal API:
+
+```text
+https://portal.alpharecovery.org/api/contact
+```
+
+The portal sends submissions by email using its configured email driver. In production, set `EMAIL_DRIVER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, and `CONTACT_EMAIL` on the portal deployment.
 
 ## Next Steps (Portal Phase)
+
 - Set up Supabase project at https://supabase.com
 - Add `.env` file:
-  ```
+
+  ```text
   REACT_APP_SUPABASE_URL=your-project-url
   REACT_APP_SUPABASE_ANON_KEY=your-anon-key
   ```
+
 - Portal is deployed separately at `https://portal.alpharecovery.org`
 - Public job postings should use `/apply/<role-slug>` so the site can hand applicants to the portal domain
