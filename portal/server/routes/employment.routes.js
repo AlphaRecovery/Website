@@ -10,6 +10,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { pushNotificationsForAll } from '../notifications.js';
 import { sendEmail } from '../email.js';
 import { isRemoteStoragePath, readStoredFile } from '../storage.js';
+import { buildApplicationPdf } from '../applicationPdf.js';
 import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
 
 const router = express.Router();
@@ -219,8 +220,7 @@ function applicationEmailText({ role, payload, confirmation, uploads }) {
     'Uploaded Files',
     uploads.length ? uploads.map((upload) => `- ${upload.label}: ${upload.file.originalname}`).join('\n') : 'No files uploaded.',
     '',
-    'Completed Application Data',
-    JSON.stringify(payload, null, 2)
+    'The full completed application is attached as a PDF.'
   ].join('\n');
 }
 
@@ -242,16 +242,16 @@ function applicationEmailHtml({ role, payload, confirmation, uploads }) {
     </p>
     <h3>Uploaded Files</h3>
     ${uploadList}
-    <h3>Completed Application Data</h3>
-    <pre style="white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;line-height:1.45;">${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+    <p>The full completed application is attached as a PDF.</p>
   `;
 }
 
-async function emailAttachmentsForApplication(files, payload, role) {
+async function emailAttachmentsForApplication(files, payload, role, confirmation) {
+  const applicationPdf = await buildApplicationPdf({ payload, role, confirmation });
   const attachments = [{
-    filename: `${role.slug || 'alpha-recovery'}-completed-application.json`,
-    content: Buffer.from(JSON.stringify(payload, null, 2)).toString('base64'),
-    content_type: 'application/json'
+    filename: `${role.slug || 'alpha-recovery'}-application${confirmation ? `-${confirmation}` : ''}.pdf`,
+    content: applicationPdf.toString('base64'),
+    content_type: 'application/pdf'
   }];
 
   for (const upload of flattenUploadedFiles(files)) {
@@ -389,7 +389,7 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
     const personal = payload.personalInformation || {};
     const confirmation = confirmationNumberFor(role, payload);
     const uploads = flattenUploadedFiles(req.files);
-    const attachments = await emailAttachmentsForApplication(req.files, safePayload, role);
+    const attachments = await emailAttachmentsForApplication(req.files, safePayload, role, confirmation);
 
     await sendEmail({
       to: APPLICATION_EMAIL_TO,
