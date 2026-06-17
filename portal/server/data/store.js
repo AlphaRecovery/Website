@@ -220,3 +220,30 @@ export async function deleteSessionByTokenHash(tokenHash) {
   database.sessions = database.sessions.filter((session) => session.token_hash !== tokenHash);
   saveDb();
 }
+
+// Jobs are read fresh and written durably so that serverless instances never
+// serve a stale cached copy and a delete is never dropped before it reaches
+// Postgres. The write targets only the 'jobs' key (jsonb_set) so concurrent
+// writers to other parts of the app-state blob are not clobbered.
+export async function readJobs() {
+  if (usePostgres()) {
+    const result = await getPool().query("select data->'jobs' as jobs from portal_app_state where id = $1", ['primary']);
+    const jobs = result.rows[0]?.jobs;
+    return Array.isArray(jobs) ? jobs : null;
+  }
+  const jobs = getDb().jobs;
+  return Array.isArray(jobs) ? jobs : null;
+}
+
+export async function writeJobs(jobs) {
+  if (usePostgres()) {
+    await getPool().query(
+      "update portal_app_state set data = jsonb_set(data, '{jobs}', $1::jsonb, true), updated_at = now() where id = $2",
+      [JSON.stringify(jobs), 'primary']
+    );
+    if (db) db.jobs = jobs;
+    return;
+  }
+  getDb().jobs = jobs;
+  saveDb();
+}

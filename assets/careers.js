@@ -224,6 +224,46 @@ function setupMobileNavigation() {
   });
 }
 
+// The portal is the source of truth for which jobs are open. The static
+// content/site.json supplies curated descriptions and the rest of the page
+// content. Override the URL by setting window.ALPHA_PORTAL_API before this
+// script loads (used for local testing against a dev portal).
+const PORTAL_API = (typeof window !== 'undefined' && window.ALPHA_PORTAL_API) || 'https://portal.alpharecovery.org';
+
+function mergeLiveJobs(content, liveJobs) {
+  content.opportunities = content.opportunities || {};
+  const curated = new Map((content.opportunities.jobs || []).map((job) => [jobSlug(job), job]));
+  content.opportunities.jobs = (liveJobs || []).map((live) => {
+    const base = curated.get(jobSlug(live));
+    if (!base) return live;
+    const merged = { ...base, ...live };
+    // The portal wins, but fall back to the curated copy for any field the
+    // portal left empty so detail pages stay rich.
+    for (const key of Object.keys(base)) {
+      const value = live[key];
+      const isEmpty = value == null || value === '' || (Array.isArray(value) && value.length === 0);
+      if (isEmpty && base[key] != null) merged[key] = base[key];
+    }
+    return merged;
+  });
+  return content;
+}
+
+async function loadCareersContent() {
+  const response = await fetch('content/site.json', { cache: 'no-store' });
+  const content = response.ok ? await response.json() : {};
+  try {
+    const jobsResponse = await fetch(`${PORTAL_API}/api/public/jobs`, { cache: 'no-store' });
+    if (jobsResponse.ok) {
+      const data = await jobsResponse.json();
+      mergeLiveJobs(content, data.jobs || []);
+    }
+  } catch {
+    // Portal unreachable — fall back to the curated static job list.
+  }
+  return content;
+}
+
 setupMobileNavigation();
 
-window.AlphaCareers = { initCareersLanding, initJobDetail, initWhyJoin };
+window.AlphaCareers = { initCareersLanding, initJobDetail, initWhyJoin, loadCareersContent, mergeLiveJobs };

@@ -92,9 +92,8 @@
 </footer>
 <script src="assets/careers.js"></script>
 <script>
-fetch('content/site.json', { cache: 'no-store' })
-  .then((response) => response.ok ? response.json() : null)
-  .then((content) => { if (content) window.AlphaCareers.initCareersLanding(content); })
+window.AlphaCareers.loadCareersContent()
+  .then((content) => window.AlphaCareers.initCareersLanding(content))
   .catch(() => { document.getElementById('jobCount').textContent = 'Unable to load positions.'; });
 </script>
 </body>

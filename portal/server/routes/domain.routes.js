@@ -3,7 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { getDb, id, insert, saveDb, updateById } from '../data/store.js';
+import { fileURLToPath } from 'node:url';
+import { getDb, id, insert, readJobs, saveDb, updateById, writeJobs } from '../data/store.js';
 import { logActivity, publicUser } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { notificationCounts, pushNotifications, pushNotificationsForAll, registerNotificationClient } from '../notifications.js';
@@ -12,6 +13,7 @@ import { ROLE_CONFIGS } from '../../shared/applicationConfig.js';
 const router = express.Router();
 const siteContentPath = path.resolve(config.root, '..', 'content', 'site.json');
 const hasSiteContentFile = () => fs.existsSync(siteContentPath);
+const jobsCatalogPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'jobs-catalog.json');
 
 function defaultJobsFromRoles() {
   return ROLE_CONFIGS.map((role) => ({
@@ -91,26 +93,36 @@ function defaultJobsFromRoles() {
   }));
 }
 
-function readSiteContent() {
+function seedJobs() {
+  try {
+    const catalog = JSON.parse(fs.readFileSync(jobsCatalogPath, 'utf8'));
+    if (Array.isArray(catalog) && catalog.length) return catalog;
+  } catch {
+    // fall through to role-derived defaults if the bundled catalog is missing
+  }
+  return defaultJobsFromRoles();
+}
+
+async function readSiteContent() {
   if (hasSiteContentFile()) {
     return JSON.parse(fs.readFileSync(siteContentPath, 'utf8'));
   }
-  const db = getDb();
-  if (!db.jobs.length) {
-    db.jobs = defaultJobsFromRoles();
-    saveDb();
+  let jobs = await readJobs();
+  // Seed only when the store has never held jobs (null) or is empty — never on
+  // a transient read, so an intentional delete is not resurrected.
+  if (jobs === null || jobs.length === 0) {
+    jobs = seedJobs();
+    await writeJobs(jobs);
   }
-  return { opportunities: { jobs: db.jobs } };
+  return { opportunities: { jobs } };
 }
 
-function writeSiteContent(content) {
+async function writeSiteContent(content) {
   if (hasSiteContentFile()) {
     fs.writeFileSync(siteContentPath, `${JSON.stringify(content, null, 2)}\n`);
     return;
   }
-  const db = getDb();
-  db.jobs = content.opportunities?.jobs || [];
-  saveDb();
+  await writeJobs(content.opportunities?.jobs || []);
 }
 
 function slugify(value) {
@@ -585,8 +597,8 @@ router.get('/notifications/stream', requireAuth, (req, res) => {
   req.on('close', cleanup);
 });
 
-router.get('/jobs', requireAuth, (req, res) => {
-  const content = readSiteContent();
+router.get('/jobs', requireAuth, async (req, res) => {
+  const content = await readSiteContent();
   const jobs = (content.opportunities?.jobs || []).map(normalizeJob);
   res.json({
     jobs: ['admin', 'recruiter'].includes(req.user.role)
@@ -595,11 +607,11 @@ router.get('/jobs', requireAuth, (req, res) => {
   });
 });
 
-router.post('/jobs', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.post('/jobs', requireAuth, requireRole('admin', 'recruiter'), async (req, res) => {
   const parsed = jobSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid job posting.' });
 
-  const content = readSiteContent();
+  const content = await readSiteContent();
   content.opportunities ||= {};
   content.opportunities.jobs ||= [];
   const now = new Date().toISOString();
@@ -616,16 +628,16 @@ router.post('/jobs', requireAuth, requireRole('admin', 'recruiter'), (req, res) 
     return res.status(409).json({ error: 'A job with this slug already exists.' });
   }
   content.opportunities.jobs.push(job);
-  writeSiteContent(content);
+  await writeSiteContent(content);
   logActivity(req.user.id, 'job_created', { job_id: job.id, title: job.title, status: job.status });
   res.json({ job });
 });
 
-router.patch('/jobs/:slug', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.patch('/jobs/:slug', requireAuth, requireRole('admin', 'recruiter'), async (req, res) => {
   const parsed = jobSchema.partial().safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid job update.' });
 
-  const content = readSiteContent();
+  const content = await readSiteContent();
   const jobs = content.opportunities?.jobs || [];
   const index = jobs.findIndex((job) => job.slug === req.params.slug || job.id === req.params.slug);
   if (index === -1) return res.status(404).json({ error: 'Job not found.' });
@@ -642,25 +654,36 @@ router.patch('/jobs/:slug', requireAuth, requireRole('admin', 'recruiter'), (req
   if (duplicate) return res.status(409).json({ error: 'A job with this slug already exists.' });
 
   jobs[index] = next;
-  writeSiteContent(content);
+  await writeSiteContent(content);
   logActivity(req.user.id, 'job_updated', { job_id: next.id, title: next.title, status: next.status });
   res.json({ job: next });
 });
 
-router.delete('/jobs/:slug', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
-  const content = readSiteContent();
+router.delete('/jobs/:slug', requireAuth, requireRole('admin', 'recruiter'), async (req, res) => {
+  const content = await readSiteContent();
   const before = content.opportunities?.jobs || [];
   const after = before.filter((job) => job.slug !== req.params.slug && job.id !== req.params.slug);
   if (after.length === before.length) return res.status(404).json({ error: 'Job not found.' });
 
   content.opportunities.jobs = after;
-  writeSiteContent(content);
+  await writeSiteContent(content);
   logActivity(req.user.id, 'job_deleted', { job_slug: req.params.slug });
   res.json({ ok: true });
 });
 
-router.get('/library', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
-  const content = readSiteContent();
+// Public, unauthenticated job list for the marketing site's Current
+// Opportunities page. Returns only open jobs; the static site enriches these
+// with curated descriptions from content/site.json by slug.
+router.get('/public/jobs', async (req, res) => {
+  const content = await readSiteContent();
+  const jobs = (content.opportunities?.jobs || [])
+    .map(normalizeJob)
+    .filter((job) => job.status === 'open' && job.settings?.internalOnly !== true);
+  res.json({ jobs });
+});
+
+router.get('/library', requireAuth, requireRole('admin', 'recruiter'), async (req, res) => {
+  const content = await readSiteContent();
   const db = getDb();
   res.json({
     jobs: (content.opportunities?.jobs || []).map(normalizeJob),

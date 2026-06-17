@@ -62,9 +62,8 @@
 </footer>
 <script src="assets/careers.js"></script>
 <script>
-fetch('content/site.json', { cache: 'no-store' })
-  .then((response) => response.ok ? response.json() : null)
-  .then((content) => { if (content) window.AlphaCareers.initJobDetail(content); })
+window.AlphaCareers.loadCareersContent()
+  .then((content) => window.AlphaCareers.initJobDetail(content))
   .catch(() => { document.getElementById('jobDetailRoot').innerHTML = '<section class="content-section"><div class="empty-state">Unable to load this position.</div></section>'; });
 </script>
 </body>
