@@ -1,11 +1,15 @@
 import { findUserBySession, publicUser } from '../auth.js';
 
-export function requireAuth(req, res, next) {
-  const user = findUserBySession(req);
-  if (!user) return res.status(401).json({ error: 'Authentication required' });
-  req.user = user;
-  req.publicUser = publicUser(user);
-  next();
+export async function requireAuth(req, res, next) {
+  try {
+    const user = req.user ?? (await findUserBySession(req));
+    if (!user) return res.status(401).json({ error: 'Authentication required' });
+    req.user = user;
+    req.publicUser = publicUser(user);
+    next();
+  } catch (error) {
+    next(error);
+  }
 }
 
 export function requireRole(...roles) {

@@ -49,9 +49,13 @@ app.use(cors((req, callback) => {
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 
-app.use((req, res, next) => {
-  req.user = findUserBySession(req);
-  next();
+app.use(async (req, res, next) => {
+  try {
+    req.user = await findUserBySession(req);
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.use(

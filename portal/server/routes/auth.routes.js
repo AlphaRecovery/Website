@@ -27,7 +27,7 @@ router.post('/login', async (req, res) => {
     return res.status(401).json({ error: 'Access denied or credentials invalid' });
   }
 
-  createSession(user, req, res);
+  await createSession(user, req, res);
   logActivity(user.id, 'login', { role: user.role });
   res.json({ user: publicUser(user) });
 });
@@ -79,7 +79,7 @@ router.post('/register-applicant', async (req, res) => {
     force_password_change: false,
     created_at: now()
   });
-  createSession(user, req, res);
+  await createSession(user, req, res);
   logActivity(user.id, 'profile_change', { action: 'public_applicant_account_created' });
   sendEmail({
     to: user.email,
@@ -90,9 +90,9 @@ router.post('/register-applicant', async (req, res) => {
   res.json({ user: publicUser(user) });
 });
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
   if (req.user) logActivity(req.user.id, 'logout');
-  clearSession(req, res);
+  await clearSession(req, res);
   res.json({ ok: true });
 });
 
@@ -129,7 +129,7 @@ router.post('/accept-invite', async (req, res) => {
   });
   invite.status = 'accepted';
   saveDb();
-  createSession(user, req, res);
+  await createSession(user, req, res);
   logActivity(user.id, 'invite_accepted', { invite_id: invite.id, role: invite.role });
   res.json({ user: publicUser(user) });
 });

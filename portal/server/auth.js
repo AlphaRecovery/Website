@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import argon2 from 'argon2';
 import { config } from './config.js';
-import { getDb, insert, now, removeExpiredSessions, saveDb } from './data/store.js';
+import { createSessionRow, deleteSessionByTokenHash, findSessionByTokenHash, getDb, insert, now } from './data/store.js';
 
 const COOKIE = 'alpha_session';
 
@@ -24,16 +24,17 @@ export async function hashPassword(password) {
   return argon2.hash(password);
 }
 
-export function createSession(user, req, res) {
-  removeExpiredSessions();
+export async function createSession(user, req, res) {
   const token = crypto.randomBytes(32).toString('hex');
   const expires = new Date(Date.now() + config.sessionDays * 24 * 60 * 60 * 1000).toISOString();
-  insert('sessions', {
-    user_id: user.id,
-    token_hash: hashToken(token),
-    ip_address: req.ip,
-    user_agent: req.headers['user-agent'] || '',
-    expires_at: expires
+  // Await the write so the session is durable before the response (and its
+  // Set-Cookie) is sent — otherwise a frozen serverless instance can drop it.
+  await createSessionRow({
+    tokenHash: hashToken(token),
+    userId: user.id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent'] || '',
+    expiresAt: expires
   });
   res.cookie(COOKIE, token, {
     httpOnly: true,
@@ -45,25 +46,20 @@ export function createSession(user, req, res) {
   });
 }
 
-export function clearSession(req, res) {
+export async function clearSession(req, res) {
   const token = req.cookies[COOKIE];
   if (token) {
-    const database = getDb();
-    const tokenHash = hashToken(token);
-    database.sessions = database.sessions.filter((session) => session.token_hash !== tokenHash);
-    saveDb();
+    await deleteSessionByTokenHash(hashToken(token));
   }
   res.clearCookie(COOKIE, { domain: config.cookieDomain, path: '/' });
 }
 
-export function findUserBySession(req) {
+export async function findUserBySession(req) {
   const token = req.cookies[COOKIE];
   if (!token) return null;
-  removeExpiredSessions();
-  const database = getDb();
-  const session = database.sessions.find((item) => item.token_hash === hashToken(token));
+  const session = await findSessionByTokenHash(hashToken(token));
   if (!session) return null;
-  const user = database.users.find((item) => item.id === session.user_id && item.status === 'active');
+  const user = getDb().users.find((item) => item.id === session.user_id && item.status === 'active');
   return user || null;
 }
 

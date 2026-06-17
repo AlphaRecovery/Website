@@ -65,6 +65,16 @@ export async function loadDb() {
         updated_at timestamptz not null default now()
       )
     `);
+    await client.query(`
+      create table if not exists portal_sessions (
+        token_hash text primary key,
+        user_id text not null,
+        ip_address text,
+        user_agent text,
+        expires_at timestamptz not null,
+        created_at timestamptz not null default now()
+      )
+    `);
     const result = await client.query('select data from portal_app_state where id = $1', ['primary']);
     db = result.rows[0]?.data || emptyDb();
     normalizeDb();
@@ -169,5 +179,44 @@ export function removeExpiredSessions() {
   const database = getDb();
   const current = Date.now();
   database.sessions = database.sessions.filter((session) => new Date(session.expires_at).getTime() > current);
+  saveDb();
+}
+
+// Sessions are stored in their own table (not the app-state blob) so that
+// serverless instances always read/write durable, up-to-date session rows.
+// On Vercel a login on one instance must be visible to the next request on a
+// different instance, and the write must complete before the response returns.
+export async function createSessionRow({ tokenHash, userId, ip, userAgent, expiresAt }) {
+  if (usePostgres()) {
+    await getPool().query(
+      `insert into portal_sessions (token_hash, user_id, ip_address, user_agent, expires_at)
+       values ($1, $2, $3, $4, $5)
+       on conflict (token_hash) do update set user_id = excluded.user_id, expires_at = excluded.expires_at`,
+      [tokenHash, userId, ip || null, userAgent || '', expiresAt]
+    );
+    return;
+  }
+  insert('sessions', { token_hash: tokenHash, user_id: userId, ip_address: ip, user_agent: userAgent, expires_at: expiresAt });
+}
+
+export async function findSessionByTokenHash(tokenHash) {
+  if (usePostgres()) {
+    const result = await getPool().query(
+      'select user_id, expires_at from portal_sessions where token_hash = $1 and expires_at > now()',
+      [tokenHash]
+    );
+    return result.rows[0] || null;
+  }
+  removeExpiredSessions();
+  return getDb().sessions.find((session) => session.token_hash === tokenHash) || null;
+}
+
+export async function deleteSessionByTokenHash(tokenHash) {
+  if (usePostgres()) {
+    await getPool().query('delete from portal_sessions where token_hash = $1', [tokenHash]);
+    return;
+  }
+  const database = getDb();
+  database.sessions = database.sessions.filter((session) => session.token_hash !== tokenHash);
   saveDb();
 }
