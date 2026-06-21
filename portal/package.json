@@ -10,7 +10,7 @@
     "build": "vite build client",
     "build:vercel": "cross-env PORTAL_APP_BASE=/ vite build client",
     "start": "cross-env NODE_ENV=production node server/index.js",
-    "check": "npm run build"
+    "check": "node scripts/test-application-pdf.mjs && npm run build"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

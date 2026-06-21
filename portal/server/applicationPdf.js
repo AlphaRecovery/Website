@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PDFDocument, StandardFonts } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'alpha-recovery-application.pdf');
+const warnedMissingFields = new Set();
 
 function value(input) {
   if (input === null || input === undefined) return '';
@@ -23,6 +24,10 @@ function getField(form, name) {
   try {
     return form.getField(name);
   } catch {
+    if (!warnedMissingFields.has(name)) {
+      warnedMissingFields.add(name);
+      console.warn(`[application-pdf] Missing PDF template field: ${name}`);
+    }
     return null;
   }
 }
@@ -58,6 +63,101 @@ function fillRows(form, prefix, rows = [], columns = [], maxRows = rows.length) 
   });
 }
 
+function rowSummary(row, columns = []) {
+  const parts = columns
+    .map((keys) => {
+      const label = Array.isArray(keys) ? keys[0] : keys;
+      const inputKeys = Array.isArray(keys) ? keys.slice(1) : [keys];
+      const text = rowValue(row, inputKeys.length ? inputKeys : [label]);
+      return text ? `${label}: ${text}` : '';
+    })
+    .filter(Boolean);
+  return parts.join('; ') || value(row);
+}
+
+function overflowSection(title, rows = [], maxRows, columns) {
+  const overflow = rows.slice(maxRows);
+  if (!overflow.length) return null;
+  return {
+    title,
+    rows: overflow.map((row, index) => `${maxRows + index + 1}. ${rowSummary(row, columns)}`)
+  };
+}
+
+function overflowSections(payload = {}) {
+  const education = payload.education || {};
+  const employment = payload.employmentHistory || {};
+  const criminal = payload.criminalHistory || {};
+  return [
+    overflowSection('Additional Education Records', education.degrees || [], 4, ['school', 'degree', 'field', ['graduation', 'graduationYear', 'graduationDate']]),
+    overflowSection('Additional Certifications', certificationRows(payload), 5, ['group', ['name', 'certification'], ['license', 'licenseNumber', 'number'], 'state', ['expiration', 'expirationDate', 'status']]),
+    overflowSection('Additional Language Profiles', payload.languages || [], 4, ['language', 'proficiency', 'skills', 'certification']),
+    overflowSection('Additional Employers', employment.employers || [], 5, ['employer', 'title', 'startDate', 'endDate', 'supervisor', 'phone', 'reasonForLeaving', 'duties']),
+    overflowSection('Additional Criminal History Offenses', criminal.offenses || [], 3, ['type', 'offense', 'offenseDate', 'jurisdiction', 'court', 'disposition', 'sentence', 'status', 'context']),
+    overflowSection('Additional References', payload.references || [], 8, ['name', 'relationship', 'company', 'phone', 'email', 'yearsKnown'])
+  ].filter(Boolean);
+}
+
+function wrapLine(text, maxCharacters = 96) {
+  const words = value(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    if (!line) {
+      line = word;
+    } else if (`${line} ${word}`.length <= maxCharacters) {
+      line = `${line} ${word}`;
+    } else {
+      lines.push(line);
+      line = word;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+}
+
+function drawOverflowPages(doc, font, sections = [], confirmation = '') {
+  if (!sections.length) return;
+  const pageSize = [612, 792];
+  const margin = 44;
+  const lineHeight = 13;
+  let page = doc.addPage(pageSize);
+  let y = pageSize[1] - margin;
+
+  const ensureSpace = (needed = lineHeight) => {
+    if (y - needed >= margin) return;
+    page = doc.addPage(pageSize);
+    y = pageSize[1] - margin;
+  };
+
+  const write = (text, options = {}) => {
+    const size = options.size || 9;
+    const lines = wrapLine(text, options.maxCharacters || 96);
+    for (const line of lines) {
+      ensureSpace(lineHeight);
+      page.drawText(line, {
+        x: margin,
+        y,
+        size,
+        font,
+        color: options.color || rgb(0.12, 0.12, 0.12)
+      });
+      y -= lineHeight;
+    }
+  };
+
+  write('Alpha Recovery Employment Application - Overflow Summary', { size: 13, maxCharacters: 80 });
+  if (confirmation) write(`Reference: ${confirmation}`, { size: 10, maxCharacters: 80 });
+  y -= 8;
+
+  for (const section of sections) {
+    ensureSpace(32);
+    write(section.title, { size: 11, maxCharacters: 80, color: rgb(0, 0, 0) });
+    for (const row of section.rows) write(row);
+    y -= 6;
+  }
+}
+
 function additionalEmployerDuties(employers = []) {
   return employers.slice(0, 5)
     .map((row, index) => value(row?.duties) ? `Employer ${index + 1}: ${value(row.duties)}` : '')
@@ -72,15 +172,17 @@ function certificationRows(payload = {}) {
   return selected.map((name) => ({ name }));
 }
 
-function uploadedFieldNames(payload = {}) {
-  return Object.keys(payload.uploads || {}).filter((key) => {
+function uploadedFieldNames(payload = {}, uploads = {}) {
+  const payloadFields = Object.keys(payload.uploads || {}).filter((key) => {
     const item = payload.uploads?.[key];
     if (Array.isArray(item)) return item.length > 0;
     return !!item;
   });
+  const fileFields = Object.keys(uploads || {}).filter((key) => Array.isArray(uploads[key]) && uploads[key].length > 0);
+  return [...new Set([...payloadFields, ...fileFields])];
 }
 
-export async function buildApplicationPdf({ payload = {}, role = {}, confirmation = '' } = {}) {
+export async function buildApplicationPdf({ payload = {}, role = {}, confirmation = '', uploads = {} } = {}) {
   const template = await fs.readFile(TEMPLATE_PATH);
   const doc = await PDFDocument.load(template);
   const form = doc.getForm();
@@ -187,7 +289,8 @@ export async function buildApplicationPdf({ payload = {}, role = {}, confirmatio
   setText(form, 'applicant_certification_2', applicantCertification.date);
   setText(form, 'applicant_certification_3', confirmation);
 
-  uploadedFieldNames(payload).slice(0, 8).forEach((_, index) => setCheckbox(form, `upload_${index + 1}`, true));
+  uploadedFieldNames(payload, uploads).slice(0, 8).forEach((_, index) => setCheckbox(form, `upload_${index + 1}`, true));
+  drawOverflowPages(doc, font, overflowSections(payload), confirmation);
 
   form.updateFieldAppearances(font);
   form.flatten();

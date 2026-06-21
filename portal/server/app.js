@@ -100,6 +100,9 @@ app.use((error, req, res, next) => {
   if (error?.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({ error: 'Uploaded files must be 10MB or smaller.' });
   }
+  if (error?.code === 'LIMIT_FILE_COUNT' || error?.code === 'LIMIT_UNEXPECTED_FILE') {
+    return res.status(400).json({ error: 'Too many files uploaded. Keep application uploads to 20 files or fewer.' });
+  }
   if (error?.message === 'Unsupported file type') {
     return res.status(400).json({ error: 'Unsupported file type. Upload PDF, JPG, JPEG, PNG, DOC, or DOCX files only.' });
   }

@@ -130,6 +130,26 @@ create table if not exists employment_applications (
   created_at timestamptz not null default now()
 );
 
+create table if not exists employment_application_submissions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id),
+  email text not null,
+  role_slug text not null,
+  role_title text not null,
+  department text,
+  location text,
+  employment_type text,
+  full_name text,
+  confirmation_number text not null unique,
+  delivery text not null default 'email',
+  email_to text,
+  email_cc text,
+  uploaded_files jsonb not null default '[]'::jsonb,
+  submitted_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  unique (user_id, role_slug)
+);
+
 create table if not exists documents (
   id uuid primary key default gen_random_uuid(),
   owner_user_id uuid references users(id),
@@ -188,6 +208,7 @@ create index if not exists users_email_idx on users(lower(email));
 create index if not exists applications_recruiter_idx on applications(assigned_recruiter_id);
 create index if not exists employment_applications_submitted_idx on employment_applications(submitted_at desc);
 create index if not exists employment_applications_status_idx on employment_applications(status);
+create index if not exists employment_application_submissions_submitted_idx on employment_application_submissions(submitted_at desc);
 create index if not exists employment_application_drafts_email_idx on employment_application_drafts(lower(email));
 create index if not exists documents_owner_idx on documents(owner_user_id);
 create index if not exists tasks_assigned_to_idx on tasks(assigned_to);

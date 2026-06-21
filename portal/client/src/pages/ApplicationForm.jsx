@@ -18,6 +18,7 @@ const emptyLanguage = { language: 'Spanish', proficiency: 'Professional', skills
 const emptyCertification = { group: '', name: '', licenseNumber: '', state: '', expirationDate: '', status: '' };
 const emptyOffense = { type: '', offense: '', offenseDate: '', jurisdiction: '', court: '', disposition: '', sentence: '', status: '', context: '' };
 const emptyDegree = { school: '', degree: '', field: '', graduationYear: '' };
+const MAX_TOTAL_UPLOAD_BYTES = 18 * 1024 * 1024;
 const militaryBranches = ['Army', 'Marine Corps', 'Navy', 'Air Force', 'Space Force', 'Coast Guard', 'National Guard', 'Air National Guard', 'Reserves', 'Other'];
 const dischargeTypes = ['Honorable', 'General Under Honorable Conditions', 'Other Than Honorable', 'Bad Conduct', 'Dishonorable', 'Entry-Level Separation', 'Medical Separation', 'Administrative Separation', 'Still Serving', 'Not Applicable', 'Other'];
 const degreeTypes = ['High School Diploma', 'GED', 'Certificate', 'Vocational Certificate', 'Trade Certificate', 'Associate of Arts (AA)', 'Associate of Science (AS)', 'Associate of Applied Science (AAS)', 'Bachelor of Arts (BA)', 'Bachelor of Science (BS)', 'Bachelor of Business Administration (BBA)', 'Bachelor of Social Work (BSW)', 'Master of Arts (MA)', 'Master of Science (MS)', 'Master of Business Administration (MBA)', 'Master of Public Administration (MPA)', 'Master of Social Work (MSW)', 'Juris Doctor (JD)', 'Doctor of Philosophy (PhD)', 'Doctorate / Professional Degree', 'Other'];
@@ -150,6 +151,16 @@ function fileLabel(status) {
   if (status === 'required') return 'Required';
   if (status === 'conditional') return 'Conditional';
   return 'Optional';
+}
+
+function formatMegabytes(bytes) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function totalSelectedUploadBytes(files = {}) {
+  return Object.values(files)
+    .flat()
+    .reduce((total, file) => total + Number(file?.size || 0), 0);
 }
 
 function completedRows(rows, keys) {
@@ -547,6 +558,11 @@ export default function ApplicationForm() {
 
   async function submit() {
     if (!validateAll()) return;
+    const uploadBytes = totalSelectedUploadBytes(files);
+    if (uploadBytes > MAX_TOTAL_UPLOAD_BYTES) {
+      setError(`Uploaded attachments total ${formatMegabytes(uploadBytes)}. Keep all uploaded files under ${formatMegabytes(MAX_TOTAL_UPLOAD_BYTES)} combined.`);
+      return;
+    }
     const form = new FormData();
     form.append('roleSlug', role.slug);
     form.append('payload', JSON.stringify(payload));
@@ -675,7 +691,7 @@ export default function ApplicationForm() {
         {section === 12 && <ReferencesSection payload={payload} setTop={setTop} />}
         {section === 13 && <BackgroundAuthorizationSection role={role} payload={payload} setBackgroundAuthorization={setBackgroundAuthorization} />}
         {section === 14 && <StandardsSection payload={payload} setTop={setTop} />}
-        {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} />}
+        {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} isSectionApplicable={isSectionApplicable} />}
         {section === 16 && <ApplicantCertificationSection payload={payload} setApplicantCertification={setApplicantCertification} />}
 
         <div className="application-actions">
@@ -1083,14 +1099,15 @@ function StandardsSection({ payload, setTop }) {
   </div>;
 }
 
-function ReviewSection({ role, payload, files, setSection, getSectionErrors }) {
+function ReviewSection({ role, payload, files, setSection, getSectionErrors, isSectionApplicable }) {
   return <div className="stack-list">
     <div className="legal-notice">
       <strong>Review your application section by section.</strong>
       <span>Use the edit pencil on any card to jump back to that section before final certification.</span>
     </div>
-    {SECTION_TITLES.slice(0, 14).map((title, index) => {
-      const targetSection = index + 1;
+    {SECTION_TITLES.slice(0, 14).map((title, index) => ({ title, targetSection: index + 1 }))
+      .filter(({ targetSection }) => isSectionApplicable(targetSection))
+      .map(({ title, targetSection }) => {
       const issues = getSectionErrors(targetSection);
       const summary = summarizeSection(targetSection, role, payload, files);
       return (
@@ -1141,7 +1158,7 @@ function UploadFieldList({ uploads, files, setFiles, intro }) {
   if (!uploads.length) return null;
   return <div className="stack-list">
     <p>{intro}</p>
-    <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: 10MB per file.</p>
+    <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: 10MB per file and 18MB combined.</p>
     {uploads.map(({ field, status }) => <div className="upload-row" key={field}>
       <div>
         <strong>{UPLOAD_LABELS[field] || field}</strong>

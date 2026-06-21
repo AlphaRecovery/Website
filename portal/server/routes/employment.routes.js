@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import multer from 'multer';
@@ -19,10 +20,12 @@ fs.mkdirSync(applicationUploadsDir, { recursive: true });
 
 const APPLICATION_EMAIL_TO = 'Admin@alpharecovery.org';
 const APPLICATION_EMAIL_CC = 'Topeka.mv@alpharecovery.org';
+const MAX_FILE_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_EMAIL_ATTACHMENT_BYTES = 18 * 1024 * 1024;
 
 const upload = multer({
   dest: applicationUploadsDir,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: MAX_FILE_UPLOAD_BYTES, files: 20 },
   fileFilter: (req, file, cb) => {
     const ok = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'].includes(path.extname(file.originalname).toLowerCase());
     cb(ok ? null : new Error('Unsupported file type'), ok);
@@ -170,7 +173,17 @@ function confirmationNumberFor(role, payload) {
   const personal = payload.personalInformation || {};
   const last4 = String(personal.ssnLast4 || '').replace(/\D/g, '').slice(-4);
   if (!/^\d{4}$/.test(last4)) throw new Error('Last 4 of SSN is required.');
-  return `${departmentConfirmationPrefix(role.department)}-${new Date().getFullYear()}-0${last4}`;
+  const db = getDb();
+  const exists = (candidate) => (
+    (db.employment_application_submissions || []).some((row) => row.confirmation_number === candidate) ||
+    db.employment_applications.some((row) => row.confirmation_number === candidate)
+  );
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const token = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const candidate = `${departmentConfirmationPrefix(role.department)}-${new Date().getFullYear()}-0${last4}-${token}`;
+    if (!exists(candidate)) return candidate;
+  }
+  throw new Error('Unable to generate a unique confirmation number. Please try again.');
 }
 
 function sanitizePayload(payload) {
@@ -185,6 +198,13 @@ function visibleEmploymentApplications(user) {
   if (user.role === 'admin' || user.role === 'recruiter') return rows;
   if (user.role === 'applicant') return rows.filter((row) => row.email === user.email || row.user_id === user.id);
   return [];
+}
+
+function submittedApplicationFor(db, userId, roleSlug) {
+  return (
+    (db.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
+    db.employment_applications.find((row) => row.user_id === userId && row.role_slug === roleSlug)
+  );
 }
 
 function escapeHtml(value) {
@@ -204,6 +224,14 @@ function flattenUploadedFiles(files = {}) {
       file
     }))
   ));
+}
+
+function totalUploadedBytes(files = {}) {
+  return flattenUploadedFiles(files).reduce((total, upload) => total + Number(upload.file.size || 0), 0);
+}
+
+function formatMegabytes(bytes) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 function applicationEmailText({ role, payload, confirmation, uploads }) {
@@ -247,7 +275,7 @@ function applicationEmailHtml({ role, payload, confirmation, uploads }) {
 }
 
 async function emailAttachmentsForApplication(files, payload, role, confirmation) {
-  const applicationPdf = await buildApplicationPdf({ payload, role, confirmation });
+  const applicationPdf = await buildApplicationPdf({ payload, role, confirmation, uploads: files });
   const attachments = [{
     filename: `${role.slug || 'alpha-recovery'}-application${confirmation ? `-${confirmation}` : ''}.pdf`,
     content: applicationPdf.toString('base64'),
@@ -306,7 +334,7 @@ router.get('/application/draft', (req, res) => {
   const parsed = schema.safeParse(req.query);
   if (!parsed.success) return res.status(400).json({ error: 'Role slug is required.' });
   const draft = getDb().employment_application_drafts.find((row) => row.user_id === req.user.id && row.role_slug === parsed.data.roleSlug);
-  const submitted = getDb().employment_applications.find((row) => row.user_id === req.user.id && row.role_slug === parsed.data.roleSlug);
+  const submitted = submittedApplicationFor(getDb(), req.user.id, parsed.data.roleSlug);
   res.json({ draft: draft || null, submitted: submitted || null });
 });
 
@@ -375,13 +403,17 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
 
   const errors = validateApplication(payload, role, req.files || {});
   if (errors.length) return reject(400, errors.join(' '));
+  const uploadBytes = totalUploadedBytes(req.files || {});
+  if (uploadBytes > MAX_EMAIL_ATTACHMENT_BYTES) {
+    return reject(413, `Uploaded attachments total ${formatMegabytes(uploadBytes)}. Keep all uploaded files under ${formatMegabytes(MAX_EMAIL_ATTACHMENT_BYTES)} combined so the application email can be delivered.`);
+  }
 
   const db = getDb();
   const email = payload.personalInformation.email.toLowerCase();
   const user = db.users.find((item) => item.id === req.user.id && item.role === 'applicant');
   if (!user) return reject(403, 'Applicant account required.');
   if (email !== user.email.toLowerCase()) return reject(400, 'Application email must match your applicant account.');
-  const duplicate = db.employment_applications.find((row) => row.user_id === user.id && row.role_slug === role.slug);
+  const duplicate = submittedApplicationFor(db, user.id, role.slug);
   if (duplicate) return reject(409, `You already submitted an application for ${role.title}. Your confirmation number is ${duplicate.confirmation_number || 'on file'}.`);
 
   const finish = async () => {
@@ -401,6 +433,28 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
       attachments
     });
 
+    insert('employment_application_submissions', {
+      user_id: user.id,
+      email,
+      role_slug: role.slug,
+      role_title: role.title,
+      department: role.department,
+      location: role.location,
+      employment_type: role.employmentType,
+      full_name: personal.fullName || '',
+      confirmation_number: confirmation,
+      delivery: 'email',
+      email_to: APPLICATION_EMAIL_TO,
+      email_cc: APPLICATION_EMAIL_CC,
+      uploaded_files: uploads.map((upload) => ({
+        field: upload.field,
+        label: upload.label,
+        original_name: upload.file.originalname,
+        size: upload.file.size || 0,
+        mime_type: upload.file.mimetype || ''
+      })),
+      submitted_at: new Date().toISOString()
+    });
     db.employment_application_drafts = db.employment_application_drafts.filter((draft) => !(draft.user_id === user.id && draft.role_slug === role.slug));
     saveDb();
     logActivity(user.id, 'application_emailed', { role: role.title, reference: confirmation });

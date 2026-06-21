@@ -43,6 +43,7 @@ function emptyDb() {
     applications: [],
     application_notes: [],
     employment_applications: [],
+    employment_application_submissions: [],
     employment_application_drafts: [],
     library_templates: [],
     notification_views: [],
