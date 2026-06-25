@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import { api, documentDownloadUrl, documentViewUrl, employmentFileDownloadUrl, employmentFileViewUrl } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { displayLabel } from '../../../shared/constants.js';
+import { APPLICATION_STATUSES, displayLabel } from '../../../shared/constants.js';
 import { DocumentViewModal } from './portalShared.jsx';
 
-const portalStatuses = ['submitted', 'received', 'review', 'interview', 'approved', 'onboarding', 'rejected', 'archived'];
+const portalStatuses = APPLICATION_STATUSES;
 const employmentStatuses = ['New', 'Under Review', 'Interview Scheduled', 'Offer Extended', 'Hired', 'Rejected'];
 const stageLabels = ['Application Received', 'Review', 'Document Verification', 'Interview Stage', 'Background Review', 'Offer Stage', 'Onboarding', 'Hired'];
+const portalStageStatuses = ['submitted', 'review', 'review', 'interview', 'review', 'approved', 'onboarding', 'hired'];
+const employmentStageStatuses = ['New', 'Under Review', 'Under Review', 'Interview Scheduled', 'Under Review', 'Offer Extended', 'Hired', 'Hired'];
 const interviewTypes = ['phone', 'video', 'in-person', 'panel', 'technical', 'final'];
 const interviewStatuses = ['draft', 'scheduling_link_sent', 'scheduled', 'candidate_confirmed', 'rescheduled', 'cancelled', 'completed'];
 
@@ -76,6 +78,39 @@ function statusStage(status) {
   if (normalized === 'hired') return 7;
   if (normalized === 'review') return 1;
   return 0;
+}
+
+function isActiveRecruitingCandidate(applicant) {
+  const normalized = normalizeStatus(applicant?.status);
+  return !['hired', 'rejected', 'archived'].includes(normalized);
+}
+
+function isApplicationActivity(item = {}) {
+  const action = String(item.action || '');
+  const metadata = item.metadata || {};
+  return action.includes('application') ||
+    ['status_change', 'application_assigned', 'notification_failed'].includes(action) ||
+    metadata.application_id ||
+    metadata.employment_application_id ||
+    metadata.confirmation_number;
+}
+
+function optionsForApplicant(applicant) {
+  const standardStatuses = applicant?.source === 'employment' ? employmentStatuses : portalStatuses;
+  const matchingStandard = standardStatuses.find((status) => String(status).toLowerCase() === String(applicant?.statusValue || applicant?.status || '').toLowerCase());
+  if (!applicant?.statusValue || matchingStandard) return standardStatuses;
+  return [applicant.statusValue, ...standardStatuses];
+}
+
+function statusValueForApplicant(applicant) {
+  const standardStatuses = optionsForApplicant(applicant);
+  const current = applicant?.statusValue || applicant?.status || '';
+  return standardStatuses.find((status) => String(status).toLowerCase() === String(current).toLowerCase()) || current;
+}
+
+function stageStatusForApplicant(applicant, index) {
+  const statuses = applicant?.source === 'employment' ? employmentStageStatuses : portalStageStatuses;
+  return statuses[Math.min(index, statuses.length - 1)];
 }
 
 function normalizePortalApplication(app) {
@@ -218,7 +253,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   const tasks = data.tasks?.tasks || [];
   const messages = data.messages?.messages || [];
   const interviews = data.interviews?.interviews || [];
-  const activityRows = data.activity?.activity || data.dashboard?.recentActivity || [];
+  const rawActivityRows = data.dashboard?.recentActivity || data.activity?.activity || [];
+  const activityRows = rawActivityRows.filter(isApplicationActivity);
   const employmentApps = data.library?.employmentApplications || [];
 
   const allApplicants = useMemo(() => [
@@ -227,6 +263,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
       .filter((employmentApp) => !applications.some((app) => app.employment_application_id === employmentApp.id))
       .map(normalizeEmploymentApplication)
   ].sort((a, b) => new Date(b.applied || 0) - new Date(a.applied || 0)), [applications, employmentApps]);
+
+  const pipelineApplicants = useMemo(() => allApplicants.filter(isActiveRecruitingCandidate), [allApplicants]);
 
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({ department: '', role: '', status: '', recruiter: '', location: '', priority: '', employment: '', score: '' });
@@ -239,16 +277,16 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   const [viewer, setViewer] = useState(null);
   const [notice, setNotice] = useState('');
 
-  const departments = [...new Set(allApplicants.map((item) => item.department).filter(Boolean))];
-  const roles = [...new Set(allApplicants.map((item) => item.position).filter(Boolean))];
-  const statuses = [...new Set(allApplicants.map((item) => item.status).filter(Boolean))];
-  const recruiters = [...new Set(allApplicants.map((item) => item.recruiter).filter(Boolean))];
-  const locations = [...new Set(allApplicants.map((item) => item.location).filter(Boolean))];
-  const employmentTypes = [...new Set(allApplicants.map((item) => item.employment).filter(Boolean))];
+  const departments = [...new Set(pipelineApplicants.map((item) => item.department).filter(Boolean))];
+  const roles = [...new Set(pipelineApplicants.map((item) => item.position).filter(Boolean))];
+  const statuses = [...new Set(pipelineApplicants.map((item) => item.status).filter(Boolean))];
+  const recruiters = [...new Set(pipelineApplicants.map((item) => item.recruiter).filter(Boolean))];
+  const locations = [...new Set(pipelineApplicants.map((item) => item.location).filter(Boolean))];
+  const employmentTypes = [...new Set(pipelineApplicants.map((item) => item.employment).filter(Boolean))];
 
   const filteredApplicants = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return allApplicants.filter((applicant) => {
+    return pipelineApplicants.filter((applicant) => {
       const matchesQuery = !needle || [applicant.name, applicant.email, applicant.phone, applicant.id, applicant.confirmationNumber].some((value) => String(value || '').toLowerCase().includes(needle));
       const matchesScore = !filters.score || (Number(applicant.score || 0) >= Number(filters.score));
       return matchesQuery
@@ -261,7 +299,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         && (!filters.employment || applicant.employment === filters.employment)
         && matchesScore;
     });
-  }, [allApplicants, filters, query]);
+  }, [pipelineApplicants, filters, query]);
 
   const selected = filteredApplicants.find((applicant) => applicant.id === selectedId) || filteredApplicants[0] || null;
   const linkedEmploymentApplication = selected?.source === 'portal'
@@ -292,27 +330,23 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   const interviewReady = selectedInterviews.some((interview) => interview.status === 'completed' && Number(interview.evaluation?.overall_score || 0) > 0);
 
   const counts = {
-    total: allApplicants.length,
-    new: allApplicants.filter((item) => ['submitted', 'received'].includes(normalizeStatus(item.status))).length,
-    review: allApplicants.filter((item) => normalizeStatus(item.status) === 'review').length,
-    interview: allApplicants.filter((item) => normalizeStatus(item.status) === 'interview').length,
+    total: pipelineApplicants.length,
+    new: pipelineApplicants.filter((item) => ['submitted', 'received'].includes(normalizeStatus(item.status))).length,
+    review: pipelineApplicants.filter((item) => normalizeStatus(item.status) === 'review').length,
+    interview: pipelineApplicants.filter((item) => normalizeStatus(item.status) === 'interview').length,
     background: documents.filter((doc) => String(doc.type || '').includes('background') && !['cleared', 'rejected'].includes(doc.status)).length,
-    offer: allApplicants.filter((item) => normalizeStatus(item.status) === 'approved').length,
-    onboarding: allApplicants.filter((item) => normalizeStatus(item.status) === 'onboarding').length,
-    hired: allApplicants.filter((item) => normalizeStatus(item.status) === 'hired').length,
-    archived: allApplicants.filter((item) => normalizeStatus(item.status) === 'archived').length
+    offer: pipelineApplicants.filter((item) => normalizeStatus(item.status) === 'approved').length,
+    onboarding: pipelineApplicants.filter((item) => normalizeStatus(item.status) === 'onboarding').length
   };
 
   const stats = [
-    ['user', counts.total, 'Total Applications', ''],
+    ['user', counts.total, 'Active Pipeline', ''],
     ['file', counts.new, 'New Applications', 'submitted'],
     ['search', counts.review, 'Under Review', 'review'],
     ['users', counts.interview, 'Interview Stage', 'interview'],
     ['shield', counts.background, 'Background Review', 'background'],
     ['mail', counts.offer, 'Offer Stage', 'approved'],
-    ['clipboard', counts.onboarding, 'Onboarding', 'onboarding'],
-    ['check', counts.hired, 'Hired', 'hired'],
-    ['archive', counts.archived, 'Archived', 'archived']
+    ['clipboard', counts.onboarding, 'Onboarding', 'onboarding']
   ];
 
   function updateFilter(key, value) {
@@ -591,7 +625,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
     downloadText(`${kind}-report.json`, JSON.stringify({ generated_at: new Date().toISOString(), counts, applicants: filteredApplicants }, null, 2), 'application/json');
   }
 
-  const empty = !allApplicants.length;
+  const empty = !pipelineApplicants.length;
 
   return (
     <section className="roc-shell">
@@ -641,7 +675,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
             <select value={filters.recruiter} onChange={(event) => updateFilter('recruiter', event.target.value)}><option value="">All Recruiters</option>{recruiters.map((item) => <option key={item}>{item}</option>)}</select>
             <select value={filters.location} onChange={(event) => updateFilter('location', event.target.value)}><option value="">All Locations</option>{locations.map((item) => <option key={item}>{item}</option>)}</select>
             <select value={filters.score} onChange={(event) => updateFilter('score', event.target.value)}><option value="">Any Score</option><option value="90">90+</option><option value="80">80+</option><option value="70">70+</option></select>
-            <select value={filters.priority} onChange={(event) => updateFilter('priority', event.target.value)}><option value="">All Priorities</option>{['submitted', 'review', 'interview', 'approved', 'onboarding', 'rejected', 'archived'].map((item) => <option key={item} value={item}>{displayLabel(item)}</option>)}</select>
+            <select value={filters.priority} onChange={(event) => updateFilter('priority', event.target.value)}><option value="">All Priorities</option>{['submitted', 'review', 'interview', 'approved', 'onboarding'].map((item) => <option key={item} value={item}>{displayLabel(item)}</option>)}</select>
             <select value={filters.employment} onChange={(event) => updateFilter('employment', event.target.value)}><option value="">All Types</option>{employmentTypes.map((item) => <option key={item}>{item}</option>)}</select>
           </div>
 
@@ -662,9 +696,9 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
                 </span>
               </button>
             ))}
-            {!filteredApplicants.length && <div className="roc-empty">{empty ? 'No applicant records exist yet.' : 'No applicants match the current filters.'}</div>}
+            {!filteredApplicants.length && <div className="roc-empty">{empty ? 'No active recruiting candidates are currently in the pipeline.' : 'No active candidates match the current filters.'}</div>}
           </div>
-          <footer className="roc-pagination"><span>Showing {filteredApplicants.length} of {allApplicants.length} applicants</span></footer>
+          <footer className="roc-pagination"><span>Showing {filteredApplicants.length} of {pipelineApplicants.length} active candidates</span></footer>
         </aside>
 
         <main className="roc-panel roc-profile">
@@ -702,7 +736,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
                 <h3>Application Progress</h3>
                 <div className="roc-timeline">
                   {stageLabels.map((stage, index) => (
-                    <button type="button" key={stage} className={index < selected.stage ? 'complete' : index === selected.stage ? 'current' : ''} onClick={() => setStatus(selected, selected.source === 'employment' ? employmentStatuses[Math.min(index, employmentStatuses.length - 1)] : portalStatuses[Math.min(index, portalStatuses.length - 1)])}>
+                    <button type="button" key={stage} className={index < selected.stage ? 'complete' : index === selected.stage ? 'current' : ''} onClick={() => setStatus(selected, stageStatusForApplicant(selected, index))}>
                       <span><Icon name={index === 0 ? 'users' : index === 1 ? 'search' : index === 4 ? 'shield' : index === 6 ? 'clipboard' : 'user'} size={19} /></span>
                       <strong>{stage}</strong>
                       {index === selected.stage && <small>Current</small>}
@@ -855,8 +889,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
           <h3>Status Actions</h3>
           <button className="next" type="button" disabled={!selected} onClick={() => setStatus(selected, nextStatus(selected, 1))}>Move To Next Stage <Icon name="arrow" size={16} /></button>
           <button className="prev" type="button" disabled={!selected} onClick={() => setStatus(selected, nextStatus(selected, -1))}>Move To Previous Stage <Icon name="arrow" size={16} /></button>
-          <select disabled={!selected} value={selected?.statusValue || ''} onChange={(event) => setStatus(selected, event.target.value)}>
-            {(selected?.source === 'employment' ? employmentStatuses : portalStatuses).map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
+          <select disabled={!selected} value={selected ? statusValueForApplicant(selected) : ''} onChange={(event) => setStatus(selected, event.target.value)}>
+            {optionsForApplicant(selected).map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
           </select>
           <h3>Communication</h3>
           <button type="button" disabled={!selected?.userId} onClick={() => { setForm({ recipient_id: selected.userId, subject: `Application: ${selected.position}` }); setModal('message'); }}><Icon name="mail" size={16} />Send Message</button>
@@ -979,8 +1013,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
       )}
 
       {modal === 'edit' && selected && (
-        <Modal title="Change Status" onClose={() => setModal('')} onSubmit={(event) => { event.preventDefault(); setStatus(selected, form.status || selected.statusValue); setModal(''); }} submitLabel="Save Status">
-          <label>Status<select value={form.status || selected.statusValue} onChange={(event) => setForm({ ...form, status: event.target.value })}>{(selected.source === 'employment' ? employmentStatuses : portalStatuses).map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}</select></label>
+        <Modal title="Change Status" onClose={() => setModal('')} onSubmit={(event) => { event.preventDefault(); setStatus(selected, form.status || statusValueForApplicant(selected)); setModal(''); }} submitLabel="Save Status">
+          <label>Status<select value={form.status || statusValueForApplicant(selected)} onChange={(event) => setForm({ ...form, status: event.target.value })}>{optionsForApplicant(selected).map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}</select></label>
         </Modal>
       )}
       <DocumentViewModal title={viewer?.title} src={viewer?.src} onClose={() => setViewer(null)} />

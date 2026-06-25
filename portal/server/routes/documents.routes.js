@@ -23,7 +23,7 @@ const upload = multer({
 });
 
 function canAccessDocument(user, document) {
-  if (['admin', 'recruiter'].includes(user.role)) return true;
+  if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(user.role)) return true;
   return document.owner_user_id === user.id;
 }
 

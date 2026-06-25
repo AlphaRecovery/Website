@@ -6,6 +6,9 @@ const AuthContext = createContext(null);
 const roleHomes = {
   admin: '/portal/admin',
   recruiter: '/portal/recruiter',
+  hr: '/portal/admin',
+  manager: '/portal/admin',
+  read_only: '/portal/admin',
   contractor: '/portal/contractor',
   applicant: '/portal/applicant'
 };

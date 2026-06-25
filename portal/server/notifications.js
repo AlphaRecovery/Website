@@ -4,7 +4,7 @@ const clients = new Map();
 
 function visibleApplications(user) {
   const db = getDb();
-  if (user.role === 'admin') return db.applications;
+  if (['admin', 'hr', 'manager', 'read_only'].includes(user.role)) return db.applications;
   if (user.role === 'recruiter') return db.applications.filter((app) => !app.assigned_recruiter_id || app.assigned_recruiter_id === user.id);
   if (user.role === 'applicant') return db.applications.filter((app) => app.user_id === user.id);
   return [];
@@ -42,7 +42,7 @@ export function notificationCounts(user) {
       interview.interviewer_ids?.includes(user.id);
     return involved && ['scheduling_link_sent', 'scheduled', 'candidate_confirmed', 'rescheduled', 'cancelled', 'completed'].includes(interview.status) && isAfterSeen(interview, interviewsSeenAt);
   }).length;
-  const applications = ['admin', 'recruiter'].includes(user.role)
+  const applications = ['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(user.role)
     ? visibleApplications(user).filter((app) => ['submitted', 'received', 'review', 'interview'].includes(app.status) && isAfterSeen(app, staffApplicationSeenAt)).length
     : visibleApplications(user).filter((app) => ['submitted', 'received', 'review', 'interview', 'onboarding'].includes(app.status) && isAfterSeen(app, applicationsSeenAt)).length;
 

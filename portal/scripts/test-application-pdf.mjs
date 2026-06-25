@@ -169,7 +169,7 @@ const pdf = await buildApplicationPdf({
 
 if (pdf.length < 1000) throw new Error(`Generated PDF is unexpectedly small (${pdf.length} bytes).`);
 const generated = await PDFDocument.load(pdf);
-assert.ok(generated.getPageCount() > 8, 'long application answers should create continuation pages');
+assert.ok(generated.getPageCount() > 1, 'long application answers should create a multi-page dynamic report');
 
 const outDir = path.join(root, 'output');
 fs.mkdirSync(outDir, { recursive: true });

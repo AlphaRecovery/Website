@@ -214,7 +214,7 @@ function sanitizePayload(payload) {
 
 function visibleEmploymentApplications(user) {
   const rows = getDb().employment_applications;
-  if (user.role === 'admin' || user.role === 'recruiter') return rows.filter((row) => canReviewEmploymentApplication(user, row));
+  if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(user.role)) return rows.filter((row) => canReviewEmploymentApplication(user, row));
   if (user.role === 'applicant') return rows.filter((row) => row.email === user.email || row.user_id === user.id);
   return [];
 }
@@ -610,7 +610,7 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
   }
 });
 
-router.get('/admin/employment-applications', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.get('/admin/employment-applications', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const applications = visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
   const today = new Date().toISOString().slice(0, 10);
   res.json({
@@ -625,17 +625,19 @@ router.get('/admin/employment-applications', requireAuth, requireRole('admin', '
   });
 });
 
-router.get('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.get('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const application = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   res.json({ application });
 });
 
-router.patch('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.patch('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {
   const patch = {};
   const current = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
   if (!current) return res.status(404).json({ error: 'Application not found' });
   if (!canManageEmploymentApplication(req.user, current)) return res.status(403).json({ error: 'Access denied' });
+  const previousStatus = current.status;
+  const previousRecruiterId = current.assigned_recruiter_id || null;
   if (req.body.status) {
     if (!APPLICATION_STATUS.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' });
     const gate = canMoveEmploymentStatus(current.status, req.body.status, current.id);
@@ -654,7 +656,12 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
         employment_application_id: application.id,
         entity_type: 'employment_application',
         entity_id: application.id,
+        full_name: application.full_name,
+        confirmation_number: application.confirmation_number,
+        role: application.role_title,
+        previous_status: previousStatus,
         status: application.status,
+        previous_assigned_recruiter_id: previousRecruiterId,
         assigned_recruiter_id: application.assigned_recruiter_id || null
       }, req);
       pushNotificationsForAll();
@@ -663,7 +670,7 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
     .catch((error) => res.status(500).json({ error: error.message || 'Application update failed.' }));
 });
 
-router.get('/admin/employment-applications/:id/files/:fileId/download', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.get('/admin/employment-applications/:id/files/:fileId/download', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const application = getDb().employment_applications.find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   if (!canReviewEmploymentApplication(req.user, application)) {
@@ -683,7 +690,7 @@ router.get('/admin/employment-applications/:id/files/:fileId/download', requireA
   }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'File download failed.') }));
 });
 
-router.get('/admin/employment-applications/:id/files/:fileId/view', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+router.get('/admin/employment-applications/:id/files/:fileId/view', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const application = getDb().employment_applications.find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   if (!canReviewEmploymentApplication(req.user, application)) {

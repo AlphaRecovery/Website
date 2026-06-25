@@ -1,6 +1,6 @@
-export const ROLES = ['admin', 'recruiter', 'contractor', 'applicant'];
+export const ROLES = ['admin', 'recruiter', 'hr', 'manager', 'read_only', 'contractor', 'applicant'];
 
-export const APPLICATION_STATUSES = ['submitted', 'received', 'review', 'interview', 'approved', 'rejected', 'onboarding', 'archived'];
+export const APPLICATION_STATUSES = ['submitted', 'received', 'review', 'interview', 'approved', 'hired', 'rejected', 'onboarding', 'archived'];
 export const COMPANY_TYPES = ['individual', 'private investigation firm', 'security company', 'social service organization', 'interpreter organization', 'other'];
 export const COMPANY_STATUSES = ['active', 'inactive', 'pending_review'];
 export const CONTRACTOR_STATUSES = ['pending', 'active', 'inactive', 'suspended'];
@@ -40,6 +40,9 @@ export const ACTIVITY_ACTIONS = [
 export const DISPLAY_LABELS = {
   admin: 'Admin',
   recruiter: 'Recruiter',
+  hr: 'HR',
+  manager: 'Manager',
+  read_only: 'Read-only',
   contractor: 'Contractor',
   applicant: 'Applicant',
   submitted: 'Submitted',
@@ -47,6 +50,7 @@ export const DISPLAY_LABELS = {
   review: 'Under Review',
   interview: 'Interview',
   approved: 'Approved',
+  hired: 'Hired',
   rejected: 'Rejected',
   onboarding: 'Onboarding',
   archived: 'Archived',

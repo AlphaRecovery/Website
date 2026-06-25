@@ -5,6 +5,7 @@ import { getDb, insert, now, saveDb, updateById } from '../data/store.js';
 import { clearSession, createSession, hashPassword, hashToken, logActivity, publicUser, verifyPassword } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { portalUrl, sendEmail } from '../email.js';
+import { ROLES } from '../../shared/constants.js';
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -175,10 +176,13 @@ router.post('/reset-password', async (req, res) => {
 });
 
 router.post('/dev/create-invite', requireAuth, requireRole('admin'), async (req, res) => {
+  const schema = z.object({ email: z.string().email(), role: z.enum(ROLES) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invite requires a valid email and role.' });
   const token = crypto.randomBytes(32).toString('hex');
   const invite = insert('invites', {
-    email: String(req.body.email || '').toLowerCase(),
-    role: req.body.role,
+    email: parsed.data.email.toLowerCase(),
+    role: parsed.data.role,
     token_hash: hashToken(token),
     invited_by: req.user.id,
     status: 'pending',
@@ -210,9 +214,25 @@ router.post('/dev/create-invite', requireAuth, requireRole('admin'), async (req,
 });
 
 router.patch('/users/:id/status', requireAuth, requireRole('admin'), (req, res) => {
+  if (req.params.id === req.user.id && req.body.status !== 'active') {
+    return res.status(400).json({ error: 'You cannot disable your own admin account.' });
+  }
   const row = updateById('users', req.params.id, { status: req.body.status });
   if (!row) return res.status(404).json({ error: 'User not found' });
   logActivity(req.user.id, 'profile_change', { user_id: row.id, status: row.status });
+  res.json({ user: publicUser(row) });
+});
+
+router.patch('/users/:id/role', requireAuth, requireRole('admin'), (req, res) => {
+  const schema = z.object({ role: z.enum(ROLES) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Select a valid role.' });
+  if (req.params.id === req.user.id && parsed.data.role !== 'admin') {
+    return res.status(400).json({ error: 'You cannot remove Admin from your own account.' });
+  }
+  const row = updateById('users', req.params.id, { role: parsed.data.role, updated_at: now() });
+  if (!row) return res.status(404).json({ error: 'User not found' });
+  logActivity(req.user.id, 'profile_change', { user_id: row.id, role: row.role });
   res.json({ user: publicUser(row) });
 });
 
