@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, employmentFileDownloadUrl, employmentFileViewUrl } from '../api/client.js';
 import Badge from '../components/Badge.jsx';
 import DataTable from '../components/DataTable.jsx';
@@ -151,19 +151,28 @@ function ApplicationDetail({ selected, onRefresh }) {
 }
 
 export default function EmploymentAdmin() {
+  const [searchParams] = useSearchParams();
   const [applications, setApplications] = useState([]);
+  const [summary, setSummary] = useState({});
   const [selectedId, setSelectedId] = useState('');
   const [query, setQuery] = useState('');
   const [department, setDepartment] = useState('');
   const [role, setRole] = useState('');
   const [status, setStatus] = useState('');
+  const [notificationStatus, setNotificationStatus] = useState('');
   const [error, setError] = useState('');
 
   async function load() {
     try {
       const data = await api('/api/admin/employment-applications');
       setApplications(data.applications);
-      if (!selectedId && data.applications[0]) setSelectedId(data.applications[0].id);
+      setSummary(data.summary || {});
+      const requestedId = searchParams.get('application');
+      if (requestedId && data.applications.some((application) => application.id === requestedId)) {
+        setSelectedId(requestedId);
+      } else if (!selectedId && data.applications[0]) {
+        setSelectedId(data.applications[0].id);
+      }
       setError('');
     } catch (err) {
       setError(err.message);
@@ -181,7 +190,8 @@ export default function EmploymentAdmin() {
     return (!term || item.full_name.toLowerCase().includes(term) || item.email.toLowerCase().includes(term) || String(item.confirmation_number || '').toLowerCase().includes(term))
       && (!department || item.department === department)
       && (!role || item.role_title === role)
-      && (!status || item.status === status);
+      && (!status || item.status === status)
+      && (!notificationStatus || item.notification_status === notificationStatus);
   });
   const selected = applications.find((item) => item.id === selectedId) || null;
 
@@ -192,11 +202,19 @@ export default function EmploymentAdmin() {
       <div className="admin-link-row">
         <Link className="button-link" to="/portal/admin">Operations Portal</Link>
       </div>
+      <div className="stat-grid">
+        <div className="stat-card"><span>New</span><strong>{summary.new_count || 0}</strong></div>
+        <div className="stat-card"><span>Email Failed</span><strong>{summary.notification_failed_count || 0}</strong></div>
+        <div className="stat-card"><span>Submitted Today</span><strong>{summary.submitted_today_count || 0}</strong></div>
+        <div className="stat-card"><span>Assigned To Me</span><strong>{summary.assigned_to_me_count || 0}</strong></div>
+        <div className="stat-card"><span>Unassigned</span><strong>{summary.unassigned_count || 0}</strong></div>
+      </div>
       <div className="panel form-grid">
         <label>Search Name, Email, or Confirmation Number<input value={query} onChange={(event) => setQuery(event.target.value)} /></label>
         <label>Department<select value={department} onChange={(event) => setDepartment(event.target.value)}><option value="">All</option>{departments.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <label>Role<select value={role} onChange={(event) => setRole(event.target.value)}><option value="">All</option>{roles.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All</option>{APPLICATION_STATUS.map((item) => <option key={item} value={item}>{displayLabel(item)}</option>)}</select></label>
+        <label>Email<select value={notificationStatus} onChange={(event) => setNotificationStatus(event.target.value)}><option value="">All</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="pending">Pending</option></select></label>
       </div>
       <div className="split-panel wide-detail">
         <DataTable
@@ -210,6 +228,7 @@ export default function EmploymentAdmin() {
             { key: 'submitted_at', label: 'Date Submitted', sortable: true, render: (row) => new Date(row.submitted_at).toLocaleDateString() },
             { key: 'score', label: 'Score', sortable: true, render: (row) => <Badge value={`${row.score}`} /> },
             { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
+            { key: 'notification_status', label: 'Email', sortable: true, render: (row) => <Badge value={row.notification_status === 'failed' ? 'Submitted - Notification Failed' : (row.notification_status || 'pending')} /> },
             { key: 'id', label: 'Review', render: (row) => <button type="button" onClick={() => setSelectedId(row.id)}>Open</button> }
           ]}
         />

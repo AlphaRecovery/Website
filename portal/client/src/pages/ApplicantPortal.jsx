@@ -33,7 +33,7 @@ export default function ApplicantPortal() {
   const users = data.users?.users || [];
 
   function applicationPanel() {
-    if (!application && !drafts.length) return <div className="empty-state">No saved draft is linked to this account. Completed applications are sent to Alpha Recovery by email.</div>;
+    if (!application && !drafts.length) return <div className="empty-state">No saved draft or submitted application is linked to this account.</div>;
     return (
       <div className="stack-list">
         {drafts.map((draft) => (

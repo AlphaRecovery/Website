@@ -4,9 +4,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import assert from 'node:assert/strict';
+import { PDFDocument } from 'pdf-lib';
 import { buildApplicationPdf } from '../server/applicationPdf.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const longAnswer = Array(10)
+  .fill('This intentionally long answer verifies that oversized applicant text is carried onto a continuation page instead of being clipped by the fixed PDF template fields.')
+  .join(' ');
 
 const payload = {
   positionInformation: {
@@ -29,7 +34,7 @@ const payload = {
     authorized: 'Yes',
     sponsorship: 'No',
     age18: 'Yes',
-    proof: 'Test application - submitted for portal QA.'
+    proof: longAnswer
   },
   availability: {
     travelAvailability: 'None',
@@ -57,7 +62,7 @@ const payload = {
   languages: [{ language: 'Spanish', proficiency: 'Professional', skills: ['Read', 'Write', 'Speak'], certification: 'Internal assessment' }],
   employmentHistory: {
     yearsRelevantExperience: '3',
-    summary: 'Three years of compliance auditing and case-file review experience.',
+    summary: longAnswer,
     employers: [{ employer: 'Peachtree Compliance Services', title: 'Compliance Auditor', startDate: '2021-01-15', endDate: '2024-03-30', supervisor: 'Jane Doe', phone: '(404) 555-0188', reasonForLeaving: 'Career advancement', duties: 'Conducted case-level accuracy audits, maintained audit logs, and produced findings summaries.' }]
   },
   governmentEligibility: {
@@ -84,7 +89,7 @@ const payload = {
     cdl: 'No',
     movingViolations: '0',
     accidents: '0',
-    duiHistory: 'None'
+    duiHistory: longAnswer
   },
   references: [
     { name: 'Jane Doe', relationship: 'Former Supervisor', company: 'Peachtree Compliance Services', phone: '(404) 555-0188', email: 'jane.doe@example.com', yearsKnown: '5' },
@@ -163,6 +168,8 @@ const pdf = await buildApplicationPdf({
 });
 
 if (pdf.length < 1000) throw new Error(`Generated PDF is unexpectedly small (${pdf.length} bytes).`);
+const generated = await PDFDocument.load(pdf);
+assert.ok(generated.getPageCount() > 8, 'long application answers should create continuation pages');
 
 const outDir = path.join(root, 'output');
 fs.mkdirSync(outDir, { recursive: true });

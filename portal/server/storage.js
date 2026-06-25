@@ -4,6 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 import { config } from './config.js';
 
 let supabase = null;
+let storageAdapter = null;
+
+export function setStorageAdapterForTests(adapter) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Storage adapter override is only available in tests.');
+  storageAdapter = adapter;
+}
 
 function supabaseClient() {
   if (!supabase) {
@@ -26,6 +32,7 @@ export function storageKeyFromPath(filePath = '') {
 }
 
 export async function storeUploadedFile(file, folder = 'documents') {
+  if (storageAdapter?.storeUploadedFile) return storageAdapter.storeUploadedFile(file, folder);
   if (config.storageDriver !== 'supabase') return file.path;
   const original = file.originalname || path.basename(file.path);
   const safeName = original.replace(/[^a-zA-Z0-9._-]+/g, '-');
@@ -44,6 +51,7 @@ export async function storeUploadedFile(file, folder = 'documents') {
 }
 
 export async function readStoredFile(filePath) {
+  if (storageAdapter?.readStoredFile) return storageAdapter.readStoredFile(filePath);
   if (!isRemoteStoragePath(filePath)) return fs.readFile(filePath);
   const { data, error } = await supabaseClient()
     .storage
@@ -53,3 +61,27 @@ export async function readStoredFile(filePath) {
   return Buffer.from(await data.arrayBuffer());
 }
 
+export async function deleteStoredFile(filePath) {
+  if (storageAdapter?.deleteStoredFile) return storageAdapter.deleteStoredFile(filePath);
+  if (!filePath) return;
+  if (!isRemoteStoragePath(filePath)) {
+    await fs.unlink(filePath).catch(() => {});
+    return;
+  }
+  const { error } = await supabaseClient()
+    .storage
+    .from(config.supabaseStorageBucket)
+    .remove([storageKeyFromPath(filePath)]);
+  if (error) throw error;
+}
+
+export async function auditSupabaseStorageBucket() {
+  if (config.storageDriver !== 'supabase') return { ok: true, storage: 'local' };
+  const { data, error } = await supabaseClient().storage.getBucket(config.supabaseStorageBucket);
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: data?.public === false,
+    bucket: config.supabaseStorageBucket,
+    public: Boolean(data?.public)
+  };
+}

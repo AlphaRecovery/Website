@@ -10,7 +10,16 @@
     "build": "vite build client",
     "build:vercel": "cross-env PORTAL_APP_BASE=/ vite build client",
     "start": "cross-env NODE_ENV=production node server/index.js",
-    "check": "node scripts/test-application-pdf.mjs && npm run build"
+    "check": "node scripts/test-application-pdf.mjs && npm run build",
+    "test": "node --test server/**/*.test.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:rollback": "node scripts/db-rollback.mjs",
+    "db:verify": "node scripts/db-verify.mjs",
+    "db:backfill": "node scripts/backfill-app-state-to-normalized.mjs",
+    "db:export-jsonb": "node scripts/export-normalized-to-app-state.mjs",
+    "storage:cleanup-orphans": "node scripts/cleanup-orphaned-storage.mjs",
+    "retention:purge": "node scripts/purge-retained-pii.mjs",
+    "smoke:staging": "node scripts/staging-smoke.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

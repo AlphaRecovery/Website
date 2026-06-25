@@ -18,7 +18,11 @@ const emptyLanguage = { language: 'Spanish', proficiency: 'Professional', skills
 const emptyCertification = { group: '', name: '', licenseNumber: '', state: '', expirationDate: '', status: '' };
 const emptyOffense = { type: '', offense: '', offenseDate: '', jurisdiction: '', court: '', disposition: '', sentence: '', status: '', context: '' };
 const emptyDegree = { school: '', degree: '', field: '', graduationYear: '' };
-const MAX_TOTAL_UPLOAD_BYTES = 18 * 1024 * 1024;
+const DEFAULT_UPLOAD_LIMITS = {
+  maxFileBytes: 10 * 1024 * 1024,
+  maxRequestBytes: 18 * 1024 * 1024,
+  maxFiles: 20
+};
 const militaryBranches = ['Army', 'Marine Corps', 'Navy', 'Air Force', 'Space Force', 'Coast Guard', 'National Guard', 'Air National Guard', 'Reserves', 'Other'];
 const dischargeTypes = ['Honorable', 'General Under Honorable Conditions', 'Other Than Honorable', 'Bad Conduct', 'Dishonorable', 'Entry-Level Separation', 'Medical Separation', 'Administrative Separation', 'Still Serving', 'Not Applicable', 'Other'];
 const degreeTypes = ['High School Diploma', 'GED', 'Certificate', 'Vocational Certificate', 'Trade Certificate', 'Associate of Arts (AA)', 'Associate of Science (AS)', 'Associate of Applied Science (AAS)', 'Bachelor of Arts (BA)', 'Bachelor of Science (BS)', 'Bachelor of Business Administration (BBA)', 'Bachelor of Social Work (BSW)', 'Master of Arts (MA)', 'Master of Science (MS)', 'Master of Business Administration (MBA)', 'Master of Public Administration (MPA)', 'Master of Social Work (MSW)', 'Juris Doctor (JD)', 'Doctor of Philosophy (PhD)', 'Doctorate / Professional Degree', 'Other'];
@@ -271,6 +275,7 @@ export default function ApplicationForm() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submittedApplication, setSubmittedApplication] = useState(null);
+  const [uploadLimits, setUploadLimits] = useState(DEFAULT_UPLOAD_LIMITS);
 
   useEffect(() => {
     let mounted = true;
@@ -278,6 +283,7 @@ export default function ApplicationForm() {
       try {
         const data = await api(`/api/application/roles/${roleSlug}`);
         if (!mounted) return;
+        if (data.uploadLimits) setUploadLimits(data.uploadLimits);
         const draftData = await api(`/api/application/draft?roleSlug=${encodeURIComponent(roleSlug)}`);
         if (draftData.submitted) setSubmittedApplication(draftData.submitted);
         const basePayload = initialPayload(data.role, user);
@@ -559,8 +565,13 @@ export default function ApplicationForm() {
   async function submit() {
     if (!validateAll()) return;
     const uploadBytes = totalSelectedUploadBytes(files);
-    if (uploadBytes > MAX_TOTAL_UPLOAD_BYTES) {
-      setError(`Uploaded attachments total ${formatMegabytes(uploadBytes)}. Keep all uploaded files under ${formatMegabytes(MAX_TOTAL_UPLOAD_BYTES)} combined.`);
+    const oversizedFile = Object.values(files).flat().find((file) => Number(file?.size || 0) > uploadLimits.maxFileBytes);
+    if (oversizedFile) {
+      setError(`${oversizedFile.name} is ${formatMegabytes(oversizedFile.size)}. Keep each file under ${formatMegabytes(uploadLimits.maxFileBytes)}.`);
+      return;
+    }
+    if (uploadBytes > uploadLimits.maxRequestBytes) {
+      setError(`Uploaded attachments total ${formatMegabytes(uploadBytes)}. Keep all uploaded files under ${formatMegabytes(uploadLimits.maxRequestBytes)} combined.`);
       return;
     }
     const form = new FormData();
@@ -574,7 +585,7 @@ export default function ApplicationForm() {
       setConfirmation(data.confirmation);
       setError('');
     } catch (err) {
-      setError(err.message || 'Application email failed. Please review your uploads and try again.');
+      setError(err.message || 'Application submission failed. Please review your uploads and try again.');
     }
   }
 
@@ -619,9 +630,9 @@ export default function ApplicationForm() {
     return (
       <main className="application-shell">
         <section className="application-card confirmation-card">
-          <span className="eyebrow">Application Sent</span>
+          <span className="eyebrow">Application Received</span>
           <h1>Thank you, {payload.personalInformation.fullName}</h1>
-          <p>Your Alpha Recovery employment application for {role.title} has been sent by email. Reference: <strong>{confirmation}</strong>.</p>
+          <p>Your Alpha Recovery employment application for {role.title} has been received in the portal. Reference: <strong>{confirmation}</strong>.</p>
           <Link className="button-link" to="/portal/applicant">Return to Portal</Link>
         </section>
       </main>
@@ -681,13 +692,13 @@ export default function ApplicationForm() {
         {section === 2 && <PersonalSection payload={payload} patch={patch} />}
         {section === 3 && <AuthorizationSection payload={payload} patch={patch} />}
         {section === 4 && <AvailabilitySection role={role} payload={payload} patch={patch} />}
-        {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} />}
-        {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} />}
-        {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} />}
+        {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
+        {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
+        {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
         {section === 8 && <EmploymentSection role={role} payload={payload} patch={patch} />}
         {section === 9 && <GovernmentSection payload={payload} patch={patch} />}
         {section === 10 && <CriminalSection payload={payload} patch={patch} />}
-        {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} />}
+        {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
         {section === 12 && <ReferencesSection payload={payload} setTop={setTop} />}
         {section === 13 && <BackgroundAuthorizationSection role={role} payload={payload} setBackgroundAuthorization={setBackgroundAuthorization} />}
         {section === 14 && <StandardsSection payload={payload} setTop={setTop} />}
@@ -767,7 +778,7 @@ function AvailabilitySection({ role, payload, patch }) {
   </div>;
 }
 
-function MilitarySection({ role, payload, patch, files, setFiles }) {
+function MilitarySection({ role, payload, patch, files, setFiles, uploadLimits }) {
   const data = payload.militaryService;
   const uploads = getSectionUploads(5, role, payload);
   return <div className="stack-list">
@@ -786,11 +797,11 @@ function MilitarySection({ role, payload, patch, files, setFiles }) {
         <Field label="Disabled Veteran Status"><SelectInput value={data.disabledVeteran} onChange={(value) => patch('militaryService', { disabledVeteran: value })} options={yesNo()} required /></Field>
       </>}
     </div>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} intro="Upload military documentation based on your current military status." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload military documentation based on your current military status." />}
   </div>;
 }
 
-function EducationSection({ role, payload, patch, files, setFiles }) {
+function EducationSection({ role, payload, patch, files, setFiles, uploadLimits }) {
   const data = payload.education;
   const requirements = role.requiredEducation || [];
   const uploads = getSectionUploads(6, role, payload);
@@ -808,16 +819,16 @@ function EducationSection({ role, payload, patch, files, setFiles }) {
       <div className="inline-action"><button type="button" className="danger-button" onClick={() => patch('education', { degrees: data.degrees.filter((_, itemIndex) => itemIndex !== index) || [{ ...emptyDegree }] })} disabled={data.degrees.length === 1}>Remove Education</button></div>
     </div>)}
     <button type="button" onClick={() => patch('education', { degrees: [...data.degrees, { ...emptyDegree }] })}>Add Education</button>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} intro="Upload any required degree, diploma, GED, or transcript documentation here." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload any required degree, diploma, GED, or transcript documentation here." />}
   </div>;
 }
 
-function CertificationSection({ role, certOptions, payload, setTop, files, setFiles }) {
+function CertificationSection({ role, certOptions, payload, setTop, files, setFiles, uploadLimits }) {
   const records = payload.certifications.records || [];
   const selected = payload.certifications.selected || [];
   const uploads = getSectionUploads(7, role, payload);
   return <div className="stack-list">
-    <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} intro="Upload your resume here. Any professional license or certification documents for this section also belong here." />
+    <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload your resume here. Any professional license or certification documents for this section also belong here." />
     {!certOptions.length && role.languageRole === 'none' && <div className="empty-state">No specialized certifications or languages are tracked for this role beyond the required resume upload.</div>}
     {!!certOptions.length && <div className="checkbox-grid">
       {certOptions.map((cert) => <label key={`${cert.group}-${cert.name}`} className="check-row"><input type="checkbox" checked={selected.includes(cert.name)} onChange={(event) => {
@@ -955,7 +966,7 @@ function CriminalSection({ payload, patch }) {
   </div>;
 }
 
-function DrivingSection({ role, payload, patch, files, setFiles }) {
+function DrivingSection({ role, payload, patch, files, setFiles, uploadLimits }) {
   if (!role.drivingRequired) return <div className="empty-state">This section is hidden for this role because driving is not required.</div>;
   const data = payload.drivingRecord;
   const uploads = getSectionUploads(11, role, payload);
@@ -969,7 +980,7 @@ function DrivingSection({ role, payload, patch, files, setFiles }) {
       <Field label="Accidents in Last 5 Years"><TextInput type="number" value={data.accidents} onChange={(value) => patch('drivingRecord', { accidents: value })} /></Field>
       <Field label="DUI History"><textarea value={data.duiHistory} onChange={(event) => patch('drivingRecord', { duiHistory: event.target.value })} /></Field>
     </div>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} intro="Upload the driver's license documentation for this section here." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload the driver's license documentation for this section here." />}
   </div>;
 }
 
@@ -1154,11 +1165,11 @@ function ApplicantCertificationSection({ payload, setApplicantCertification }) {
   </div>;
 }
 
-function UploadFieldList({ uploads, files, setFiles, intro }) {
+function UploadFieldList({ uploads, files, setFiles, uploadLimits = DEFAULT_UPLOAD_LIMITS, intro }) {
   if (!uploads.length) return null;
   return <div className="stack-list">
     <p>{intro}</p>
-    <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: 10MB per file and 18MB combined.</p>
+    <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: {formatMegabytes(uploadLimits.maxFileBytes)} per file and {formatMegabytes(uploadLimits.maxRequestBytes)} combined.</p>
     {uploads.map(({ field, status }) => <div className="upload-row" key={field}>
       <div>
         <strong>{UPLOAD_LABELS[field] || field}</strong>

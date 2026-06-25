@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import argon2 from 'argon2';
 import { config } from './config.js';
 import { createSessionRow, deleteSessionByTokenHash, findSessionByTokenHash, getDb, insert, now } from './data/store.js';
+import { safeMetadata } from './security.js';
 
 const COOKIE = 'alpha_session';
 
@@ -63,6 +64,16 @@ export async function findUserBySession(req) {
   return user || null;
 }
 
-export function logActivity(userId, action, metadata = {}) {
-  insert('activity_log', { user_id: userId || null, action, metadata, created_at: now() });
+export function logActivity(userId, action, metadata = {}, req = null) {
+  insert('activity_log', {
+    user_id: userId || null,
+    actor_user_id: userId || null,
+    action,
+    entity_type: metadata.entity_type || null,
+    entity_id: metadata.entity_id || metadata.employment_application_id || metadata.application_id || metadata.document_id || null,
+    ip_address: req?.ip || null,
+    user_agent: req?.headers?.['user-agent'] || null,
+    metadata: safeMetadata(metadata),
+    created_at: now()
+  });
 }
