@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "npm run dev:server",
     "dev:client": "cross-env PORTAL_APP_BASE=/ vite --host 127.0.0.1 --port 5173 client",
