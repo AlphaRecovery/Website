@@ -112,17 +112,48 @@ async function json(baseUrl, pathName, { method = 'GET', cookie: requestCookie =
   return { response, body: await response.json().catch(() => ({})), cookie: cookie(response) };
 }
 
-async function submit(baseUrl, requestCookie, payload, fileBody = '%PDF-1.4\nresume') {
+async function submit(baseUrl, requestCookie, payload, fileBody = '%PDF-1.4\nresume', options = {}) {
   const form = new FormData();
-  form.append('roleSlug', 'administrative-specialist');
+  form.append('roleSlug', options.roleSlug || 'administrative-specialist');
   form.append('payload', JSON.stringify(payload));
   form.append('resume', new Blob([fileBody], { type: 'application/pdf' }), 'resume.pdf');
+  for (const file of options.files || []) {
+    form.append(file.field, new Blob([file.body], { type: file.type || 'application/pdf' }), file.name);
+  }
   const response = await fetch(`${baseUrl}/api/application/submit`, {
     method: 'POST',
     headers: { Cookie: requestCookie },
     body: form
   });
   return { response, body: await response.json().catch(() => ({})) };
+}
+
+function educationAlternativePayload(email, startDate = '2010-01-01', endDate = '2022-01-01') {
+  return {
+    ...validPayload(email),
+    positionInformation: {
+      ...validPayload(email).positionInformation,
+      roleTitle: 'Program Director',
+      desiredStartDate: '2026-07-15',
+      desiredPay: '$120000'
+    },
+    education: {
+      highestLevel: 'High School Diploma',
+      useExperienceAlternative: true,
+      degrees: []
+    },
+    employmentHistory: {
+      employers: [{
+        employer: 'Example Agency',
+        title: 'Program Lead',
+        startDate,
+        endDate,
+        supervisor: 'Alex Manager',
+        phone: '(404) 555-0202',
+        reasonForLeaving: 'New opportunity'
+      }]
+    }
+  };
 }
 
 async function registerApplicant(baseUrl, email) {
@@ -217,6 +248,44 @@ test('staff email failure keeps admin-visible application with sanitized error c
   assert.equal(getDb().employment_applications[0].notification_status, 'failed');
   assert.equal(getDb().employment_applications[0].notification_error_code, 'email_notification_failed');
   assert.equal(getDb().employment_applications[0].notification_error, undefined);
+});
+
+test('education alternative requires an uploaded narrative', async (t) => {
+  const baseUrl = await withServer(t);
+  const applicant = await registerApplicant(baseUrl, 'missing-narrative@example.com');
+  const result = await submit(baseUrl, applicant.cookie, educationAlternativePayload('missing-narrative@example.com'), '%PDF-1.4\nresume', {
+    roleSlug: 'program-director'
+  });
+  assert.equal(result.response.status, 400);
+  assert.match(result.body.error, /Education Alternative Experience Narrative upload is required/);
+  assert.equal(getDb().employment_applications.length, 0);
+});
+
+test('education alternative requires at least ten documented years', async (t) => {
+  const baseUrl = await withServer(t);
+  const applicant = await registerApplicant(baseUrl, 'short-experience@example.com');
+  const result = await submit(baseUrl, applicant.cookie, educationAlternativePayload('short-experience@example.com', '2020-01-01', '2025-01-01'), '%PDF-1.4\nresume', {
+    roleSlug: 'program-director',
+    files: [{ field: 'educationExperienceNarrative', body: '%PDF-1.4\nexperience narrative', name: 'experience-narrative.pdf' }]
+  });
+  assert.equal(result.response.status, 400);
+  assert.match(result.body.error, /Education alternative requires at least 10 years/);
+  assert.equal(getDb().employment_applications.length, 0);
+});
+
+test('education alternative accepts ten plus years with narrative instead of degree upload', async (t) => {
+  const baseUrl = await withServer(t);
+  const applicant = await registerApplicant(baseUrl, 'ten-year-alt@example.com');
+  const result = await submit(baseUrl, applicant.cookie, educationAlternativePayload('ten-year-alt@example.com'), '%PDF-1.4\nresume', {
+    roleSlug: 'program-director',
+    files: [{ field: 'educationExperienceNarrative', body: '%PDF-1.4\nexperience narrative', name: 'experience-narrative.pdf' }]
+  });
+  assert.equal(result.response.status, 200, JSON.stringify(result.body));
+  const application = getDb().employment_applications[0];
+  assert.equal(application.role_slug, 'program-director');
+  assert.equal(application.payload.education.useExperienceAlternative, true);
+  assert.ok(application.files.some((file) => file.field === 'educationExperienceNarrative'));
+  assert.ok(!application.files.some((file) => file.field === 'degree'));
 });
 
 test('unauthorized recruiter file access returns 403 and writes denied audit row', async (t) => {
