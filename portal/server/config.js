@@ -31,6 +31,31 @@ const configuredClientOrigins = (process.env.PORTAL_CLIENT_ORIGIN || '').split('
 const clientOrigins = Array.from(new Set([...defaultClientOrigins, ...configuredClientOrigins]));
 const isProduction = process.env.NODE_ENV === 'production';
 const isVercel = Boolean(process.env.VERCEL);
+const productionPublicPortalUrl = 'https://portal.alpharecovery.org';
+const defaultPublicPortalUrl = isProduction ? productionPublicPortalUrl : defaultClientOrigins[0];
+
+function firstConfiguredOrigin(value) {
+  return String(value || '').split(',').map((origin) => origin.trim()).filter(Boolean)[0] || '';
+}
+
+function publicPortalUrlIssue(value) {
+  if (!value) return 'PUBLIC_PORTAL_URL';
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '::1';
+    if (url.protocol !== 'https:' || isLocalhost) return `PUBLIC_PORTAL_URL=${productionPublicPortalUrl}`;
+  } catch {
+    return `PUBLIC_PORTAL_URL=${productionPublicPortalUrl}`;
+  }
+  return '';
+}
+
+function configuredPublicPortalUrl() {
+  if (process.env.PUBLIC_PORTAL_URL) return process.env.PUBLIC_PORTAL_URL;
+  if (isProduction) return defaultPublicPortalUrl;
+  return firstConfiguredOrigin(process.env.PORTAL_CLIENT_ORIGIN) || defaultPublicPortalUrl;
+}
 
 function bytesFromEnv(name, fallback) {
   const value = Number(process.env[name] || 0);
@@ -64,7 +89,7 @@ export const config = {
   rejectedRetentionDays: bytesFromEnv('REJECTED_RETENTION_DAYS', 365),
   withdrawnRetentionDays: bytesFromEnv('WITHDRAWN_RETENTION_DAYS', 365),
   pdfViewWatermarkEnabled: process.env.PDF_VIEW_WATERMARK_ENABLED === 'true',
-  publicPortalUrl: process.env.PUBLIC_PORTAL_URL || process.env.PORTAL_CLIENT_ORIGIN || 'http://127.0.0.1:4180',
+  publicPortalUrl: configuredPublicPortalUrl(),
   emailDriver: process.env.EMAIL_DRIVER || (process.env.RESEND_API_KEY ? 'resend' : 'log'),
   emailFrom: process.env.EMAIL_FROM || 'Alpha Recovery <no-reply@alpharecovery.org>',
   contactEmail: process.env.CONTACT_EMAIL || 'Admin@alpharecovery.org',
@@ -105,6 +130,8 @@ export function validateProductionConfig() {
   if (!process.env.RESEND_API_KEY) missing.push('RESEND_API_KEY');
   if (!process.env.EMAIL_FROM) missing.push('EMAIL_FROM');
   if (!process.env.APPLICATION_EMAIL_TO && !process.env.CONTACT_EMAIL) missing.push('APPLICATION_EMAIL_TO or CONTACT_EMAIL');
+  const publicPortalUrlConfigIssue = publicPortalUrlIssue(config.publicPortalUrl);
+  if (publicPortalUrlConfigIssue) missing.push(publicPortalUrlConfigIssue);
 
   if (missing.length) {
     throw new Error(`Unsafe production portal configuration. Missing or invalid: ${missing.join(', ')}.`);

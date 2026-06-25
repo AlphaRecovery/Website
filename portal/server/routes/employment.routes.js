@@ -20,7 +20,7 @@ import { logFileAccessDenied, sendStoredFileResponse } from '../fileResponses.js
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { canAssignEmploymentApplication, canManageEmploymentApplication, canReviewEmploymentApplication } from '../policies.js';
 import { pushNotificationsForAll } from '../notifications.js';
-import { sendEmail } from '../email.js';
+import { portalUrl, sendEmail } from '../email.js';
 import { deleteStoredFile, isRemoteStoragePath, storeUploadedFile } from '../storage.js';
 import { publicErrorMessage } from '../security.js';
 import { buildApplicationPdf } from '../applicationPdf.js';
@@ -251,7 +251,7 @@ function applicationPortalPath(applicationId) {
 
 function applicationEmailText({ role, payload, confirmation, uploads, applicationId }) {
   const personal = payload.personalInformation || {};
-  const reviewUrl = `${config.publicPortalUrl.replace(/\/$/, '')}${applicationPortalPath(applicationId)}`;
+  const reviewUrl = portalUrl(applicationPortalPath(applicationId));
   return [
     `Position: ${role.title}`,
     `Reference: ${confirmation}`,
@@ -271,7 +271,7 @@ function applicationEmailText({ role, payload, confirmation, uploads, applicatio
 
 function applicationEmailHtml({ role, payload, confirmation, uploads, applicationId }) {
   const personal = payload.personalInformation || {};
-  const reviewUrl = `${config.publicPortalUrl.replace(/\/$/, '')}${applicationPortalPath(applicationId)}`;
+  const reviewUrl = portalUrl(applicationPortalPath(applicationId));
   const uploadList = uploads.length
     ? `<ul>${uploads.map((upload) => `<li><strong>${escapeHtml(upload.label)}:</strong> ${escapeHtml(upload.file.originalname)}</li>`).join('')}</ul>`
     : '<p>No files uploaded.</p>';
