@@ -4438,3 +4438,123 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     padding: 0.72rem 0.8rem;
   }
 }
+
+/* ============================================================
+   UNIFIED WHITE-LIST SCHEME (portal + application)
+   Single consistent palette across every list/table/card:
+     • Surfaces  -> white
+     • Headers   -> red   (headings, section titles, table/column
+                    headers, field-label terms)
+     • All other -> black (body, list rows, cells, small text)
+     • No grey   -> muted/faint tokens remapped to black
+   Standalone login/auth pages keep their dark treatment.
+   ============================================================ */
+
+/* 1. Eliminate grey — remap muted/faint tokens to black */
+.portal-layout {
+  --portal-muted: #000;
+  --portal-faint: #000;
+}
+.portal-layout .roc-shell {
+  --roc-muted: #000;
+}
+.application-shell {
+  --app-muted: #000;
+  --app-faint: #000;
+}
+
+/* 2. Default text colour -> black across portal + application */
+.portal-layout,
+.application-shell {
+  color: #000;
+}
+
+/* 3. Body / list / cell / secondary text -> black */
+.portal-layout p,
+.portal-layout li,
+.portal-layout dd,
+.portal-layout td,
+.portal-layout small,
+.portal-layout label,
+.portal-layout .stat-name,
+.portal-layout .jmc-status,
+.portal-layout .activity-feed time,
+.portal-layout .activity-feed small,
+.portal-layout .roc-activity-list time,
+.portal-layout .roc-stack small,
+.portal-layout .roc-stack b,
+.portal-layout .compact-list small,
+.portal-layout .thread-item,
+.portal-layout .thread-item small,
+.portal-layout .chat-bubble,
+.portal-layout .chat-bubble p,
+.portal-layout .chat-bubble small,
+.application-shell p,
+.application-shell li,
+.application-shell dd,
+.application-shell small,
+.application-shell label {
+  color: #000;
+}
+
+/* 4. Headers -> red (headings, section kickers, table/column
+      headers, definition-list terms) */
+.portal-layout h1,
+.portal-layout h2,
+.portal-layout h3,
+.portal-layout h4,
+.portal-layout h5,
+.portal-layout h6,
+.portal-layout .eyebrow,
+.portal-layout .roc-kicker,
+.portal-layout .jmc-hero span,
+.portal-layout dt,
+.portal-layout th,
+.portal-layout .table-sort,
+.portal-layout .ops-table-head,
+.portal-layout .jmc-table-head {
+  color: var(--portal-red);
+}
+
+.application-shell h1,
+.application-shell h2,
+.application-shell h3,
+.application-shell h4,
+.application-shell h5,
+.application-shell h6,
+.application-shell .eyebrow,
+.application-shell dt {
+  color: var(--app-red);
+}
+
+/* 5. White surfaces for list/table/card areas that were still
+      on the dark base theme (messages + chat, compact lists). */
+.portal-layout .messages-shell,
+.portal-layout .thread-list,
+.portal-layout .thread-messages,
+.portal-layout .thread-header,
+.portal-layout .new-message-form,
+.portal-layout .reply-form,
+.portal-layout .thread-item,
+.portal-layout .chat-bubble,
+.portal-layout .chat-bubble.mine,
+.portal-layout .compact-list article,
+.portal-layout .roc-message-detail {
+  background: #fff;
+  border-color: var(--portal-border);
+}
+
+.portal-layout .chat-bubble.mine {
+  border-color: var(--portal-red);
+}
+
+.portal-layout .thread-item.active,
+.portal-layout .thread-item:hover {
+  background: var(--portal-red-soft);
+}
+
+/* Unread-count chip inside a thread row (was white-on-white) */
+.portal-layout .thread-item em {
+  background: var(--portal-red);
+  color: #fff;
+}

@@ -5,16 +5,16 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0",
-    "react-scripts": "5.0.1"
+    "react-router-dom": "^6.22.0"
   },
   "scripts": {
     "start": "npm run preview",
-    "start:react": "react-scripts start",
+    "start:react": "vite --host 127.0.0.1 --port 3000 --open /react-index.html",
     "build": "node scripts/build-static.js",
+    "build:react": "vite build",
     "editor": "node scripts/editor.js",
     "preview": "npm run build && node scripts/preview.js",
-    "test": "react-scripts test"
+    "test": "npm run build && npm run build:react"
   },
   "browserslist": {
     "production": [
@@ -40,5 +40,9 @@
   "bugs": {
     "url": "https://github.com/AlphaRecovery/Website/issues"
   },
-  "homepage": "https://github.com/AlphaRecovery/Website#readme"
+  "homepage": "https://github.com/AlphaRecovery/Website#readme",
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.3",
+    "vite": "^8.1.0"
+  }
 }

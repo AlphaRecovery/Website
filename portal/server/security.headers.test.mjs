@@ -29,6 +29,11 @@ test('health endpoint reports config class without leaking env values', async (t
   const baseUrl = `http://127.0.0.1:${server.address().port}`;
   const response = await fetch(`${baseUrl}/api/health`);
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(response.headers.get('x-frame-options'), 'DENY');
+  assert.equal(response.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  assert.match(response.headers.get('permissions-policy'), /camera=\(\)/);
+  assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);
   const payload = await response.json();
   const serialized = JSON.stringify(payload);
   assert.equal(payload.ok, true);

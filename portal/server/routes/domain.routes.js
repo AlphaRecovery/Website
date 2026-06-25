@@ -238,6 +238,63 @@ const interviewSchema = z.object({
   evaluation: z.record(z.any()).optional().default({})
 });
 
+const companySchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  type: z.enum(['individual', 'private investigation firm', 'security company', 'social service organization', 'interpreter organization', 'other']).optional().default('other'),
+  status: z.enum(['active', 'inactive', 'pending_review']).optional().default('pending_review'),
+  point_of_contact: z.string().trim().max(160).optional().default(''),
+  email: z.string().trim().email().max(160).or(z.literal('')).optional().default(''),
+  phone: z.string().trim().max(40).optional().default(''),
+  address: z.string().trim().max(300).optional().default(''),
+  notes: z.string().trim().max(5000).optional().default('')
+});
+
+const contractorSchema = z.object({
+  user_id: z.string().min(1),
+  company_id: z.string().min(1).nullable().optional(),
+  full_name: z.string().trim().min(2).max(160),
+  role: z.string().trim().max(120).optional().default(''),
+  phone: z.string().trim().max(40).optional().default(''),
+  location: z.string().trim().max(160).optional().default(''),
+  onboard_date: z.string().trim().nullable().optional(),
+  status: z.enum(['pending', 'active', 'inactive', 'suspended']).optional().default('pending')
+});
+
+const documentRequestSchema = z.object({
+  owner_user_id: z.string().min(1),
+  contractor_id: z.string().min(1).nullable().optional(),
+  company_id: z.string().min(1).nullable().optional(),
+  application_id: z.string().min(1).nullable().optional(),
+  name: z.string().trim().min(2).max(160),
+  type: z.enum(['resume', 'w9', 'nda', 'training_certificate', 'license', 'insurance', 'background_check', 'id', 'other']),
+  expires_at: z.string().trim().nullable().optional()
+});
+
+const documentStatusSchema = z.object({
+  status: z.enum(['requested', 'pending', 'uploaded', 'signed', 'cleared', 'rejected', 'expired'])
+});
+
+const taskSchema = z.object({
+  assigned_to: z.string().min(1),
+  related_application_id: z.string().min(1).nullable().optional(),
+  related_contractor_id: z.string().min(1).nullable().optional(),
+  title: z.string().trim().min(2).max(160),
+  description: z.string().trim().max(5000).optional().default(''),
+  due_at: z.string().trim().nullable().optional()
+});
+
+const taskStatusSchema = z.object({
+  status: z.enum(['open', 'in_progress', 'complete', 'blocked'])
+});
+
+const messageSchema = z.object({
+  recipient_id: z.string().min(1),
+  related_application_id: z.string().min(1).nullable().optional(),
+  related_contractor_id: z.string().min(1).nullable().optional(),
+  subject: z.string().trim().max(160).optional().default(''),
+  body: z.string().trim().min(1).max(10000)
+});
+
 function departmentConfirmationPrefix(department) {
   const value = String(department || '').toLowerCase();
   if (value.includes('field')) return 'FO';
@@ -560,6 +617,19 @@ function visibleEmploymentApplicationSummaries(user) {
   return [];
 }
 
+function visibleEmploymentApplications(user) {
+  const db = getDb();
+  if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(user.role)) {
+    return db.employment_applications.filter((row) => canReviewEmploymentApplication(user, row));
+  }
+  if (user.role === 'applicant') {
+    return db.employment_applications.filter((row) => (
+      row.user_id === user.id || String(row.email || '').toLowerCase() === String(user.email || '').toLowerCase()
+    ));
+  }
+  return [];
+}
+
 function visibleApplicationSummaries(user) {
   const employmentApplications = visibleEmploymentApplicationSummaries(user);
   const visibleEmploymentIds = new Set(employmentApplications.map((app) => app.employment_application_id).filter(Boolean));
@@ -758,7 +828,7 @@ router.get('/library', requireAuth, requireRole('admin', 'recruiter', 'hr', 'man
   const db = getDb();
   res.json({
     jobs: (content.opportunities?.jobs || []).map(normalizeJob),
-    employmentApplications: db.employment_applications.slice().sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at)),
+    employmentApplications: visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at)),
     portalApplications: visibleApplications(req.user).map(enrichApplication),
     templates: db.library_templates.slice().sort((a, b) => a.title.localeCompare(b.title))
   });
@@ -914,15 +984,10 @@ router.get('/companies', requireAuth, requireRole('admin', 'recruiter', 'hr', 'm
 });
 
 router.post('/companies', requireAuth, requireRole('admin'), (req, res) => {
+  const parsed = companySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid company details.' });
   const company = insert('companies', {
-    name: req.body.name,
-    type: req.body.type || 'other',
-    status: req.body.status || 'pending_review',
-    point_of_contact: req.body.point_of_contact || '',
-    email: req.body.email || '',
-    phone: req.body.phone || '',
-    address: req.body.address || '',
-    notes: req.body.notes || ''
+    ...parsed.data
   });
   logActivity(req.user.id, 'company_created', { company_id: company.id });
   pushNotificationsForAll();
@@ -939,7 +1004,9 @@ router.get('/companies/:id', requireAuth, requireRole('admin', 'recruiter', 'hr'
 });
 
 router.patch('/companies/:id', requireAuth, requireRole('admin'), (req, res) => {
-  const company = updateById('companies', req.params.id, req.body);
+  const parsed = companySchema.partial().safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid company update.' });
+  const company = updateById('companies', req.params.id, parsed.data);
   if (!company) return res.status(404).json({ error: 'Company not found' });
   logActivity(req.user.id, 'profile_change', { table: 'companies', id: company.id });
   pushNotificationsForAll();
@@ -951,15 +1018,12 @@ router.get('/contractors', requireAuth, requireRole('admin', 'recruiter', 'hr', 
 });
 
 router.post('/contractors', requireAuth, requireRole('admin'), (req, res) => {
+  const parsed = contractorSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid contractor details.' });
   const contractor = insert('contractors', {
-    user_id: req.body.user_id,
-    company_id: req.body.company_id || null,
-    full_name: req.body.full_name,
-    role: req.body.role || '',
-    phone: req.body.phone || '',
-    location: req.body.location || '',
-    onboard_date: req.body.onboard_date || null,
-    status: req.body.status || 'pending'
+    ...parsed.data,
+    company_id: parsed.data.company_id || null,
+    onboard_date: parsed.data.onboard_date || null
   });
   pushNotificationsForAll();
   res.json({ contractor });
@@ -972,7 +1036,9 @@ router.get('/contractors/:id', requireAuth, requireRole('admin', 'recruiter', 'h
 });
 
 router.patch('/contractors/:id/status', requireAuth, requireRole('admin'), (req, res) => {
-  const contractor = updateById('contractors', req.params.id, { status: req.body.status });
+  const parsed = contractorSchema.pick({ status: true }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid contractor status.' });
+  const contractor = updateById('contractors', req.params.id, { status: parsed.data.status });
   if (!contractor) return res.status(404).json({ error: 'Contractor not found' });
   if (contractor.status === 'inactive') logActivity(req.user.id, 'contractor_deactivated', { contractor_id: contractor.id });
   else logActivity(req.user.id, 'status_change', { table: 'contractors', id: contractor.id, status: contractor.status });
@@ -988,17 +1054,19 @@ router.get('/documents', requireAuth, (req, res) => {
 });
 
 router.post('/documents/request', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {
+  const parsed = documentRequestSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid document request.' });
   const document = insert('documents', {
-    owner_user_id: req.body.owner_user_id,
-    contractor_id: req.body.contractor_id || null,
-    company_id: req.body.company_id || null,
-    application_id: req.body.application_id || null,
+    owner_user_id: parsed.data.owner_user_id,
+    contractor_id: parsed.data.contractor_id || null,
+    company_id: parsed.data.company_id || null,
+    application_id: parsed.data.application_id || null,
     requested_by: req.user.id,
-    name: req.body.name,
-    type: req.body.type,
+    name: parsed.data.name,
+    type: parsed.data.type,
     file_path: '',
     status: 'requested',
-    expires_at: req.body.expires_at || null
+    expires_at: parsed.data.expires_at || null
   });
   logActivity(req.user.id, 'document_requested', { document_id: document.id, owner_user_id: document.owner_user_id });
   pushNotifications([document.owner_user_id, req.user.id]);
@@ -1006,7 +1074,9 @@ router.post('/documents/request', requireAuth, requireRole('admin', 'recruiter',
 });
 
 router.patch('/documents/:id/status', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {
-  const document = updateById('documents', req.params.id, { status: req.body.status });
+  const parsed = documentStatusSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid document status.' });
+  const document = updateById('documents', req.params.id, { status: parsed.data.status });
   if (!document) return res.status(404).json({ error: 'Document not found' });
   logActivity(req.user.id, 'document_status_change', { document_id: document.id, status: document.status });
   pushNotifications([document.owner_user_id, document.requested_by, req.user.id]);
@@ -1077,15 +1147,17 @@ router.get('/tasks', requireAuth, (req, res) => {
 });
 
 router.post('/tasks', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {
+  const parsed = taskSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid task details.' });
   const task = insert('tasks', {
-    assigned_to: req.body.assigned_to,
+    assigned_to: parsed.data.assigned_to,
     assigned_by: req.user.id,
-    related_application_id: req.body.related_application_id || null,
-    related_contractor_id: req.body.related_contractor_id || null,
-    title: req.body.title,
-    description: req.body.description || '',
+    related_application_id: parsed.data.related_application_id || null,
+    related_contractor_id: parsed.data.related_contractor_id || null,
+    title: parsed.data.title,
+    description: parsed.data.description,
     status: 'open',
-    due_at: req.body.due_at || null
+    due_at: parsed.data.due_at || null
   });
   logActivity(req.user.id, 'task_created', { task_id: task.id, assigned_to: task.assigned_to });
   pushNotifications([task.assigned_to, req.user.id]);
@@ -1097,7 +1169,9 @@ router.patch('/tasks/:id/status', requireAuth, (req, res) => {
   const task = db.tasks.find((item) => item.id === req.params.id);
   if (!task) return res.status(404).json({ error: 'Task not found' });
   if (!['admin', 'recruiter', 'hr'].includes(req.user.role) && task.assigned_to !== req.user.id) return res.status(403).json({ error: 'Access denied' });
-  task.status = req.body.status;
+  const parsed = taskStatusSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid task status.' });
+  task.status = parsed.data.status;
   logActivity(req.user.id, task.status === 'complete' ? 'task_completed' : 'status_change', { task_id: task.id, status: task.status });
   pushNotifications([task.assigned_to, task.assigned_by, req.user.id]);
   res.json({ task });
@@ -1111,13 +1185,15 @@ router.get('/messages', requireAuth, (req, res) => {
 });
 
 router.post('/messages', requireAuth, (req, res) => {
+  const parsed = messageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid message.' });
   const message = insert('messages', {
     sender_id: req.user.id,
-    recipient_id: req.body.recipient_id,
-    related_application_id: req.body.related_application_id || null,
-    related_contractor_id: req.body.related_contractor_id || null,
-    subject: req.body.subject || '',
-    body: req.body.body,
+    recipient_id: parsed.data.recipient_id,
+    related_application_id: parsed.data.related_application_id || null,
+    related_contractor_id: parsed.data.related_contractor_id || null,
+    subject: parsed.data.subject,
+    body: parsed.data.body,
     read_at: null
   });
   logActivity(req.user.id, 'message_sent', { message_id: message.id, recipient_id: message.recipient_id });

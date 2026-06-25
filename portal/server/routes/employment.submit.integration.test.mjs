@@ -232,4 +232,26 @@ test('applicant submission creates a durable admin-visible application before em
   assert.equal(applicantSummary.payload.applications.length, 1);
   assert.equal(applicantSummary.payload.applications[0].source, 'employment');
   assert.equal(applicantSummary.payload.applications[0].employment_application_id, application.id);
+
+  await insert('users', {
+    email: 'restricted-recruiter@example.com',
+    password_hash: await hashPassword('recruiter-password'),
+    role: 'recruiter',
+    full_name: 'Restricted Recruiter',
+    status: 'active',
+    force_password_change: false
+  });
+  await saveDbNow();
+
+  const recruiterLogin = await jsonRequest(baseUrl, '/api/auth/login', {
+    method: 'POST',
+    body: { email: 'restricted-recruiter@example.com', password: 'recruiter-password' }
+  });
+  assert.equal(recruiterLogin.response.status, 200);
+
+  const recruiterLibrary = await jsonRequest(baseUrl, '/api/library', {
+    cookie: recruiterLogin.cookie
+  });
+  assert.equal(recruiterLibrary.response.status, 200);
+  assert.equal(recruiterLibrary.payload.employmentApplications.length, 0);
 });

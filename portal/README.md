@@ -106,6 +106,8 @@ npm run db:verify
 npm run db:backfill -- --dry-run
 ```
 
+Migration `003_rls_baseline` enables Row Level Security on the portal tables and revokes direct Supabase `anon` / `authenticated` table access. The Express API remains the enforcement point for application users; browser clients must not connect directly to the database with table-level privileges.
+
 Rollback/export commands are guarded in production:
 
 ```bash

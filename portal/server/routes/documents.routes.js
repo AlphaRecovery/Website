@@ -9,6 +9,7 @@ import { logFileAccessDenied, sendStoredFileResponse } from '../fileResponses.js
 import { requireAuth } from '../middleware/auth.js';
 import { pushNotifications } from '../notifications.js';
 import { deleteStoredFile, isRemoteStoragePath, storeUploadedFile } from '../storage.js';
+import { publicErrorMessage } from '../security.js';
 
 const router = express.Router();
 fs.mkdirSync(config.uploadsDir, { recursive: true });
@@ -69,7 +70,7 @@ router.post('/documents/:id/upload', requireAuth, upload.single('file'), async (
   } catch (error) {
     if (storedPath) await deleteStoredFile(storedPath).catch(() => {});
     cleanupTemp();
-    res.status(500).json({ error: error.message || 'Document upload failed.' });
+    res.status(500).json({ error: publicErrorMessage(error, 'Document upload failed.') });
   }
 });
 
@@ -89,7 +90,7 @@ router.get('/documents/:id/download', requireAuth, async (req, res) => {
     filename: document.original_name || document.name,
     disposition: 'attachment',
     audit: { action: 'file_download', metadata: { document_id: document.id, entity_type: 'document', entity_id: document.id } }
-  });
+  }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'Document download failed.') }));
 });
 
 router.get('/documents/:id/view', requireAuth, async (req, res) => {
@@ -109,7 +110,7 @@ router.get('/documents/:id/view', requireAuth, async (req, res) => {
     filename,
     disposition: 'inline',
     audit: { action: 'file_view', metadata: { document_id: document.id, entity_type: 'document', entity_id: document.id } }
-  });
+  }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'Document view failed.') }));
 });
 
 export default router;

@@ -6,6 +6,7 @@ import { clearSession, createSession, hashPassword, hashToken, logActivity, publ
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { portalUrl, sendEmail } from '../email.js';
 import { ROLES } from '../../shared/constants.js';
+import { publicErrorMessage } from '../security.js';
 
 const router = express.Router();
 const PASSWORD_MIN_LENGTH = 8;
@@ -202,12 +203,12 @@ router.post('/dev/create-invite', requireAuth, requireRole('admin'), async (req,
   } catch (error) {
     console.error('Invite email failed:', { message: error.message, to: invite.email, role: invite.role });
     invite.email_status = 'failed';
-    invite.email_error = error.message;
+    invite.email_error = publicErrorMessage(error, 'Invite email failed.');
     saveDb();
     res.json({
       invite,
       token,
-      email: { ok: false, error: error.message },
+      email: { ok: false, error: publicErrorMessage(error, 'Invite email failed.') },
       warning: 'Invite was created, but the email failed to send. Copy the invite link below.'
     });
   }

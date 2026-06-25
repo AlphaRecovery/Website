@@ -5,7 +5,7 @@ import path from 'node:path';
 import { config, configClass, formatBytes, validateProductionConfig } from './config.js';
 import { loadDb } from './data/store.js';
 import { findUserBySession } from './auth.js';
-import { publicErrorMessage, requestId, setPrivateNoStoreHeaders } from './security.js';
+import { publicErrorMessage, requestId, setBaselineSecurityHeaders, setPrivateNoStoreHeaders } from './security.js';
 import authRoutes from './routes/auth.routes.js';
 import contactRoutes from './routes/contact.routes.js';
 import domainRoutes from './routes/domain.routes.js';
@@ -17,7 +17,9 @@ validateProductionConfig();
 await loadDb();
 
 const app = express();
+app.disable('x-powered-by');
 app.set('trust proxy', 1);
+app.use(setBaselineSecurityHeaders);
 
 const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 25, keyPrefix: 'auth', methods: ['POST'] });
 const contactLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 8, keyPrefix: 'contact', methods: ['POST'], message: 'Too many contact requests. Please try again shortly.' });

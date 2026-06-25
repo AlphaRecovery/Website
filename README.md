@@ -58,13 +58,6 @@ The portal sends submissions by email using its configured email driver. In prod
 
 ## Next Steps (Portal Phase)
 
-- Set up Supabase project at https://supabase.com
-- Add `.env` file:
-
-  ```text
-  REACT_APP_SUPABASE_URL=your-project-url
-  REACT_APP_SUPABASE_ANON_KEY=your-anon-key
-  ```
-
 - Portal is deployed separately at `https://portal.alpharecovery.org`
+- Keep Supabase service-role credentials only in the portal server deployment environment. Do not put Supabase service-role keys, database URLs, or email API keys in frontend variables such as `REACT_APP_*` or `VITE_*`.
 - Public job postings should use `/apply/<role-slug>` so the site can hand applicants to the portal domain
