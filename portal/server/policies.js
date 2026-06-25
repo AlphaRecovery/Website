@@ -3,6 +3,7 @@ import { config } from './config.js';
 export function canReviewEmploymentApplication(user, application) {
   if (!user || !application) return false;
   if (user.role === 'admin') return true;
+  if (['hr', 'manager', 'read_only'].includes(user.role)) return true;
   if (user.role === 'recruiter') {
     if (config.recruiterCanViewAllApplications) return true;
     return application.assigned_recruiter_id === user.id;
@@ -16,6 +17,7 @@ export function canReviewEmploymentApplication(user, application) {
 export function canManageEmploymentApplication(user, application) {
   if (!user || !application) return false;
   if (user.role === 'admin') return true;
+  if (user.role === 'hr') return true;
   if (user.role === 'recruiter') return canReviewEmploymentApplication(user, application);
   return false;
 }

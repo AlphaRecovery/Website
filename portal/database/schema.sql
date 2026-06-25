@@ -10,7 +10,7 @@ create table if not exists users (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
   password_hash text not null,
-  role text not null check (role in ('admin','recruiter','contractor','applicant')),
+  role text not null check (role in ('admin','recruiter','hr','manager','read_only','contractor','applicant')),
   full_name text not null,
   phone text,
   location text,
@@ -21,7 +21,7 @@ create table if not exists users (
 create table if not exists invites (
   id uuid primary key default gen_random_uuid(),
   email text not null,
-  role text not null check (role in ('admin','recruiter','contractor','applicant')),
+  role text not null check (role in ('admin','recruiter','hr','manager','read_only','contractor','applicant')),
   token_hash text not null,
   invited_by uuid references users(id),
   status text not null default 'pending' check (status in ('pending','accepted','revoked','expired')),

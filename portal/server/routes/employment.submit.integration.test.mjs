@@ -217,6 +217,14 @@ test('applicant submission creates a durable admin-visible application before em
   assert.equal(adminList.payload.applications[0].id, application.id);
   assert.equal(adminList.payload.applications[0].files.length, 2);
 
+  const adminSummary = await jsonRequest(baseUrl, '/api/applications', {
+    cookie: adminLogin.cookie
+  });
+  assert.equal(adminSummary.response.status, 200);
+  assert.equal(adminSummary.payload.applications.length, 1);
+  assert.equal(adminSummary.payload.applications[0].source, 'employment');
+  assert.equal(adminSummary.payload.applications[0].employment_application_id, application.id);
+
   const applicantSummary = await jsonRequest(baseUrl, '/api/applications', {
     cookie: applicant.cookie
   });

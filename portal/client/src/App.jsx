@@ -38,13 +38,13 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/change-password" element={<ProtectedRoute roles={['admin', 'recruiter', 'contractor', 'applicant']}><ChangePassword /></ProtectedRoute>} />
+        <Route path="/change-password" element={<ProtectedRoute roles={['admin', 'recruiter', 'hr', 'manager', 'read_only', 'contractor', 'applicant']}><ChangePassword /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />
         <Route path="/apply/:roleSlug" element={<ProtectedRoute roles={['applicant']}><ApplicationForm /></ProtectedRoute>} />
         <Route path="/schedule/:token" element={<ProtectedRoute roles={['applicant']}><CandidateSchedule /></ProtectedRoute>} />
         <Route path="/admin" element={<ProtectedRoute roles={['admin', 'recruiter']}><EmploymentAdmin /></ProtectedRoute>} />
-        <Route path="/portal/admin/*" element={<ProtectedRoute roles={['admin']}><AdminPortal /></ProtectedRoute>} />
+        <Route path="/portal/admin/*" element={<ProtectedRoute roles={['admin', 'hr', 'manager', 'read_only']}><AdminPortal /></ProtectedRoute>} />
         <Route path="/portal/recruiter/*" element={<ProtectedRoute roles={['recruiter']}><RecruiterPortal /></ProtectedRoute>} />
         <Route path="/portal/contractor/*" element={<ProtectedRoute roles={['contractor']}><ContractorPortal /></ProtectedRoute>} />
         <Route path="/portal/applicant/*" element={<ProtectedRoute roles={['applicant']}><ApplicantPortal /></ProtectedRoute>} />

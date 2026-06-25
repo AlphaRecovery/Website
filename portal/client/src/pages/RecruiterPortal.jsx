@@ -32,6 +32,16 @@ const paths = [
   ['users', '/api/users/directory']
 ];
 
+const sectionMeta = {
+  dashboard: ['Recruiting Command Center', 'Recruiting Dashboard', 'Overview of active candidates, required actions, and application movement.'],
+  applications: ['Application Records', 'Applications', 'View submitted applications available to your recruiting queue.'],
+  jobs: ['Recruiting Configuration', 'Job Board', 'Review open roles, application volume, and position workflow.'],
+  library: ['Recruiting Library', 'Library', 'Review reusable templates and employment application source records.'],
+  companies: ['Company Directory', 'Companies', 'Review organizations connected to recruiting and contractor records.'],
+  tasks: ['Task Queue', 'Tasks', 'Create and track recruiting follow-up work.'],
+  messages: ['Communication Center', 'Messages', 'Send and review candidate portal messages.']
+};
+
 export default function RecruiterPortal() {
   const section = currentSection('/portal/recruiter', useLocation().pathname);
   const { data, loading, error, refresh } = usePortalData(paths);
@@ -56,7 +66,7 @@ export default function RecruiterPortal() {
 
   return (
     <PortalLayout>
-      {section !== 'recruiting' && section !== 'jobs' && <PageHeader eyebrow={section === 'dashboard' ? 'Recruiting & Onboarding Command Portal' : 'Recruiter Console'} title={section === 'dashboard' ? 'Administrative Operations Center' : section} description={section === 'dashboard' ? '' : 'Review applications, update statuses, add notes, request documents, create tasks, and message candidates.'} />}
+      {section !== 'recruiting' && section !== 'jobs' && <PageHeader eyebrow={sectionMeta[section]?.[0] || 'Recruiter Console'} title={sectionMeta[section]?.[1] || section} description={sectionMeta[section]?.[2] || 'Review and manage recruiting workspace records.'} />}
       <ErrorState error={error} />
       <LoadingState loading={loading} />
       {!loading && content()}

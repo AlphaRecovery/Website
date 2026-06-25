@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import DataTable from '../components/DataTable.jsx';
 import { DocumentList, MessageThread, TaskList } from '../components/Lists.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { api, documentDownloadUrl, documentViewUrl, uploadDocument } from '../api/client.js';
 import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
+import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES } from '../../../shared/applicationConfig.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export function ErrorState({ error }) {
@@ -68,60 +70,72 @@ function toDate(value) {
   return new Date(value).toLocaleDateString();
 }
 
+function applicationReference(app = {}) {
+  return app.confirmation_number || app.confirmationNumber || app.id || 'Application';
+}
+
+function activityText(item = {}, users = []) {
+  const meta = item.metadata || {};
+  const ref = meta.confirmation_number || meta.reference || meta.application_id || meta.employment_application_id || item.entity_id || 'Application';
+  const name = meta.full_name ? `${meta.full_name} / ` : '';
+  if (['status_change', 'employment_application_status_change'].includes(item.action)) {
+    return `${name}${ref}: status changed from ${displayLabel(meta.previous_status || 'not recorded')} to ${displayLabel(meta.status || 'not recorded')}`;
+  }
+  if (item.action === 'application_assigned') {
+    const from = users.find((user) => user.id === meta.previous_assigned_recruiter_id)?.full_name || 'Unassigned';
+    const to = users.find((user) => user.id === meta.assigned_recruiter_id)?.full_name || 'Unassigned';
+    return `${name}${ref}: assignment changed from ${from} to ${to}`;
+  }
+  if (['application_submitted', 'employment_application_submitted'].includes(item.action)) return `${name}${ref}: submitted for ${meta.role || 'review'}`;
+  if (item.action === 'application_created') return `${name}${ref}: manual application created`;
+  if (item.action === 'application_deleted') return `${ref}: application deleted`;
+  if (item.action === 'notification_failed') return `${name}${ref}: application notification failed`;
+  return `${name}${ref}: ${displayLabel(item.action || 'activity')}`;
+}
+
 export function OperationsDashboard({ data = {}, users = [], applications = [], contractors = [], documents = [], tasks = [], messages = [] }) {
-  const library = data.library || {};
-  const employmentApplications = library.employmentApplications || [];
+  const { user } = useAuth();
+  const portalBase = user?.role === 'recruiter' ? '/portal/recruiter' : '/portal/admin';
   const activeUsers = users.filter((user) => user.status === 'active').length;
-  const pendingApplications = [
-    ...applications.filter((app) => isPendingApplication(app.status)),
-    ...employmentApplications.filter((app) => isPendingApplication(app.status))
-  ];
-  const interviewsScheduled = [
-    ...applications.filter((app) => isInterview(app.status)),
-    ...employmentApplications.filter((app) => isInterview(app.status))
-  ].length;
+  const pendingApplications = applications.filter((app) => isPendingApplication(app.status));
+  const newApplications = applications.filter((app) => ['new', 'submitted', 'received'].includes(String(app.status || '').toLowerCase()));
+  const interviewsScheduled = applications.filter((app) => isInterview(app.status)).length;
+  const unassignedApplications = applications.filter((app) => !app.assigned_recruiter_id);
+  const failedNotifications = applications.filter((app) => app.notification_status === 'failed');
+  const hiredApplications = applications.filter((app) => String(app.status || '').toLowerCase().includes('hired'));
   const contractorsAwaiting = contractors.filter((row) => ['pending', 'review', 'submitted'].includes(String(row.status).toLowerCase())).length;
   const expiringDocuments = data.dashboard?.stats?.expiringDocuments ?? documents.filter((doc) => doc.expires_at && new Date(doc.expires_at).getTime() < Date.now() + 30 * 24 * 60 * 60 * 1000).length;
   const openTasks = tasks.filter((task) => ['open', 'in_progress', 'blocked'].includes(task.status)).length;
   const unreadMessages = messages.filter((message) => !message.read_at).length;
-  const pendingActions = pendingApplications.length + contractorsAwaiting + expiringDocuments + openTasks + unreadMessages;
+  const pendingActions = newApplications.length + unassignedApplications.length + failedNotifications.length + interviewsScheduled;
 
-  const recentApplications = [
-    ...employmentApplications.map((app) => ({
-      id: app.id,
-      name: app.full_name,
-      position: app.role_title,
-      date: app.submitted_at,
-      status: app.status
-    })),
-    ...applications.map((app) => ({
+  const recentApplications = applications.map((app) => ({
       id: app.id,
       name: app.full_name,
       position: app.role_applied,
       date: app.created_at,
-      status: app.status
-    }))
-  ].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 10);
+      status: app.status,
+      reference: applicationReference(app)
+    })).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0)).slice(0, 10);
 
   const requiredActions = [
-    ['Background Authorizations Missing', documents.filter((doc) => /background/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length],
-    ['I-9 Required', documents.filter((doc) => /i-?9/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length],
-    ['Resume Missing', documents.filter((doc) => /resume/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length],
-    ['Contractor Agreement Pending', documents.filter((doc) => /agreement|contractor/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length],
-    ['Insurance Verification Pending', documents.filter((doc) => /insurance/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length],
-    ['W-9 Form Required', documents.filter((doc) => /w-?9/i.test(`${doc.name} ${doc.type}`) && ['requested', 'pending'].includes(doc.status)).length]
+    { label: 'Applications Awaiting Review', count: newApplications.length, to: `${portalBase}/applications` },
+    { label: 'Unassigned Applications', count: unassignedApplications.length, to: `${portalBase}/applications` },
+    { label: 'Interview Decisions Due', count: interviewsScheduled, to: `${portalBase}/recruiting` },
+    { label: 'Notification Failures', count: failedNotifications.length, to: `${portalBase}/applications` },
+    { label: 'Ready For Alpha One Handoff', count: hiredApplications.length, to: `${portalBase}/applications` }
   ];
 
   const pipeline = [
-    ['Applications Received', applications.length + employmentApplications.length],
+    ['Applications Received', applications.length],
     ['Screening', pendingApplications.length],
     ['Interview', interviewsScheduled],
-    ['Offer', applications.filter((app) => ['approved', 'offer', 'conditional offer'].includes(String(app.status).toLowerCase())).length + employmentApplications.filter((app) => /offer/i.test(app.status)).length],
-    ['Onboarding', applications.filter((app) => app.status === 'onboarding').length + employmentApplications.filter((app) => /onboarding/i.test(app.status)).length],
-    ['Active Personnel', contractors.filter((row) => row.status === 'active').length]
+    ['Offer', applications.filter((app) => ['approved', 'offer extended', 'offer', 'conditional offer'].includes(String(app.status).toLowerCase())).length],
+    ['Onboarding', applications.filter((app) => app.status === 'onboarding').length],
+    ['Hired / Handoff', hiredApplications.length]
   ];
 
-  const activity = (data.activity?.activity || data.dashboard?.recentActivity || []).slice(0, 8);
+  const activity = (data.dashboard?.recentActivity || data.activity?.activity || []).slice(0, 8);
   const metricCards = [
     ['Applications Pending', pendingApplications.length],
     ['Interviews Scheduled', interviewsScheduled],
@@ -160,7 +174,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
             {recentApplications.map((app) => (
               <div className="ops-table-row" key={app.id}>
                 <span className="ops-person"><em>{initials(app.name)}</em>{app.name}</span>
-                <span>{app.position || 'Not selected'}</span>
+                <span>{app.position || 'Not selected'}<small>{app.reference}</small></span>
                 <span>{toDate(app.date)}</span>
                 <span><Badge value={app.status || 'new'} /></span>
               </div>
@@ -172,11 +186,11 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <section className="panel ops-panel">
           <div className="record-header">
             <h3>Required Actions</h3>
-            <Badge value={`${requiredActions.reduce((sum, [, count]) => sum + count, 0)} Open`} />
+            <Badge value={`${requiredActions.reduce((sum, item) => sum + item.count, 0)} Open`} />
           </div>
           <div className="action-list">
-            {requiredActions.map(([label, count]) => (
-              <div key={label}><span>{label}</span><strong>{count}</strong></div>
+            {requiredActions.map((item) => (
+              <Link key={item.label} to={item.to}><span>{item.label}</span><strong>{item.count}</strong></Link>
             ))}
           </div>
         </section>
@@ -203,7 +217,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
               <div key={item.id}>
                 <time>{toTime(item.created_at)}</time>
                 <span>{displayLabel(item.action || 'activity')}</span>
-                <small>{item.metadata?.title || item.metadata?.role || item.metadata?.status || item.metadata?.email || 'System record updated'}</small>
+                <small>{activityText(item, users)}</small>
               </div>
             ))}
             {!activity.length && <div className="empty-state">No activity yet. New applications, uploads, messages, and status changes will appear here.</div>}
@@ -1283,21 +1297,41 @@ export function LibraryPanel({ library, onRefresh }) {
   );
 }
 
-export function ApplicationsTable({ applications = [], users = [], onRefresh, allowAssign = false }) {
+export function ApplicationsTable({ applications = [], users = [], onRefresh, allowAssign = false, canUpdate = true }) {
   const [actionError, guard] = useActionError();
 
   async function updateStatus(row, status) {
     await guard(async () => {
-      await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      if (row.source === 'employment') {
+        await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      } else {
+        await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      }
       onRefresh();
     });
   }
 
   async function assignRecruiter(row, recruiterId) {
     await guard(async () => {
-      await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
+      if (row.source === 'employment') {
+        await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ assigned_recruiter_id: recruiterId }) });
+      } else {
+        await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
+      }
       onRefresh();
     });
+  }
+
+  function statusOptions(row) {
+    const standardStatuses = row.source === 'employment' ? EMPLOYMENT_APPLICATION_STATUSES : APPLICATION_STATUSES;
+    const matchingStandard = standardStatuses.find((status) => String(status).toLowerCase() === String(row.status || '').toLowerCase());
+    if (!row.status || matchingStandard) return standardStatuses;
+    return [row.status, ...standardStatuses];
+  }
+
+  function statusValue(row) {
+    const standardStatuses = statusOptions(row);
+    return standardStatuses.find((status) => String(status).toLowerCase() === String(row.status || '').toLowerCase()) || row.status || '';
   }
 
   return (
@@ -1309,6 +1343,7 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
         { key: 'confirmation_number', label: 'Confirmation', sortable: true, render: (row) => row.confirmation_number || 'Not assigned' },
         { key: 'full_name', label: 'Applicant', sortable: true },
         { key: 'role_applied', label: 'Role', sortable: true },
+        { key: 'source', label: 'Source', sortable: true, render: (row) => row.source === 'employment' ? 'Employment Application' : 'Manual / Legacy' },
         { key: 'employment_type', label: 'Employment Type', sortable: true, render: (row) => row.employment_type || 'Not recorded' },
         { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
         { key: 'assigned_recruiter', label: 'Recruiter', render: (row) => row.assigned_recruiter?.full_name || 'Unassigned' },
@@ -1317,13 +1352,17 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
           label: 'Actions',
           render: (row) => (
             <div className="table-actions">
-              <select value={row.status} onChange={(event) => updateStatus(row, event.target.value)}>
-                {APPLICATION_STATUSES.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
-              </select>
-              {allowAssign && (
+              {canUpdate ? (
+                <select value={statusValue(row)} onChange={(event) => updateStatus(row, event.target.value)}>
+                  {statusOptions(row).map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}
+                </select>
+              ) : (
+                <span>View only</span>
+              )}
+              {allowAssign && canUpdate && (
                 <select value={row.assigned_recruiter_id || ''} onChange={(event) => assignRecruiter(row, event.target.value)}>
                   <option value="">Unassigned</option>
-                  {users.filter((user) => user.role === 'recruiter').map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}
+                  {users.filter((user) => ['admin', 'recruiter'].includes(user.role)).map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}
                 </select>
               )}
             </div>

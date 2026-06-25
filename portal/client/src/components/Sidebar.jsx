@@ -30,6 +30,28 @@ const nav = {
     ['Tasks', '/portal/recruiter/tasks', 'tasks'],
     ['Messages', '/portal/recruiter/messages', 'messages']
   ],
+  hr: [
+    ['Dashboard', '/portal/admin', 'applications'],
+    ['Applications', '/portal/admin/applications', 'applications'],
+    ['Recruiting', '/portal/admin/recruiting', 'recruiting'],
+    ['Documents', '/portal/admin/documents', 'documents'],
+    ['Tasks', '/portal/admin/tasks', 'tasks'],
+    ['Messages', '/portal/admin/messages', 'messages'],
+    ['Settings', '/portal/admin/settings']
+  ],
+  manager: [
+    ['Dashboard', '/portal/admin', 'applications'],
+    ['Applications', '/portal/admin/applications', 'applications'],
+    ['Documents', '/portal/admin/documents', 'documents'],
+    ['Messages', '/portal/admin/messages', 'messages'],
+    ['Settings', '/portal/admin/settings']
+  ],
+  read_only: [
+    ['Dashboard', '/portal/admin', 'applications'],
+    ['Applications', '/portal/admin/applications', 'applications'],
+    ['Documents', '/portal/admin/documents', 'documents'],
+    ['Settings', '/portal/admin/settings']
+  ],
   contractor: [
     ['Dashboard', '/portal/contractor', 'tasks'],
     ['Job Board', '/portal/contractor/jobs'],
