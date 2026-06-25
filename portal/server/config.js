@@ -52,7 +52,8 @@ function publicPortalUrlIssue(value) {
 }
 
 function configuredPublicPortalUrl() {
-  if (process.env.PUBLIC_PORTAL_URL) return process.env.PUBLIC_PORTAL_URL;
+  const configured = String(process.env.PUBLIC_PORTAL_URL || '').trim();
+  if (configured) return configured;
   if (isProduction) return defaultPublicPortalUrl;
   return firstConfiguredOrigin(process.env.PORTAL_CLIENT_ORIGIN) || defaultPublicPortalUrl;
 }

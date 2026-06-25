@@ -105,3 +105,26 @@ test('production config falls back to the public portal domain when URL is not c
     'https://portal.alpharecovery.org/admin?application=test'
   ]);
 });
+
+test('production config treats blank public portal URL as not configured', async () => {
+  const result = await runConfigCheck({
+    NODE_ENV: 'production',
+    VERCEL: '1',
+    DATABASE_URL: 'postgres://user:pass@example.com:5432/db',
+    POSTGRES_URL: '',
+    DATABASE_SSL: 'true',
+    PORTAL_STORAGE_DRIVER: 'supabase',
+    SUPABASE_URL: 'https://example.supabase.co',
+    SUPABASE_SERVICE_ROLE_KEY: 'service-role-key',
+    SUPABASE_STORAGE_BUCKET: 'portal-documents',
+    EMAIL_DRIVER: 'resend',
+    RESEND_API_KEY: 'resend-key',
+    EMAIL_FROM: 'Alpha Recovery <no-reply@example.com>',
+    APPLICATION_EMAIL_TO: 'hr@example.com',
+    PUBLIC_PORTAL_URL: '   ',
+    PORTAL_MAX_UPLOAD_FILE_BYTES: String(4 * 1024 * 1024),
+    PORTAL_MAX_UPLOAD_REQUEST_BYTES: String(4 * 1024 * 1024)
+  }, "import { config, validateProductionConfig } from './server/config.js'; validateProductionConfig(); console.log(config.publicPortalUrl);");
+
+  assert.equal(result.stdout.trim(), 'https://portal.alpharecovery.org');
+});
