@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext.jsx';
-import { api, apiUrl } from '../api/client.js';
+import { api } from '../api/client.js';
 import RoleBadge from './RoleBadge.jsx';
 
 const nav = {
@@ -90,23 +90,10 @@ export default function Sidebar({ mobileOpen = false, isMobileNav = false, onNav
       }
     }
     loadNotifications();
-    const stream = new EventSource(apiUrl('/api/notifications/stream'), { withCredentials: true });
-    stream.addEventListener('notifications', (event) => {
-      if (!active) return;
-      try {
-        setCounts(JSON.parse(event.data));
-      } catch {
-        loadNotifications();
-      }
-    });
-    stream.onerror = () => {
-      loadNotifications();
-    };
     window.addEventListener('portal-notifications-refresh', loadNotifications);
-    const timer = window.setInterval(loadNotifications, 60000);
+    const timer = window.setInterval(loadNotifications, 30000);
     return () => {
       active = false;
-      stream.close();
       window.removeEventListener('portal-notifications-refresh', loadNotifications);
       window.clearInterval(timer);
     };

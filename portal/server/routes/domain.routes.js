@@ -727,6 +727,9 @@ router.post('/notifications/seen', requireAuth, (req, res) => {
 });
 
 router.get('/notifications/stream', requireAuth, (req, res) => {
+  if (process.env.VERCEL) {
+    return res.status(204).end();
+  }
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
