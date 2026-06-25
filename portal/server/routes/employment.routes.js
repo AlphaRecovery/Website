@@ -5,12 +5,24 @@ import path from 'node:path';
 import multer from 'multer';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { getDb, insert, saveDb, updateById } from '../data/store.js';
+import {
+  commitEmploymentSubmission,
+  getDb,
+  id,
+  insert,
+  now,
+  patchEmploymentApplication,
+  saveDb,
+  updateEmploymentNotification
+} from '../data/store.js';
 import { logActivity } from '../auth.js';
+import { logFileAccessDenied, sendStoredFileResponse } from '../fileResponses.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { canAssignEmploymentApplication, canManageEmploymentApplication, canReviewEmploymentApplication } from '../policies.js';
 import { pushNotificationsForAll } from '../notifications.js';
 import { sendEmail } from '../email.js';
-import { isRemoteStoragePath, readStoredFile } from '../storage.js';
+import { deleteStoredFile, isRemoteStoragePath, storeUploadedFile } from '../storage.js';
+import { publicErrorMessage } from '../security.js';
 import { buildApplicationPdf } from '../applicationPdf.js';
 import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
 
@@ -18,14 +30,9 @@ const router = express.Router();
 const applicationUploadsDir = path.join(config.uploadsDir, 'employment-applications');
 fs.mkdirSync(applicationUploadsDir, { recursive: true });
 
-const APPLICATION_EMAIL_TO = 'Admin@alpharecovery.org';
-const APPLICATION_EMAIL_CC = 'Topeka.mv@alpharecovery.org';
-const MAX_FILE_UPLOAD_BYTES = 10 * 1024 * 1024;
-const MAX_EMAIL_ATTACHMENT_BYTES = 18 * 1024 * 1024;
-
 const upload = multer({
   dest: applicationUploadsDir,
-  limits: { fileSize: MAX_FILE_UPLOAD_BYTES, files: 20 },
+  limits: { fileSize: config.maxUploadFileBytes, files: config.maxUploadFiles },
   fileFilter: (req, file, cb) => {
     const ok = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'].includes(path.extname(file.originalname).toLowerCase());
     cb(ok ? null : new Error('Unsupported file type'), ok);
@@ -195,15 +202,15 @@ function sanitizePayload(payload) {
 
 function visibleEmploymentApplications(user) {
   const rows = getDb().employment_applications;
-  if (user.role === 'admin' || user.role === 'recruiter') return rows;
+  if (user.role === 'admin' || user.role === 'recruiter') return rows.filter((row) => canReviewEmploymentApplication(user, row));
   if (user.role === 'applicant') return rows.filter((row) => row.email === user.email || row.user_id === user.id);
   return [];
 }
 
 function submittedApplicationFor(db, userId, roleSlug) {
   return (
-    (db.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
-    db.employment_applications.find((row) => row.user_id === userId && row.role_slug === roleSlug)
+    db.employment_applications.find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
+    (db.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug)
   );
 }
 
@@ -226,19 +233,17 @@ function flattenUploadedFiles(files = {}) {
   ));
 }
 
-function totalUploadedBytes(files = {}) {
-  return flattenUploadedFiles(files).reduce((total, upload) => total + Number(upload.file.size || 0), 0);
+function applicationPortalPath(applicationId) {
+  return `/admin${applicationId ? `?application=${encodeURIComponent(applicationId)}` : ''}`;
 }
 
-function formatMegabytes(bytes) {
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
-function applicationEmailText({ role, payload, confirmation, uploads }) {
+function applicationEmailText({ role, payload, confirmation, uploads, applicationId }) {
   const personal = payload.personalInformation || {};
+  const reviewUrl = `${config.publicPortalUrl.replace(/\/$/, '')}${applicationPortalPath(applicationId)}`;
   return [
     `Position: ${role.title}`,
     `Reference: ${confirmation}`,
+    `Review in portal: ${reviewUrl}`,
     '',
     'Applicant',
     `Name: ${personal.fullName || 'Not provided'}`,
@@ -248,12 +253,13 @@ function applicationEmailText({ role, payload, confirmation, uploads }) {
     'Uploaded Files',
     uploads.length ? uploads.map((upload) => `- ${upload.label}: ${upload.file.originalname}`).join('\n') : 'No files uploaded.',
     '',
-    'The full completed application is attached as a PDF.'
+    'The full completed application and uploads are stored in the portal applicant record.'
   ].join('\n');
 }
 
-function applicationEmailHtml({ role, payload, confirmation, uploads }) {
+function applicationEmailHtml({ role, payload, confirmation, uploads, applicationId }) {
   const personal = payload.personalInformation || {};
+  const reviewUrl = `${config.publicPortalUrl.replace(/\/$/, '')}${applicationPortalPath(applicationId)}`;
   const uploadList = uploads.length
     ? `<ul>${uploads.map((upload) => `<li><strong>${escapeHtml(upload.label)}:</strong> ${escapeHtml(upload.file.originalname)}</li>`).join('')}</ul>`
     : '<p>No files uploaded.</p>';
@@ -262,6 +268,7 @@ function applicationEmailHtml({ role, payload, confirmation, uploads }) {
     <h2>Alpha Recovery Employment Application</h2>
     <p><strong>Position:</strong> ${escapeHtml(role.title)}</p>
     <p><strong>Reference:</strong> ${escapeHtml(confirmation)}</p>
+    <p><a href="${escapeHtml(reviewUrl)}">Review this application in the portal</a></p>
     <h3>Applicant</h3>
     <p>
       <strong>Name:</strong> ${escapeHtml(personal.fullName || 'Not provided')}<br>
@@ -270,27 +277,8 @@ function applicationEmailHtml({ role, payload, confirmation, uploads }) {
     </p>
     <h3>Uploaded Files</h3>
     ${uploadList}
-    <p>The full completed application is attached as a PDF.</p>
+    <p>The full completed application and uploads are stored in the portal applicant record.</p>
   `;
-}
-
-async function emailAttachmentsForApplication(files, payload, role, confirmation) {
-  const applicationPdf = await buildApplicationPdf({ payload, role, confirmation, uploads: files });
-  const attachments = [{
-    filename: `${role.slug || 'alpha-recovery'}-application${confirmation ? `-${confirmation}` : ''}.pdf`,
-    content: applicationPdf.toString('base64'),
-    content_type: 'application/pdf'
-  }];
-
-  for (const upload of flattenUploadedFiles(files)) {
-    attachments.push({
-      filename: `${upload.label.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase()}-${upload.file.originalname}`,
-      content: await fs.promises.readFile(upload.file.path, { encoding: 'base64' }),
-      content_type: upload.file.mimetype || 'application/octet-stream'
-    });
-  }
-
-  return attachments;
 }
 
 async function removeTemporaryUploads(files = {}) {
@@ -300,6 +288,106 @@ async function removeTemporaryUploads(files = {}) {
     } catch {
     }
   }));
+}
+
+async function removeStoredFiles(files = []) {
+  await Promise.all(files.map((file) => deleteStoredFile(file.path).catch((error) => {
+    console.error('Stored file cleanup failed:', error);
+  })));
+}
+
+async function persistApplicationPdf({ applicationId, role, payload, confirmation, files }) {
+  const filename = `${role.slug || 'alpha-recovery'}-application${confirmation ? `-${confirmation}` : ''}.pdf`;
+  const tempPath = path.join(applicationUploadsDir, `${applicationId}-${filename}`);
+  const applicationPdf = await buildApplicationPdf({ payload, role, confirmation, uploads: files });
+  await fs.promises.writeFile(tempPath, applicationPdf);
+  const storedPath = await storeUploadedFile({
+    path: tempPath,
+    originalname: filename,
+    mimetype: 'application/pdf',
+    size: applicationPdf.length
+  }, `employment-applications/${applicationId}/application`);
+  return {
+    id: id(),
+    field: 'applicationPdf',
+    label: 'Completed Application PDF',
+    originalName: filename,
+    size: applicationPdf.length,
+    mimeType: 'application/pdf',
+    path: storedPath,
+    uploadedAt: now()
+  };
+}
+
+async function persistUploadedApplicationFiles(files = {}, applicationId, onStored = null) {
+  const stored = [];
+  for (const upload of flattenUploadedFiles(files)) {
+    const storedPath = await storeUploadedFile(upload.file, `employment-applications/${applicationId}/${upload.field}`);
+    const record = {
+      id: id(),
+      field: upload.field,
+      label: upload.label,
+      originalName: upload.file.originalname,
+      size: upload.file.size || 0,
+      mimeType: upload.file.mimetype || '',
+      path: storedPath,
+      uploadedAt: now()
+    };
+    stored.push(record);
+    if (onStored) onStored(record);
+  }
+  return stored;
+}
+
+export function employmentApplicationRecord({ applicationId, user, role, payload, confirmation, files, submittedAt }) {
+  const personal = payload.personalInformation || {};
+  return {
+    id: applicationId,
+    user_id: user.id,
+    email: personal.email.toLowerCase(),
+    role_slug: role.slug,
+    role_title: role.title,
+    department: role.department,
+    location: role.location,
+    employment_type: role.employmentType,
+    full_name: personal.fullName || '',
+    phone: personal.phone || '',
+    confirmation_number: confirmation,
+    status: APPLICATION_STATUS[0],
+    score: 0,
+    score_breakdown: {},
+    payload,
+    files,
+    submitted_at: submittedAt
+  };
+}
+
+export function employmentSubmissionRecord({ user, role, payload, confirmation, uploads, applicationId, submittedAt, emailTo, emailCc }) {
+  const personal = payload.personalInformation || {};
+  return {
+    user_id: user.id,
+    email: personal.email.toLowerCase(),
+    role_slug: role.slug,
+    role_title: role.title,
+    department: role.department,
+    location: role.location,
+    employment_type: role.employmentType,
+    full_name: personal.fullName || '',
+    confirmation_number: confirmation,
+    delivery: 'portal',
+    employment_application_id: applicationId,
+    email_to: emailTo,
+    email_cc: emailCc,
+    email_status: 'pending',
+    uploaded_files: uploads.map((upload) => ({
+      field: upload.field,
+      label: upload.label,
+      original_name: upload.file.originalname,
+      size: upload.file.size || 0,
+      mime_type: upload.file.mimetype || ''
+    })),
+    submitted_at: submittedAt
+  };
 }
 
 function interviewCompleteForEmploymentApplication(applicationId) {
@@ -319,13 +407,27 @@ function canMoveEmploymentStatus(currentStatus, nextStatus, applicationId) {
 }
 
 router.get('/application/roles', (req, res) => {
-  res.json({ roles: ROLE_CONFIGS.map(publicRole) });
+  res.json({
+    roles: ROLE_CONFIGS.map(publicRole),
+    uploadLimits: {
+      maxFileBytes: config.maxUploadFileBytes,
+      maxRequestBytes: config.maxUploadRequestBytes,
+      maxFiles: config.maxUploadFiles
+    }
+  });
 });
 
 router.get('/application/roles/:slug', (req, res) => {
   const role = ROLE_BY_SLUG[req.params.slug];
   if (!role) return res.status(404).json({ error: 'Role not found' });
-  res.json({ role: publicRole(role) });
+  res.json({
+    role: publicRole(role),
+    uploadLimits: {
+      maxFileBytes: config.maxUploadFileBytes,
+      maxRequestBytes: config.maxUploadRequestBytes,
+      maxFiles: config.maxUploadFiles
+    }
+  });
 });
 
 router.get('/application/draft', (req, res) => {
@@ -387,7 +489,7 @@ router.delete('/application/draft', requireAuth, requireRole('applicant'), (req,
   res.json({ ok: true, deleted: before - db.employment_application_drafts.length });
 });
 
-router.post('/application/submit', requireAuth, requireRole('applicant'), upload.fields(Object.keys(UPLOAD_LABELS).map((name) => ({ name, maxCount: 5 }))), (req, res) => {
+router.post('/application/submit', requireAuth, requireRole('applicant'), upload.fields(Object.keys(UPLOAD_LABELS).map((name) => ({ name, maxCount: 5 }))), async (req, res) => {
   const reject = (status, error) => {
     void removeTemporaryUploads(req.files);
     return res.status(status).json({ error });
@@ -395,6 +497,7 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
   const role = ROLE_BY_SLUG[req.body.roleSlug];
   if (!role) return reject(404, 'Role not found');
   let payload;
+  let storedFilesForCleanup = [];
   try {
     payload = JSON.parse(req.body.payload || '{}');
   } catch (error) {
@@ -403,10 +506,6 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
 
   const errors = validateApplication(payload, role, req.files || {});
   if (errors.length) return reject(400, errors.join(' '));
-  const uploadBytes = totalUploadedBytes(req.files || {});
-  if (uploadBytes > MAX_EMAIL_ATTACHMENT_BYTES) {
-    return reject(413, `Uploaded attachments total ${formatMegabytes(uploadBytes)}. Keep all uploaded files under ${formatMegabytes(MAX_EMAIL_ATTACHMENT_BYTES)} combined so the application email can be delivered.`);
-  }
 
   const db = getDb();
   const email = payload.personalInformation.email.toLowerCase();
@@ -416,66 +515,102 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
   const duplicate = submittedApplicationFor(db, user.id, role.slug);
   if (duplicate) return reject(409, `You already submitted an application for ${role.title}. Your confirmation number is ${duplicate.confirmation_number || 'on file'}.`);
 
-  const finish = async () => {
+  try {
     const safePayload = sanitizePayload(payload);
     const personal = payload.personalInformation || {};
     const confirmation = confirmationNumberFor(role, payload);
     const uploads = flattenUploadedFiles(req.files);
-    const attachments = await emailAttachmentsForApplication(req.files, safePayload, role, confirmation);
+    const applicationId = id();
+    const submittedAt = now();
+    const applicationPdf = await persistApplicationPdf({ applicationId, role, payload: safePayload, confirmation, files: req.files || {} });
+    storedFilesForCleanup.push(applicationPdf);
+    const uploadedFiles = await persistUploadedApplicationFiles(req.files || {}, applicationId, (file) => storedFilesForCleanup.push(file));
+    const files = [applicationPdf, ...uploadedFiles];
+    const applicationRecord = employmentApplicationRecord({
+      applicationId,
+      user,
+      role,
+      payload: safePayload,
+      confirmation,
+      files,
+      submittedAt
+    });
 
-    await sendEmail({
-      to: APPLICATION_EMAIL_TO,
-      cc: APPLICATION_EMAIL_CC,
+    const submissionRecord = employmentSubmissionRecord({
+      user,
+      role,
+      payload: safePayload,
+      confirmation,
+      uploads,
+      applicationId: applicationId,
+      submittedAt,
+      emailTo: config.applicationEmailTo,
+      emailCc: config.applicationEmailCc
+    });
+    const { application, submission } = await commitEmploymentSubmission({
+      application: applicationRecord,
+      submission: submissionRecord,
+      userId: user.id,
+      roleSlug: role.slug
+    });
+    logActivity(user.id, 'application_submitted', { employment_application_id: application.id, entity_type: 'employment_application', entity_id: application.id, role: role.title, reference: confirmation }, req);
+    pushNotificationsForAll();
+
+    const staffEmail = await sendEmail({
+      to: config.applicationEmailTo,
+      cc: config.applicationEmailCc,
       replyTo: personal.email,
       subject: `Application: ${role.title}`,
-      text: applicationEmailText({ role, payload: safePayload, confirmation, uploads }),
-      html: applicationEmailHtml({ role, payload: safePayload, confirmation, uploads }),
-      attachments
+      text: applicationEmailText({ role, payload: safePayload, confirmation, uploads, applicationId: application.id }),
+      html: applicationEmailHtml({ role, payload: safePayload, confirmation, uploads, applicationId: application.id })
+    }).then((result) => ({ ok: true, result })).catch((error) => {
+      console.error('Application staff notification email failed:', error);
+      return { ok: false, error: error.message };
     });
-
-    insert('employment_application_submissions', {
-      user_id: user.id,
-      email,
-      role_slug: role.slug,
-      role_title: role.title,
-      department: role.department,
-      location: role.location,
-      employment_type: role.employmentType,
-      full_name: personal.fullName || '',
-      confirmation_number: confirmation,
-      delivery: 'email',
-      email_to: APPLICATION_EMAIL_TO,
-      email_cc: APPLICATION_EMAIL_CC,
-      uploaded_files: uploads.map((upload) => ({
-        field: upload.field,
-        label: upload.label,
-        original_name: upload.file.originalname,
-        size: upload.file.size || 0,
-        mime_type: upload.file.mimetype || ''
-      })),
-      submitted_at: new Date().toISOString()
+    await updateEmploymentNotification({
+      applicationId: application.id,
+      submissionId: submission.id,
+      status: staffEmail.ok ? 'sent' : 'failed',
+      error: staffEmail.ok ? undefined : staffEmail.error
     });
-    db.employment_application_drafts = db.employment_application_drafts.filter((draft) => !(draft.user_id === user.id && draft.role_slug === role.slug));
-    saveDb();
-    logActivity(user.id, 'application_emailed', { role: role.title, reference: confirmation });
 
     await sendEmail({
       to: personal.email,
-      subject: `Alpha Recovery Application Sent - ${role.title}`,
-      text: `Thank you, ${personal.fullName}.\n\nYour Alpha Recovery employment application for ${role.title} has been sent to Alpha Recovery.\nReference: ${confirmation}`,
-      html: `<p>Thank you, ${escapeHtml(personal.fullName)}.</p><p>Your Alpha Recovery employment application for <strong>${escapeHtml(role.title)}</strong> has been sent to Alpha Recovery.</p><p>Reference: <strong>${escapeHtml(confirmation)}</strong></p>`
+      subject: `Alpha Recovery Application Received - ${role.title}`,
+      text: `Thank you, ${personal.fullName}.\n\nYour Alpha Recovery employment application for ${role.title} has been received.\nReference: ${confirmation}`,
+      html: `<p>Thank you, ${escapeHtml(personal.fullName)}.</p><p>Your Alpha Recovery employment application for <strong>${escapeHtml(role.title)}</strong> has been received.</p><p>Reference: <strong>${escapeHtml(confirmation)}</strong></p>`
     }).catch((error) => console.error('Application confirmation email failed:', error));
 
-    return res.json({ emailed: true, confirmation });
-  };
-
-  finish()
-    .catch((error) => res.status(500).json({ error: error.message || 'Application email failed.' }))
-    .finally(() => removeTemporaryUploads(req.files));
+    return res.json({
+      submitted: true,
+      emailed: staffEmail.ok,
+      confirmation,
+      applicationId: application.id,
+      warning: staffEmail.ok ? undefined : 'Application was saved in the portal, but the notification email failed.'
+    });
+  } catch (error) {
+    await removeTemporaryUploads(req.files);
+    await removeStoredFiles(storedFilesForCleanup);
+    if (error?.code === 'DUPLICATE_EMPLOYMENT_APPLICATION') {
+      return res.status(409).json({ error: error.message });
+    }
+    return res.status(500).json({ error: publicErrorMessage(error, 'Application submission failed.') });
+  }
 });
 
 router.get('/admin/employment-applications', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
-  res.json({ applications: visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)) });
+  const applications = visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+  const today = new Date().toISOString().slice(0, 10);
+  res.json({
+    applications,
+    summary: {
+      new_count: applications.filter((row) => row.status === 'New').length,
+      notification_failed_count: applications.filter((row) => row.notification_status === 'failed').length,
+      submitted_today_count: applications.filter((row) => String(row.submitted_at || '').slice(0, 10) === today).length,
+      assigned_to_me_count: applications.filter((row) => row.assigned_recruiter_id === req.user.id).length,
+      unassigned_count: applications.filter((row) => !row.assigned_recruiter_id).length
+    }
+  });
 });
 
 router.get('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
@@ -488,6 +623,7 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
   const patch = {};
   const current = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
   if (!current) return res.status(404).json({ error: 'Application not found' });
+  if (!canManageEmploymentApplication(req.user, current)) return res.status(403).json({ error: 'Access denied' });
   if (req.body.status) {
     if (!APPLICATION_STATUS.includes(req.body.status)) return res.status(400).json({ error: 'Invalid status' });
     const gate = canMoveEmploymentStatus(current.status, req.body.status, current.id);
@@ -495,45 +631,64 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
     patch.status = req.body.status;
   }
   if (typeof req.body.hr_notes === 'string') patch.hr_notes = req.body.hr_notes;
-  const application = updateById('employment_applications', req.params.id, patch);
-  if (!application) return res.status(404).json({ error: 'Application not found' });
-  logActivity(req.user.id, 'status_change', { employment_application_id: application.id, status: application.status });
-  pushNotificationsForAll();
-  res.json({ application });
+  if (canAssignEmploymentApplication(req.user) && Object.prototype.hasOwnProperty.call(req.body, 'assigned_recruiter_id')) {
+    patch.assigned_recruiter_id = req.body.assigned_recruiter_id || null;
+    patch.assigned_at = patch.assigned_recruiter_id ? new Date().toISOString() : null;
+  }
+  patchEmploymentApplication(req.params.id, patch)
+    .then((application) => {
+      if (!application) return res.status(404).json({ error: 'Application not found' });
+      logActivity(req.user.id, patch.assigned_recruiter_id !== undefined ? 'application_assigned' : 'status_change', {
+        employment_application_id: application.id,
+        entity_type: 'employment_application',
+        entity_id: application.id,
+        status: application.status,
+        assigned_recruiter_id: application.assigned_recruiter_id || null
+      }, req);
+      pushNotificationsForAll();
+      return res.json({ application });
+    })
+    .catch((error) => res.status(500).json({ error: error.message || 'Application update failed.' }));
 });
 
 router.get('/admin/employment-applications/:id/files/:fileId/download', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
-  const application = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
+  const application = getDb().employment_applications.find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
-  const file = application.files.find((item) => item.id === req.params.fileId);
-  if (!file || (!isRemoteStoragePath(file.path) && !fs.existsSync(file.path))) return res.status(404).json({ error: 'File not found' });
-  logActivity(req.user.id, 'file_download', { employment_application_id: application.id, file_id: file.id });
-  if (isRemoteStoragePath(file.path)) {
-    return readStoredFile(file.path)
-      .then((buffer) => {
-        res.setHeader('Content-Type', file.mimeType || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${String(file.originalName || file.label || 'document').replace(/"/g, '')}"`);
-        res.send(buffer);
-      })
-      .catch((error) => res.status(500).json({ error: error.message }));
+  if (!canReviewEmploymentApplication(req.user, application)) {
+    logFileAccessDenied(req, { employment_application_id: application.id, file_id: req.params.fileId, entity_type: 'employment_application', entity_id: application.id });
+    return res.status(403).json({ error: 'Access denied' });
   }
-  res.download(file.path, file.originalName);
+  const file = (application.files || []).find((item) => item.id === req.params.fileId);
+  if (!file || (!isRemoteStoragePath(file.path) && !fs.existsSync(file.path))) return res.status(404).json({ error: 'File not found' });
+  return sendStoredFileResponse({
+    req,
+    res,
+    filePath: file.path,
+    mimeType: file.mimeType,
+    filename: file.originalName || file.label,
+    disposition: 'attachment',
+    audit: { action: 'file_download', metadata: { employment_application_id: application.id, file_id: file.id, entity_type: 'employment_application', entity_id: application.id } }
+  }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'File download failed.') }));
 });
 
 router.get('/admin/employment-applications/:id/files/:fileId/view', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
-  const application = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
+  const application = getDb().employment_applications.find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
-  const file = application.files.find((item) => item.id === req.params.fileId);
-  if (!file || (!isRemoteStoragePath(file.path) && !fs.existsSync(file.path))) return res.status(404).json({ error: 'File not found' });
-  if (file.mimeType) res.setHeader('Content-Type', file.mimeType);
-  res.setHeader('Content-Disposition', `inline; filename="${String(file.originalName || file.label || 'document').replace(/"/g, '')}"`);
-  logActivity(req.user.id, 'file_view', { employment_application_id: application.id, file_id: file.id });
-  if (isRemoteStoragePath(file.path)) {
-    return readStoredFile(file.path)
-      .then((buffer) => res.send(buffer))
-      .catch((error) => res.status(500).json({ error: error.message }));
+  if (!canReviewEmploymentApplication(req.user, application)) {
+    logFileAccessDenied(req, { employment_application_id: application.id, file_id: req.params.fileId, entity_type: 'employment_application', entity_id: application.id });
+    return res.status(403).json({ error: 'Access denied' });
   }
-  res.sendFile(path.resolve(file.path));
+  const file = (application.files || []).find((item) => item.id === req.params.fileId);
+  if (!file || (!isRemoteStoragePath(file.path) && !fs.existsSync(file.path))) return res.status(404).json({ error: 'File not found' });
+  return sendStoredFileResponse({
+    req,
+    res,
+    filePath: file.path,
+    mimeType: file.mimeType,
+    filename: file.originalName || file.label,
+    disposition: 'inline',
+    audit: { action: 'file_view', metadata: { employment_application_id: application.id, file_id: file.id, entity_type: 'employment_application', entity_id: application.id } }
+  }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'File view failed.') }));
 });
 
 export default router;

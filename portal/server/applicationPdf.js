@@ -6,6 +6,7 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'alpha-recovery-application.pdf');
 const warnedMissingFields = new Set();
+const CONTINUED_MARKER = ' [continued]';
 
 function value(input) {
   if (input === null || input === undefined) return '';
@@ -32,10 +33,100 @@ function getField(form, name) {
   }
 }
 
-function setText(form, name, input) {
+function fieldRectangle(field) {
+  try {
+    return field.acroField.getWidgets()[0]?.getRectangle() || null;
+  } catch {
+    return null;
+  }
+}
+
+function compactText(input) {
+  return value(input).replace(/\s+/g, ' ').trim();
+}
+
+function lineFits(font, text, size, width) {
+  return font.widthOfTextAtSize(text, size) <= width;
+}
+
+function wrapTextToWidth(text, font, size, width) {
+  const words = compactText(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (!line || lineFits(font, candidate, size, width)) {
+      line = candidate;
+      continue;
+    }
+    lines.push(line);
+    if (lineFits(font, word, size, width)) {
+      line = word;
+    } else {
+      let chunk = '';
+      for (const char of word) {
+        const next = `${chunk}${char}`;
+        if (!chunk || lineFits(font, next, size, width)) {
+          chunk = next;
+        } else {
+          lines.push(chunk);
+          chunk = char;
+        }
+      }
+      line = chunk;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length ? lines : [''];
+}
+
+function fieldTextPreview(field, input, font, options = {}) {
+  const text = compactText(input);
+  if (!text || !font) return { text, overflowed: false };
+
+  const rect = fieldRectangle(field);
+  if (!rect) return { text, overflowed: false };
+
+  const fontSize = options.fontSize || 7.5;
+  const lineHeight = options.lineHeight || 9;
+  const width = Math.max(16, rect.width - 8);
+  const height = Math.max(lineHeight, rect.height - 5);
+  const maxLines = options.multiline ? Math.max(1, Math.floor(height / lineHeight)) : 1;
+  const lines = wrapTextToWidth(text, font, fontSize, width);
+  if (lines.length <= maxLines && lines.join(' ') === text) {
+    return { text: options.multiline ? lines.join('\n') : text, overflowed: false };
+  }
+
+  let low = 0;
+  let high = text.length;
+  let best = '';
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const candidate = `${text.slice(0, mid).trimEnd()}${CONTINUED_MARKER}`;
+    const candidateLines = wrapTextToWidth(candidate, font, fontSize, width);
+    if (candidateLines.length <= maxLines) {
+      best = candidate;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return {
+    text: options.multiline ? wrapTextToWidth(best || CONTINUED_MARKER.trim(), font, fontSize, width).slice(0, maxLines).join('\n') : (best || CONTINUED_MARKER.trim()),
+    overflowed: true
+  };
+}
+
+function setText(form, name, input, options = {}) {
   const field = getField(form, name);
   if (!field) return;
-  field.setText(value(input));
+  if (options.multiline && typeof field.enableMultiline === 'function') field.enableMultiline();
+  const preview = fieldTextPreview(field, input, options.font, options);
+  field.setText(preview.text);
+  if (preview.overflowed && options.overflow) {
+    options.overflow.push(`${options.label || name}: ${compactText(input)}`);
+  }
 }
 
 function setCheckbox(form, name, checked) {
@@ -55,10 +146,18 @@ function rowValue(row, keys) {
   return keys.map((key) => value(row?.[key])).find(Boolean) || '';
 }
 
-function fillRows(form, prefix, rows = [], columns = [], maxRows = rows.length) {
+function fieldLabel(keys) {
+  const key = Array.isArray(keys) ? keys[0] : keys;
+  return String(key || '').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ');
+}
+
+function fillRows(form, prefix, rows = [], columns = [], maxRows = rows.length, options = {}) {
   rows.slice(0, maxRows).forEach((row, index) => {
     columns.forEach((keys, columnIndex) => {
-      setText(form, `${prefix}_${index + 1}_${columnIndex + 1}`, rowValue(row, Array.isArray(keys) ? keys : [keys]));
+      setText(form, `${prefix}_${index + 1}_${columnIndex + 1}`, rowValue(row, Array.isArray(keys) ? keys : [keys]), {
+        ...options,
+        label: `${options.title || prefix} ${index + 1} - ${fieldLabel(keys)}`
+      });
     });
   });
 }
@@ -187,6 +286,14 @@ export async function buildApplicationPdf({ payload = {}, role = {}, confirmatio
   const doc = await PDFDocument.load(template);
   const form = doc.getForm();
   const font = await doc.embedFont(StandardFonts.Helvetica);
+  const continuedAnswers = [];
+  const textOptions = { font, overflow: continuedAnswers };
+  const setPdfText = (name, input, label, options = {}) => setText(form, name, input, {
+    ...textOptions,
+    ...options,
+    label: label || name
+  });
+  const rowOptions = (title) => ({ ...textOptions, title });
 
   const position = payload.positionInformation || {};
   const personal = payload.personalInformation || {};
@@ -202,57 +309,57 @@ export async function buildApplicationPdf({ payload = {}, role = {}, confirmatio
   const signatures = payload.signatures || {};
   const applicantCertification = payload.applicantCertification || {};
 
-  setText(form, 'position_roleTitle', role.title || position.roleTitle);
-  setText(form, 'position_department', role.department || position.department);
-  setText(form, 'position_location', role.location || position.location);
-  setText(form, 'position_employmentType', role.employmentType || position.employmentType);
-  setText(form, 'position_desiredStartDate', position.desiredStartDate);
-  setText(form, 'position_desiredPay', position.desiredPay);
-  setText(form, 'position_heardAboutUs', position.heardAboutUs);
+  setPdfText('position_roleTitle', role.title || position.roleTitle, 'Position - Role title');
+  setPdfText('position_department', role.department || position.department, 'Position - Department');
+  setPdfText('position_location', role.location || position.location, 'Position - Location');
+  setPdfText('position_employmentType', role.employmentType || position.employmentType, 'Position - Employment type');
+  setPdfText('position_desiredStartDate', position.desiredStartDate, 'Position - Desired start date');
+  setPdfText('position_desiredPay', position.desiredPay, 'Position - Desired pay');
+  setPdfText('position_heardAboutUs', position.heardAboutUs, 'Position - Heard about us');
 
-  setText(form, 'personal_fullName', personal.fullName);
-  setText(form, 'personal_email', personal.email);
-  setText(form, 'personal_phone', personal.phone);
-  setText(form, 'personal_ssnLast4', personal.ssnLast4);
-  setText(form, 'personal_address', personal.address);
-  setText(form, 'personal_city', personal.city);
-  setText(form, 'personal_state', personal.state);
-  setText(form, 'personal_zip', personal.zip);
+  setPdfText('personal_fullName', personal.fullName, 'Personal - Full name');
+  setPdfText('personal_email', personal.email, 'Personal - Email');
+  setPdfText('personal_phone', personal.phone, 'Personal - Phone');
+  setPdfText('personal_ssnLast4', personal.ssnLast4, 'Personal - SSN last 4');
+  setPdfText('personal_address', personal.address, 'Personal - Address');
+  setPdfText('personal_city', personal.city, 'Personal - City');
+  setPdfText('personal_state', personal.state, 'Personal - State');
+  setPdfText('personal_zip', personal.zip, 'Personal - ZIP');
 
   setYesNo(form, 'work_authorized', work.authorized);
   setYesNo(form, 'work_sponsorship', work.sponsorship);
   setYesNo(form, 'work_age18', work.age18);
-  setText(form, 'work_proof', work.proof);
+  setPdfText('work_proof', work.proof, 'Work authorization - Proof notes', { multiline: true });
 
-  setText(form, 'availability_travelAvailability', availability.travelAvailability);
-  setText(form, 'availability_reliableTransportation', availability.reliableTransportation);
-  setText(form, 'availability_validDriversLicense', availability.validDriversLicense);
-  setText(form, 'availability_vehicleInsurance', availability.vehicleInsurance);
-  setText(form, 'availability_scheduleNotes', availability.scheduleNotes);
+  setPdfText('availability_travelAvailability', availability.travelAvailability, 'Availability - Travel availability');
+  setPdfText('availability_reliableTransportation', availability.reliableTransportation, 'Availability - Reliable transportation');
+  setPdfText('availability_validDriversLicense', availability.validDriversLicense, "Availability - Valid driver's license");
+  setPdfText('availability_vehicleInsurance', availability.vehicleInsurance, 'Availability - Vehicle insurance');
+  setPdfText('availability_scheduleNotes', availability.scheduleNotes, 'Availability - Schedule notes', { multiline: true });
 
   setYesNo(form, 'military_served', military.served);
-  setText(form, 'military_branch', military.branch);
-  setText(form, 'military_branchOther', military.branchOther);
-  setText(form, 'military_dischargeType', military.dischargeType);
-  setText(form, 'military_disabledVeteran', military.disabledVeteran);
-  setText(form, 'military_dischargeOther', military.dischargeOther);
+  setPdfText('military_branch', military.branch, 'Military - Branch');
+  setPdfText('military_branchOther', military.branchOther, 'Military - Other branch');
+  setPdfText('military_dischargeType', military.dischargeType, 'Military - Discharge type');
+  setPdfText('military_disabledVeteran', military.disabledVeteran, 'Military - Disabled veteran');
+  setPdfText('military_dischargeOther', military.dischargeOther, 'Military - Discharge notes', { multiline: true });
 
-  setText(form, 'education_highestLevel', education.highestLevel);
-  fillRows(form, 'education_degrees', education.degrees || [], ['school', 'degree', 'field', ['graduationYear', 'graduationDate']], 4);
+  setPdfText('education_highestLevel', education.highestLevel, 'Education - Highest level');
+  fillRows(form, 'education_degrees', education.degrees || [], ['school', 'degree', 'field', ['graduationYear', 'graduationDate']], 4, rowOptions('Education'));
 
-  fillRows(form, 'certifications_records', certificationRows(payload), ['group', ['name', 'certification'], ['licenseNumber', 'number'], 'state', ['expirationDate', 'status']], 5);
-  fillRows(form, 'languages_records', payload.languages || [], ['language', 'proficiency', 'skills', 'certification'], 4);
+  fillRows(form, 'certifications_records', certificationRows(payload), ['group', ['name', 'certification'], ['licenseNumber', 'number'], 'state', ['expirationDate', 'status']], 5, rowOptions('Certification'));
+  fillRows(form, 'languages_records', payload.languages || [], ['language', 'proficiency', 'skills', 'certification'], 4, rowOptions('Language'));
 
-  setText(form, 'employment_yearsRelevantExperience', employment.yearsRelevantExperience);
-  setText(form, 'employment_summary', employment.summary);
-  fillRows(form, 'employment_employers', employment.employers || [], ['employer', 'title', 'startDate', 'endDate', 'supervisor', 'phone', 'reasonForLeaving'], 5);
-  setText(form, 'employment_dutiesAdditional', additionalEmployerDuties(employment.employers || []));
+  setPdfText('employment_yearsRelevantExperience', employment.yearsRelevantExperience, 'Employment - Years relevant experience', { multiline: true });
+  setPdfText('employment_summary', employment.summary, 'Employment - Summary', { multiline: true });
+  fillRows(form, 'employment_employers', employment.employers || [], ['employer', 'title', 'startDate', 'endDate', 'supervisor', 'phone', 'reasonForLeaving'], 5, rowOptions('Employer'));
+  setPdfText('employment_dutiesAdditional', additionalEmployerDuties(employment.employers || []), 'Employment - Duties and responsibilities', { multiline: true });
 
   setYesNo(form, 'government_priorContractWork', government.priorGovernmentContractWork);
-  setText(form, 'government_agency', government.agency);
-  setText(form, 'government_clearanceHeld', government.clearanceHeld);
-  setText(form, 'government_debarred', government.debarred);
-  setText(form, 'government_notes', government.notes);
+  setPdfText('government_agency', government.agency, 'Government eligibility - Agency');
+  setPdfText('government_clearanceHeld', government.clearanceHeld, 'Government eligibility - Clearance held');
+  setPdfText('government_debarred', government.debarred, 'Government eligibility - Debarred');
+  setPdfText('government_notes', government.notes, 'Government eligibility - Notes', { multiline: true });
 
   [
     criminal.felonyConviction,
@@ -262,35 +369,39 @@ export async function buildApplicationPdf({ payload = {}, role = {}, confirmatio
     criminal.militaryCourtMartial,
     criminal.registryRequired
   ].forEach((answer, index) => setYesNo(form, `criminal_${index + 1}`, answer));
-  fillRows(form, 'criminal_offenses', criminal.offenses || [], ['type', 'offense', 'offenseDate', 'jurisdiction', 'court', 'disposition', 'sentence', 'status', 'context'], 3);
+  fillRows(form, 'criminal_offenses', criminal.offenses || [], ['type', 'offense', 'offenseDate', 'jurisdiction', 'court', 'disposition', 'sentence', 'status', 'context'], 3, rowOptions('Criminal history offense'));
   setCheckbox(form, 'criminal_acknowledgment', !!criminal.acknowledgment);
 
   setYesNo(form, 'driving_validLicense', driving.validLicense);
-  setText(form, 'driving_licenseNumber', driving.licenseNumber);
-  setText(form, 'driving_state', driving.state);
-  setText(form, 'driving_cdl', driving.cdl);
-  setText(form, 'driving_movingViolations', driving.movingViolations);
-  setText(form, 'driving_accidents', driving.accidents);
-  setText(form, 'driving_duiHistory', driving.duiHistory);
+  setPdfText('driving_licenseNumber', driving.licenseNumber, "Driving - Driver's license number");
+  setPdfText('driving_state', driving.state, 'Driving - State');
+  setPdfText('driving_cdl', driving.cdl, 'Driving - CDL');
+  setPdfText('driving_movingViolations', driving.movingViolations, 'Driving - Moving violations');
+  setPdfText('driving_accidents', driving.accidents, 'Driving - Accidents');
+  setPdfText('driving_duiHistory', driving.duiHistory, 'Driving - DUI history', { multiline: true });
 
-  fillRows(form, 'references', payload.references || [], ['name', 'relationship', 'company', 'phone', 'email', 'yearsKnown'], 8);
+  fillRows(form, 'references', payload.references || [], ['name', 'relationship', 'company', 'phone', 'email', 'yearsKnown'], 8, rowOptions('Reference'));
 
-  setText(form, 'background_fullLegalName', background.fullLegalName);
-  setText(form, 'background_dateOfBirth', background.dateOfBirth);
-  setText(form, 'background_socialSecurityNumber', background.socialSecurityNumber);
-  setText(form, 'background_currentAddress', background.currentAddress);
-  setText(form, 'background_positionAppliedFor', role.title || background.positionAppliedFor);
-  setText(form, 'background_signature_1', background.typedSignature || signatures.backgroundAuthorization);
-  setText(form, 'background_signature_2', background.signatureDate);
-  setText(form, 'background_signature_3', background.printedName);
+  setPdfText('background_fullLegalName', background.fullLegalName, 'Background authorization - Full legal name');
+  setPdfText('background_dateOfBirth', background.dateOfBirth, 'Background authorization - Date of birth');
+  setPdfText('background_socialSecurityNumber', background.socialSecurityNumber, 'Background authorization - Social security number');
+  setPdfText('background_currentAddress', background.currentAddress, 'Background authorization - Current address');
+  setPdfText('background_positionAppliedFor', role.title || background.positionAppliedFor, 'Background authorization - Position applied for');
+  setPdfText('background_signature_1', background.typedSignature || signatures.backgroundAuthorization, 'Background authorization - Signature');
+  setPdfText('background_signature_2', background.signatureDate, 'Background authorization - Signature date');
+  setPdfText('background_signature_3', background.printedName, 'Background authorization - Printed name');
 
-  setText(form, 'standards_typedFullLegalName', signatures.standardsOfConduct || payload.standardsOfConduct?.typedFullLegalName);
-  setText(form, 'applicant_certification_1', applicantCertification.typedFullLegalName || signatures.applicantCertification);
-  setText(form, 'applicant_certification_2', applicantCertification.date);
-  setText(form, 'applicant_certification_3', confirmation);
+  setPdfText('standards_typedFullLegalName', signatures.standardsOfConduct || payload.standardsOfConduct?.typedFullLegalName, 'Standards of conduct - Typed full legal name');
+  setPdfText('applicant_certification_1', applicantCertification.typedFullLegalName || signatures.applicantCertification, 'Applicant certification - Typed full legal name');
+  setPdfText('applicant_certification_2', applicantCertification.date, 'Applicant certification - Date');
+  setPdfText('applicant_certification_3', confirmation, 'Applicant certification - Reference number');
 
   uploadedFieldNames(payload, uploads).slice(0, 8).forEach((_, index) => setCheckbox(form, `upload_${index + 1}`, true));
-  drawOverflowPages(doc, font, overflowSections(payload), confirmation);
+  const sections = overflowSections(payload);
+  if (continuedAnswers.length) {
+    sections.push({ title: 'Continued Field Answers', rows: continuedAnswers });
+  }
+  drawOverflowPages(doc, font, sections, confirmation);
 
   form.updateFieldAppearances(font);
   form.flatten();

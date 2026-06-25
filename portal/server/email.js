@@ -1,6 +1,14 @@
 import { config } from './config.js';
 
+let emailAdapter = null;
+
+export function setEmailAdapterForTests(adapter) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Email adapter override is only available in tests.');
+  emailAdapter = adapter;
+}
+
 export async function sendEmail({ to, cc, subject, text, html, replyTo, attachments }) {
+  if (emailAdapter) return emailAdapter({ to, cc, subject, text, html, replyTo, attachments });
   if (!to) return { ok: false, skipped: true };
   if (config.emailDriver !== 'resend') {
     console.log('[email:log]', {

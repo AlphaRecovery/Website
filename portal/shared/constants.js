@@ -15,6 +15,7 @@ export const ACTIVITY_ACTIONS = [
   'file_upload',
   'file_view',
   'file_download',
+  'file_access_denied',
   'status_change',
   'invite_sent',
   'invite_accepted',
@@ -23,6 +24,11 @@ export const ACTIVITY_ACTIONS = [
   'document_status_change',
   'application_created',
   'application_deleted',
+  'application_submitted',
+  'application_assigned',
+  'notification_failed',
+  'pii_purged',
+  'file_delete_missing',
   'task_created',
   'task_completed',
   'message_sent',
@@ -78,6 +84,7 @@ export const DISPLAY_LABELS = {
   file_upload: 'File Upload',
   file_view: 'File View',
   file_download: 'File Download',
+  file_access_denied: 'File Access Denied',
   status_change: 'Status Change',
   invite_sent: 'Invite Sent',
   invite_accepted: 'Invite Accepted',
@@ -86,13 +93,17 @@ export const DISPLAY_LABELS = {
   document_status_change: 'Document Status Change',
   application_created: 'Application Created',
   application_deleted: 'Application Deleted',
+  application_submitted: 'Application Submitted',
+  application_assigned: 'Application Assigned',
+  notification_failed: 'Notification Failed',
+  pii_purged: 'PII Purged',
+  file_delete_missing: 'File Delete Missing',
   task_created: 'Task Created',
   task_completed: 'Task Completed',
   message_sent: 'Message Sent',
   note_added: 'Note Added',
   company_created: 'Company Created',
-  contractor_deactivated: 'Contractor Deactivated',
-  application_submitted: 'Application Submitted'
+  contractor_deactivated: 'Contractor Deactivated'
 };
 
 export function displayLabel(value) {

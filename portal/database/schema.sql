@@ -194,10 +194,11 @@ create table if not exists activity_log (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references users(id),
   action text not null check (action in (
-    'login','logout','failed_login','file_upload','file_download','status_change',
+    'login','logout','failed_login','file_upload','file_view','file_download','file_access_denied','status_change',
     'invite_sent','invite_accepted','profile_change','document_requested',
     'document_status_change','task_created','task_completed','message_sent',
-    'note_added','company_created','contractor_deactivated','application_submitted'
+    'note_added','company_created','contractor_deactivated','application_submitted',
+    'application_assigned','notification_failed','pii_purged','file_delete_missing'
   )),
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()

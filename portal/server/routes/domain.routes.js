@@ -518,6 +518,41 @@ function visibleApplications(user) {
   return [];
 }
 
+function employmentApplicationAsPortalApplication(row) {
+  return {
+    id: row.id,
+    user_id: row.user_id || null,
+    company_id: null,
+    full_name: row.full_name || 'Unnamed Applicant',
+    email: row.email || '',
+    phone: row.phone || '',
+    role_applied: row.role_title || '',
+    department: row.department || '',
+    employment_type: row.employment_type || '',
+    experience: '',
+    message: '',
+    status: row.status || 'New',
+    score: row.score ?? null,
+    assigned_recruiter_id: row.assigned_recruiter_id || null,
+    employment_application_id: row.id,
+    confirmation_number: row.confirmation_number || '',
+    created_at: row.submitted_at || row.created_at,
+    source: 'employment'
+  };
+}
+
+function visibleApplicationSummaries(user) {
+  const db = getDb();
+  const applications = visibleApplications(user);
+  if (user.role !== 'applicant') return applications;
+  const linkedEmploymentIds = new Set(applications.map((app) => app.employment_application_id).filter(Boolean));
+  const employmentApplications = db.employment_applications
+    .filter((app) => (app.user_id === user.id || app.email === user.email) && !linkedEmploymentIds.has(app.id))
+    .map(employmentApplicationAsPortalApplication);
+  return [...applications, ...employmentApplications]
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+}
+
 function visibleContractors(user) {
   const db = getDb();
   if (user.role === 'admin' || user.role === 'recruiter') return db.contractors;
@@ -721,7 +756,7 @@ router.delete('/library/templates/:id', requireAuth, requireRole('admin', 'recru
 });
 
 router.get('/applications', requireAuth, (req, res) => {
-  res.json({ applications: visibleApplications(req.user).map(enrichApplication) });
+  res.json({ applications: visibleApplicationSummaries(req.user).map(enrichApplication) });
 });
 
 router.get('/applications/:id', requireAuth, (req, res) => {

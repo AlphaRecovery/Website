@@ -3,10 +3,18 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import pg from 'pg';
 import { config } from '../config.js';
+import { sanitizeOperationalError } from '../security.js';
 
 let db = null;
 let pool = null;
 let persistPromise = Promise.resolve();
+let persistedSnapshot = {};
+let storeAdapter = null;
+
+export function setStoreAdapterForTests(adapter) {
+  if (process.env.NODE_ENV !== 'test') throw new Error('Store adapter override is only available in tests.');
+  storeAdapter = adapter;
+}
 
 function usePostgres() {
   return Boolean(config.databaseUrl);
@@ -21,6 +29,20 @@ function getPool() {
     });
   }
   return pool;
+}
+
+function snapshotFor(database = db) {
+  const snapshot = {};
+  for (const key of Object.keys(emptyDb())) {
+    snapshot[key] = JSON.stringify(database?.[key] || []);
+  }
+  return snapshot;
+}
+
+function markPersisted(keys = Object.keys(emptyDb())) {
+  for (const key of keys) {
+    persistedSnapshot[key] = JSON.stringify(db?.[key] || []);
+  }
 }
 
 export function id() {
@@ -79,7 +101,15 @@ export async function loadDb() {
     const result = await client.query('select data from portal_app_state where id = $1', ['primary']);
     db = result.rows[0]?.data || emptyDb();
     normalizeDb();
-    await persistDb();
+    if (!result.rows[0]) {
+      await client.query(
+        `insert into portal_app_state (id, data, updated_at)
+         values ($1, $2::jsonb, now())
+         on conflict (id) do nothing`,
+        ['primary', JSON.stringify(db)]
+      );
+    }
+    persistedSnapshot = snapshotFor(db);
     return db;
   }
   fs.mkdirSync(path.dirname(config.dataFile), { recursive: true });
@@ -108,6 +138,15 @@ export function saveDb() {
     return;
   }
   fs.writeFileSync(config.dataFile, `${JSON.stringify(db, null, 2)}\n`);
+}
+
+export async function saveDbNow() {
+  if (usePostgres()) {
+    await persistPromise;
+    await persistDb();
+    return;
+  }
+  saveDb();
 }
 
 function normalizeDb() {
@@ -152,12 +191,21 @@ function normalizeDb() {
 
 async function persistDb() {
   if (!usePostgres()) return;
+  const changedKeys = Object.keys(emptyDb()).filter((key) => JSON.stringify(db[key] || []) !== persistedSnapshot[key]);
+  if (!changedKeys.length) return;
+
+  const values = ['primary'];
+  let expression = 'data';
+  changedKeys.forEach((key) => {
+    values.push(JSON.stringify(db[key] || []));
+    expression = `jsonb_set(${expression}, '{${key}}', $${values.length}::jsonb, true)`;
+  });
+
   await getPool().query(
-    `insert into portal_app_state (id, data, updated_at)
-     values ($1, $2::jsonb, now())
-     on conflict (id) do update set data = excluded.data, updated_at = now()`,
-    ['primary', JSON.stringify(db)]
+    `update portal_app_state set data = ${expression}, updated_at = now() where id = $1`,
+    values
   );
+  markPersisted(changedKeys);
 }
 
 export function insert(table, record) {
@@ -222,6 +270,178 @@ export async function deleteSessionByTokenHash(tokenHash) {
   saveDb();
 }
 
+function duplicateEmploymentApplication(database, userId, roleSlug) {
+  return (
+    (database.employment_applications || []).find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
+    (database.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug)
+  );
+}
+
+function commitEmploymentRows(database, applicationRow, submissionRow, userId, roleSlug) {
+  const duplicate = duplicateEmploymentApplication(database, userId, roleSlug);
+  if (duplicate) {
+    const error = new Error(`You already submitted an application for this role. Your confirmation number is ${duplicate.confirmation_number || 'on file'}.`);
+    error.code = 'DUPLICATE_EMPLOYMENT_APPLICATION';
+    throw error;
+  }
+  database.employment_applications = [...(database.employment_applications || []), applicationRow];
+  database.employment_application_submissions = [...(database.employment_application_submissions || []), submissionRow];
+  database.employment_application_drafts = (database.employment_application_drafts || [])
+    .filter((draft) => !(draft.user_id === userId && draft.role_slug === roleSlug));
+}
+
+export async function commitEmploymentSubmission({ application, submission, userId, roleSlug }) {
+  if (storeAdapter?.beforeCommitEmploymentSubmission) {
+    await storeAdapter.beforeCommitEmploymentSubmission({ application, submission, userId, roleSlug });
+  }
+  const applicationRow = { created_at: now(), ...application };
+  const submissionRow = { id: id(), created_at: now(), ...submission };
+
+  if (!usePostgres()) {
+    commitEmploymentRows(getDb(), applicationRow, submissionRow, userId, roleSlug);
+    saveDb();
+    return { application: applicationRow, submission: submissionRow };
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    const result = await client.query('select data from portal_app_state where id = $1 for update', ['primary']);
+    const latest = result.rows[0]?.data || emptyDb();
+    for (const key of Object.keys(emptyDb())) {
+      if (!Array.isArray(latest[key])) latest[key] = [];
+    }
+    commitEmploymentRows(latest, applicationRow, submissionRow, userId, roleSlug);
+    await client.query(
+      `update portal_app_state
+       set data = jsonb_set(
+         jsonb_set(
+           jsonb_set(data, '{employment_applications}', $2::jsonb, true),
+           '{employment_application_submissions}', $3::jsonb, true
+         ),
+         '{employment_application_drafts}', $4::jsonb, true
+       ),
+       updated_at = now()
+       where id = $1`,
+      [
+        'primary',
+        JSON.stringify(latest.employment_applications),
+        JSON.stringify(latest.employment_application_submissions),
+        JSON.stringify(latest.employment_application_drafts)
+      ]
+    );
+    await client.query('commit');
+    db.employment_applications = latest.employment_applications;
+    db.employment_application_submissions = latest.employment_application_submissions;
+    db.employment_application_drafts = latest.employment_application_drafts;
+    markPersisted(['employment_applications', 'employment_application_submissions', 'employment_application_drafts']);
+    return { application: applicationRow, submission: submissionRow };
+  } catch (error) {
+    await client.query('rollback').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateEmploymentNotification({ applicationId, submissionId, status, error }) {
+  const errorCode = error ? sanitizeOperationalError(error, 'email_notification_failed') : undefined;
+  const patchRows = (database) => {
+    const application = (database.employment_applications || []).find((row) => row.id === applicationId);
+    const submission = (database.employment_application_submissions || []).find((row) => row.id === submissionId);
+    if (!application || !submission) return { application, submission };
+    submission.email_status = status;
+    if (errorCode) {
+      submission.email_error_code = errorCode;
+      delete submission.email_error;
+    } else {
+      delete submission.email_error_code;
+      delete submission.email_error;
+    }
+    application.notification_status = status;
+    if (errorCode) {
+      application.notification_error_code = errorCode;
+      delete application.notification_error;
+    } else {
+      delete application.notification_error_code;
+      delete application.notification_error;
+    }
+    return { application, submission };
+  };
+
+  if (!usePostgres()) {
+    const result = patchRows(getDb());
+    saveDb();
+    return result;
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    const result = await client.query('select data from portal_app_state where id = $1 for update', ['primary']);
+    const latest = result.rows[0]?.data || emptyDb();
+    const patched = patchRows(latest);
+    await client.query(
+      `update portal_app_state
+       set data = jsonb_set(
+         jsonb_set(data, '{employment_applications}', $2::jsonb, true),
+         '{employment_application_submissions}', $3::jsonb, true
+       ),
+       updated_at = now()
+       where id = $1`,
+      ['primary', JSON.stringify(latest.employment_applications || []), JSON.stringify(latest.employment_application_submissions || [])]
+    );
+    await client.query('commit');
+    db.employment_applications = latest.employment_applications || [];
+    db.employment_application_submissions = latest.employment_application_submissions || [];
+    markPersisted(['employment_applications', 'employment_application_submissions']);
+    return patched;
+  } catch (err) {
+    await client.query('rollback').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function patchEmploymentApplication(applicationId, patch) {
+  const applyPatch = (database) => {
+    const application = (database.employment_applications || []).find((row) => row.id === applicationId);
+    if (!application) return null;
+    Object.assign(application, patch);
+    return application;
+  };
+
+  if (!usePostgres()) {
+    const application = applyPatch(getDb());
+    saveDb();
+    return application;
+  }
+
+  const client = await getPool().connect();
+  try {
+    await client.query('begin');
+    const result = await client.query('select data from portal_app_state where id = $1 for update', ['primary']);
+    const latest = result.rows[0]?.data || emptyDb();
+    const application = applyPatch(latest);
+    await client.query(
+      `update portal_app_state
+       set data = jsonb_set(data, '{employment_applications}', $2::jsonb, true), updated_at = now()
+       where id = $1`,
+      ['primary', JSON.stringify(latest.employment_applications || [])]
+    );
+    await client.query('commit');
+    db.employment_applications = latest.employment_applications || [];
+    markPersisted(['employment_applications']);
+    return application;
+  } catch (err) {
+    await client.query('rollback').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 // Jobs are read fresh and written durably so that serverless instances never
 // serve a stale cached copy and a delete is never dropped before it reaches
 // Postgres. The write targets only the 'jobs' key (jsonb_set) so concurrent
@@ -243,6 +463,7 @@ export async function writeJobs(jobs) {
       [JSON.stringify(jobs), 'primary']
     );
     if (db) db.jobs = jobs;
+    markPersisted(['jobs']);
     return;
   }
   getDb().jobs = jobs;

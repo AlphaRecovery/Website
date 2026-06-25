@@ -58,11 +58,22 @@ SUPABASE_URL=your_url
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 SUPABASE_STORAGE_BUCKET=portal-documents
 PORTAL_STORAGE_DRIVER=supabase
+PORTAL_MAX_UPLOAD_FILE_BYTES=4194304
+PORTAL_MAX_UPLOAD_REQUEST_BYTES=4718592
+PORTAL_MAX_UPLOAD_FILES=20
 
 EMAIL_DRIVER=resend
 EMAIL_FROM=Alpha Recovery <no-reply@alpharecovery.org>
 RESEND_API_KEY=your_resend_key
 CONTACT_EMAIL=Admin@alpharecovery.org
+APPLICATION_EMAIL_TO=Admin@alpharecovery.org
+APPLICATION_EMAIL_CC=Topeka.mv@alpharecovery.org
+
+RECRUITER_CAN_VIEW_ALL_APPLICATIONS=false
+DRAFT_RETENTION_DAYS=30
+REJECTED_RETENTION_DAYS=365
+WITHDRAWN_RETENTION_DAYS=365
+PDF_VIEW_WATERMARK_ENABLED=false
 ```
 
 ## Auth Model
@@ -82,11 +93,26 @@ The portal uses local JSON and local uploads when production environment variabl
 
 1. Set `DATABASE_URL` to a managed Postgres connection string. The server creates and uses `portal_app_state` for the current V1 app state.
 2. Set `PORTAL_STORAGE_DRIVER=supabase`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` for uploaded documents.
-3. Set `EMAIL_DRIVER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, and `CONTACT_EMAIL` for production email and public website inquiries.
+3. Set `EMAIL_DRIVER=resend`, `RESEND_API_KEY`, `EMAIL_FROM`, and `CONTACT_EMAIL` for production email and public website inquiries. Set `APPLICATION_EMAIL_TO` and optional `APPLICATION_EMAIL_CC` for employment application notifications.
 4. Set `PUBLIC_PORTAL_URL` to the public portal origin, for example `https://portal.alpharecovery.org`.
 5. Set `PORTAL_CLIENT_ORIGIN` to the browser origin allowed to call the API.
 
-The relational schema remains in `database/schema.sql` for the future normalized database migration. V1 production persistence is database-backed through the `portal_app_state` JSONB table so the existing route layer can ship without a high-risk rewrite.
+The current route layer keeps `portal_app_state` as a rollback-compatible source while production readiness migrations add relational users, sessions, activity, employment file metadata, drafts, and application lifecycle tables. Run migrations before enabling normalized production workflows:
+
+```bash
+npm run db:migrate -- --dry-run
+npm run db:migrate
+npm run db:verify
+npm run db:backfill -- --dry-run
+```
+
+Rollback/export commands are guarded in production:
+
+```bash
+npm run db:export-jsonb -- --dry-run
+NODE_ENV=production npm run db:export-jsonb -- --confirm-production
+NODE_ENV=production npm run db:rollback -- --to 000 --confirm-production
+```
 
 ## Vercel Deployment
 
@@ -119,12 +145,31 @@ EMAIL_DRIVER=resend
 EMAIL_FROM=Alpha Recovery <no-reply@alpharecovery.org>
 RESEND_API_KEY
 CONTACT_EMAIL=Admin@alpharecovery.org
+APPLICATION_EMAIL_TO=Admin@alpharecovery.org
+APPLICATION_EMAIL_CC=Topeka.mv@alpharecovery.org
 PUBLIC_PORTAL_URL=https://portal.alpharecovery.org
 PORTAL_CLIENT_ORIGIN=https://portal.alpharecovery.org,https://alpharecovery.org,https://www.alpharecovery.org
 PORTAL_COOKIE_DOMAIN=
 ```
 
 Vercel Functions are suitable for the portal API, but large uploads should move to direct-to-Supabase signed uploads before enforcing the full 10MB upload limit in production.
+
+## Production Readiness Commands
+
+```bash
+npm test
+npm run build:vercel
+npm run db:migrate -- --dry-run
+npm run db:verify
+npm run db:export-jsonb -- --dry-run
+npm run retention:purge
+npm run storage:cleanup-orphans -- --dry-run
+npm run smoke:staging
+```
+
+Set `SMOKE_BASE_URL`, `SMOKE_ADMIN_EMAIL`, and `SMOKE_ADMIN_PASSWORD` for staging smoke tests that exercise authenticated admin list and audit endpoints. Without admin smoke credentials, the smoke script runs only the health/config leak check.
+
+Production rollback requires a tested export-back run before reverting application code. Use `--confirm-production` only after confirming the target database and previous Vercel deployment.
 
 ## Employment Application System
 
@@ -135,7 +180,7 @@ The role-aware employment application is built into the portal app.
 - Role configuration: `shared/applicationConfig.js`
 - Uploaded applicant files: local storage in development, Supabase Storage in production
 - Draft storage: database-backed portal app state
-- Submitted application storage: database-backed portal app state
+- Submitted application storage: database-backed portal app state, visible in the admin employment workflow before notification email is attempted
 
 The form has 16 sections. Role-specific behavior is controlled by each role config:
 
@@ -168,4 +213,4 @@ To add a new role:
 4. Add a matching public job posting in the website job data if the role should appear publicly.
 5. Set the public posting `applyUrl` to `/apply/<role-slug>`.
 
-Applicant file uploads accept PDF, JPG, JPEG, and PNG files up to 10MB each. Production email confirmation is connected through the configured email driver.
+Applicant file uploads accept PDF, DOC, DOCX, JPG, JPEG, and PNG files up to 10MB each. Production email notifications are connected through the configured email driver; the portal record remains the source of truth if email delivery fails.
