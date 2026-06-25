@@ -24,7 +24,7 @@ import { sendEmail } from '../email.js';
 import { deleteStoredFile, isRemoteStoragePath, storeUploadedFile } from '../storage.js';
 import { publicErrorMessage } from '../security.js';
 import { buildApplicationPdf } from '../applicationPdf.js';
-import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
+import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, EXPERIENCE_ALTERNATIVE_MIN_YEARS, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
 
 const router = express.Router();
 const applicationUploadsDir = path.join(config.uploadsDir, 'employment-applications');
@@ -81,9 +81,14 @@ function calculateEmploymentYears(employers) {
   return totalDays / 365.25;
 }
 
+function usesExperienceEducationAlternative(role, education = {}) {
+  return Boolean((role.requiredEducation || []).length && education?.useExperienceAlternative === true);
+}
+
 function requiredEducationErrors(role, education) {
   const errors = [];
   const requirements = role.requiredEducation || [];
+  if (usesExperienceEducationAlternative(role, education)) return errors;
   const completed = completedRows(education?.degrees || [], ['school', 'degree', 'graduationYear']);
 
   if (requirements.length && !completed.length) {
@@ -105,7 +110,11 @@ function requiredUploads(role, payload) {
   if (payload?.militaryService?.served === 'Yes') {
     uploads.push({ field: 'dd214', status: payload.militaryService.dischargeType === 'Still Serving' ? 'conditional' : 'required' });
   }
-  if (role.uploads.degree) uploads.push({ field: 'degree', status: role.uploads.degree });
+  if (usesExperienceEducationAlternative(role, payload?.education)) {
+    uploads.push({ field: 'educationExperienceNarrative', status: 'required' });
+  } else if (role.uploads.degree) {
+    uploads.push({ field: 'degree', status: role.uploads.degree });
+  }
   if (role.uploads.driversLicense) uploads.push({ field: 'driversLicense', status: role.uploads.driversLicense });
   return uploads.filter((item) => item.status === 'required');
 }
@@ -128,6 +137,9 @@ function validateApplication(payload, role, files = {}) {
   if (!payload.education?.highestLevel) errors.push('Highest education level is required.');
   errors.push(...requiredEducationErrors(role, payload.education));
   if (!completedRows(employers, ['employer', 'title', 'startDate']).length) errors.push('Employment history requires at least one employer with a start date.');
+  if (usesExperienceEducationAlternative(role, payload.education) && calculateEmploymentYears(employers) < EXPERIENCE_ALTERNATIVE_MIN_YEARS) {
+    errors.push(`Education alternative requires at least ${EXPERIENCE_ALTERNATIVE_MIN_YEARS} years of documented relevant experience.`);
+  }
   if ((role.minimumRelevantExperienceYears || 0) > 0 && calculateEmploymentYears(employers) < role.minimumRelevantExperienceYears) {
     errors.push(`Employment history must document at least ${role.minimumRelevantExperienceYears} years of relevant experience.`);
   }

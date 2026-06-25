@@ -187,14 +187,22 @@ function overflowSections(payload = {}) {
   const education = payload.education || {};
   const employment = payload.employmentHistory || {};
   const criminal = payload.criminalHistory || {};
-  return [
+  const sections = [
+    education.useExperienceAlternative ? {
+      title: 'Education Requirement Alternative',
+      rows: [
+        'Applicant requested to use 10+ years of relevant experience as an alternative to the education requirement.',
+        'A separate experience narrative upload is required for this option.'
+      ]
+    } : null,
     overflowSection('Additional Education Records', education.degrees || [], 4, ['school', 'degree', 'field', ['graduation', 'graduationYear', 'graduationDate']]),
     overflowSection('Additional Certifications', certificationRows(payload), 5, ['group', ['name', 'certification'], ['license', 'licenseNumber', 'number'], 'state', ['expiration', 'expirationDate', 'status']]),
     overflowSection('Additional Language Profiles', payload.languages || [], 4, ['language', 'proficiency', 'skills', 'certification']),
     overflowSection('Additional Employers', employment.employers || [], 5, ['employer', 'title', 'startDate', 'endDate', 'supervisor', 'phone', 'reasonForLeaving', 'duties']),
     overflowSection('Additional Criminal History Offenses', criminal.offenses || [], 3, ['type', 'offense', 'offenseDate', 'jurisdiction', 'court', 'disposition', 'sentence', 'status', 'context']),
     overflowSection('Additional References', payload.references || [], 8, ['name', 'relationship', 'company', 'phone', 'email', 'yearsKnown'])
-  ].filter(Boolean);
+  ];
+  return sections.filter(Boolean);
 }
 
 function wrapLine(text, maxCharacters = 96) {

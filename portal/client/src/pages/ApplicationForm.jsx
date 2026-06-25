@@ -7,6 +7,7 @@ import {
   CERTIFICATION_GROUPS,
   degreeMeetsRequirement,
   EDUCATION_REQUIREMENT_LABELS,
+  EXPERIENCE_ALTERNATIVE_MIN_YEARS,
   LANGUAGES,
   SECTION_TITLES,
   UPLOAD_LABELS
@@ -67,7 +68,7 @@ function initialPayload(role, user) {
     workAuthorization: { authorized: '', sponsorship: '', age18: '', proof: '' },
     availability: { travelAvailability: role.drivingRequired ? '' : 'None', reliableTransportation: '', validDriversLicense: '', vehicleInsurance: '', scheduleNotes: '' },
     militaryService: { served: '', branch: '', branchOther: '', dischargeType: '', dischargeOther: '', disabledVeteran: '' },
-    education: { highestLevel: '', degrees: [{ ...emptyDegree }] },
+    education: { highestLevel: '', useExperienceAlternative: false, degrees: [{ ...emptyDegree }] },
     certifications: { selected: [], records: [] },
     languages: [],
     employmentHistory: { yearsRelevantExperience: '', summary: '', employers: [{ ...emptyEmployer }] },
@@ -183,9 +184,14 @@ function calculateEmploymentYears(employers) {
   return Math.round((totalDays / 365.25) * 10) / 10;
 }
 
-function requiredEducationErrors(role, education) {
+function usesExperienceEducationAlternative(education = {}) {
+  return education.useExperienceAlternative === true;
+}
+
+function requiredEducationErrors(role, education = {}) {
   const errors = [];
   const requirements = role.requiredEducation || [];
+  if (requirements.length && usesExperienceEducationAlternative(education)) return errors;
   const completed = completedRows(education.degrees || [], ['school', 'degree', 'graduationYear']);
 
   if (requirements.length && !completed.length) {
@@ -212,7 +218,9 @@ function getSectionUploads(sectionNumber, role, payload) {
     });
   }
 
-  if (sectionNumber === 6 && role.uploads.degree) {
+  if (sectionNumber === 6 && usesExperienceEducationAlternative(payload.education)) {
+    uploads.push({ field: 'educationExperienceNarrative', status: 'required' });
+  } else if (sectionNumber === 6 && role.uploads.degree) {
     uploads.push({ field: 'degree', status: role.uploads.degree });
   }
 
@@ -248,7 +256,12 @@ function summarizeSection(sectionNumber, role, payload, files) {
   if (sectionNumber === 3) return [payload.workAuthorization.authorized ? `Authorized: ${payload.workAuthorization.authorized}` : 'Authorization unanswered'];
   if (sectionNumber === 4) return [role.drivingRequired ? `Travel availability: ${payload.availability.travelAvailability || 'Missing'}` : 'Travel not required'];
   if (sectionNumber === 5) return [payload.militaryService.served ? `Military service: ${payload.militaryService.served}` : 'Military service unanswered', ...uploads.filter((item) => files[item.field]?.length).map((item) => `${UPLOAD_LABELS[item.field]} uploaded`)];
-  if (sectionNumber === 6) return [education.highestLevel || 'Highest education level missing', `${completedRows(education.degrees || [], ['school', 'degree', 'graduationYear']).length} education record(s)`];
+  if (sectionNumber === 6) {
+    return [
+      education.highestLevel || 'Highest education level missing',
+      usesExperienceEducationAlternative(education) ? `Experience alternative requested - narrative ${files.educationExperienceNarrative?.length ? 'uploaded' : 'missing'}` : `${completedRows(education.degrees || [], ['school', 'degree', 'graduationYear']).length} education record(s)`
+    ];
+  }
   if (sectionNumber === 7) return [`Resume ${files.resume?.length ? 'uploaded' : 'missing'}`, `${(payload.certifications.selected || []).length} certification(s) selected`, `${(payload.languages || []).length} language profile(s)`];
   if (sectionNumber === 8) return [`${years} year(s) documented`, `${completedRows(employers, ['employer', 'title', 'startDate']).length} employment record(s)`];
   if (sectionNumber === 9) return [payload.governmentEligibility.priorGovernmentContractWork ? `Prior contract work: ${payload.governmentEligibility.priorGovernmentContractWork}` : 'Government eligibility unanswered'];
@@ -417,6 +430,9 @@ export default function ApplicationForm() {
       const completedEmployers = completedRows(employers, ['employer', 'title', 'startDate']);
       const documentedYears = calculateEmploymentYears(employers);
       if (!completedEmployers.length) errors.push('Enter at least one employer with a start date.');
+      if (usesExperienceEducationAlternative(payload.education) && documentedYears < EXPERIENCE_ALTERNATIVE_MIN_YEARS) {
+        errors.push(`Education alternative requires at least ${EXPERIENCE_ALTERNATIVE_MIN_YEARS} years of documented relevant experience.`);
+      }
       if (role.minimumRelevantExperienceYears > 0 && documentedYears < role.minimumRelevantExperienceYears) {
         errors.push(`Employment history must document at least ${role.minimumRelevantExperienceYears} years of relevant experience for this position.`);
       }
@@ -804,13 +820,35 @@ function MilitarySection({ role, payload, patch, files, setFiles, uploadLimits }
 function EducationSection({ role, payload, patch, files, setFiles, uploadLimits }) {
   const data = payload.education;
   const requirements = role.requiredEducation || [];
+  const useExperienceAlternative = usesExperienceEducationAlternative(data);
   const uploads = getSectionUploads(6, role, payload);
   return <div className="stack-list">
     {!!requirements.length && <div className="legal-notice">
       <strong>Education requirement for this role.</strong>
-      <span>{requirements.map((item) => EDUCATION_REQUIREMENT_LABELS[item] || item).join(' and ')} must be documented in this section before you can continue.</span>
+      <span>{requirements.map((item) => EDUCATION_REQUIREMENT_LABELS[item] || item).join(' and ')} must be documented in this section, unless you request the 10+ year experience alternative and upload a narrative.</span>
     </div>}
     <Field label="Highest Education Level"><SelectInput value={data.highestLevel} onChange={(value) => patch('education', { highestLevel: value })} options={degreeTypes} required /></Field>
+    {!!requirements.length && <label className="check-row consent-row">
+      <input
+        type="checkbox"
+        checked={useExperienceAlternative}
+        onChange={(event) => {
+          const checked = event.target.checked;
+          patch('education', { useExperienceAlternative: checked });
+          setFiles((current) => {
+            const next = { ...current };
+            if (checked) delete next.degree;
+            else delete next.educationExperienceNarrative;
+            return next;
+          });
+        }}
+      />
+      I would like to use 10+ years of relevant experience as an alternative to the education requirement.
+    </label>}
+    {useExperienceAlternative && <div className="legal-notice">
+      <strong>Experience narrative required.</strong>
+      <span>Upload a separate narrative document explaining the experience you want considered. Do not type the narrative into this application. Final approval requires at least {EXPERIENCE_ALTERNATIVE_MIN_YEARS} years documented in Employment History.</span>
+    </div>}
     {data.degrees.map((degree, index) => <div className="list-card form-grid" key={index}>
       <Field label="School"><TextInput value={degree.school} onChange={(value) => patch('education', { degrees: updateList(data.degrees, index, { school: value }) })} /></Field>
       <Field label="Degree"><SelectInput value={degree.degree} onChange={(value) => patch('education', { degrees: updateList(data.degrees, index, { degree: value }) })} options={degreeTypes} /></Field>
@@ -819,7 +857,7 @@ function EducationSection({ role, payload, patch, files, setFiles, uploadLimits 
       <div className="inline-action"><button type="button" className="danger-button" onClick={() => patch('education', { degrees: data.degrees.filter((_, itemIndex) => itemIndex !== index) || [{ ...emptyDegree }] })} disabled={data.degrees.length === 1}>Remove Education</button></div>
     </div>)}
     <button type="button" onClick={() => patch('education', { degrees: [...data.degrees, { ...emptyDegree }] })}>Add Education</button>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload any required degree, diploma, GED, or transcript documentation here." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro={useExperienceAlternative ? 'Upload the required experience narrative document here. Do not type the narrative into the application.' : 'Upload any required degree, diploma, GED, or transcript documentation here.'} />}
   </div>;
 }
 

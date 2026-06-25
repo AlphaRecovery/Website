@@ -45,6 +45,8 @@ const baseUploads = {
   resume: 'required'
 };
 
+export const EXPERIENCE_ALTERNATIVE_MIN_YEARS = 10;
+
 export const EDUCATION_REQUIREMENT_LABELS = {
   highSchool: 'High School Diploma or GED',
   associate: "Associate's Degree",
@@ -276,6 +278,7 @@ export const APPLICATION_TOTAL_SECTIONS = SECTION_TITLES.length;
 
 export const UPLOAD_LABELS = {
   resume: 'Resume',
+  educationExperienceNarrative: 'Education Alternative Experience Narrative',
   driversLicense: "Driver's License",
   degree: 'Degree / Transcript',
   dd214: 'Military Documentation',
