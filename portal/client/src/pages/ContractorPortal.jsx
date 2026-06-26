@@ -1,9 +1,8 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import PortalLayout from '../components/PortalLayout.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
 import { usePortalData, currentSection } from './portalData.js';
-import { ContractorsTable, DocumentsPanel, ErrorState, JobBoardPanel, LoadingState, MessagesPanel, RecentPanels, TasksPanel } from './portalShared.jsx';
+import { AccountSettingsPanel, ContractorsTable, DocumentsPanel, ErrorState, JobBoardPanel, LoadingState, MessagesPanel, RecentPanels, TasksPanel } from './portalShared.jsx';
 
 const paths = [
   ['contractors', '/api/contractors'],
@@ -17,7 +16,6 @@ const paths = [
 ];
 
 export default function ContractorPortal() {
-  const { user } = useAuth();
   const section = currentSection('/portal/contractor', useLocation().pathname);
   const { data, loading, error, refresh } = usePortalData(paths);
   const contractors = data.contractors?.contractors || [];
@@ -32,15 +30,7 @@ export default function ContractorPortal() {
     if (section === 'documents') return <DocumentsPanel documents={documents} onRefresh={refresh} />;
     if (section === 'tasks') return <TasksPanel tasks={tasks} onRefresh={refresh} />;
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
-    if (section === 'settings') {
-      return (
-        <div className="panel">
-          <h3>Account Details</h3>
-          <p>{user.full_name}<br />{user.email}</p>
-          <Link className="button-link" to="/change-password">Change Password</Link>
-        </div>
-      );
-    }
+    if (section === 'settings') return <AccountSettingsPanel />;
     return <RecentPanels documents={documents} tasks={tasks} messages={messages} />;
   }
 

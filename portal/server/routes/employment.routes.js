@@ -418,6 +418,22 @@ function canMoveEmploymentStatus(currentStatus, nextStatus, applicationId) {
   return { ok: false, error: 'Complete the interview workspace, including interview status and evaluation scorecard, before advancing this candidate.' };
 }
 
+async function persistRecoveredApplicationPdf(file, applicationId, confirmation) {
+  const originalname = file.originalname || `recovered-application-${confirmation || applicationId}.pdf`;
+  const storedPath = await storeUploadedFile(file, `employment-applications/${applicationId}/application`);
+  return {
+    id: id(),
+    field: 'applicationPdf',
+    label: 'Recovered Completed Application PDF',
+    originalName: originalname,
+    size: file.size || 0,
+    mimeType: file.mimetype || 'application/pdf',
+    path: storedPath,
+    source: 'email_recovery',
+    uploadedAt: now()
+  };
+}
+
 router.get('/application/roles', (req, res) => {
   res.json({
     roles: ROLE_CONFIGS.map(publicRole),
@@ -668,6 +684,124 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
       return res.json({ application });
     })
     .catch((error) => res.status(500).json({ error: error.message || 'Application update failed.' }));
+});
+
+router.post('/admin/recovery/email-application', requireAuth, requireRole('admin', 'hr'), upload.single('applicationPdf'), async (req, res) => {
+  const schema = z.object({
+    confirmationNumber: z.string().trim().min(4),
+    email: z.string().email().optional(),
+    roleSlug: z.string().optional(),
+    fullName: z.string().optional(),
+    phone: z.string().optional().default('')
+  });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    await removeTemporaryUploads({ applicationPdf: req.file ? [req.file] : [] });
+    return res.status(400).json({ error: 'Recovery requires a confirmation number and application PDF.' });
+  }
+  if (!req.file) return res.status(400).json({ error: 'Upload the completed application PDF from the email.' });
+
+  const db = getDb();
+  const confirmation = parsed.data.confirmationNumber;
+  const existing = db.employment_applications.find((row) => row.confirmation_number === confirmation);
+  if (existing) {
+    await removeTemporaryUploads({ applicationPdf: [req.file] });
+    return res.json({ application: existing, recovered: false, duplicate: true });
+  }
+
+  const submission = (db.employment_application_submissions || []).find((row) => row.confirmation_number === confirmation);
+  const email = String(parsed.data.email || submission?.email || '').toLowerCase();
+  if (!email) {
+    await removeTemporaryUploads({ applicationPdf: [req.file] });
+    return res.status(400).json({ error: 'Recovery requires an applicant email.' });
+  }
+  const user = db.users.find((item) => String(item.email || '').toLowerCase() === email) || {
+    id: submission?.user_id || null,
+    email
+  };
+  const role = ROLE_BY_SLUG[parsed.data.roleSlug || submission?.role_slug] || {
+    slug: parsed.data.roleSlug || submission?.role_slug || 'recovered-email-application',
+    title: submission?.role_title || 'Recovered Email Application',
+    department: submission?.department || '',
+    location: submission?.location || '',
+    employmentType: submission?.employment_type || ''
+  };
+  const fullName = parsed.data.fullName || submission?.full_name || db.users.find((item) => item.id === user.id)?.full_name || '';
+  const applicationId = id();
+  let pdfFile;
+  try {
+    pdfFile = await persistRecoveredApplicationPdf(req.file, applicationId, confirmation);
+    const metadataFiles = (submission?.uploaded_files || []).map((file) => ({
+      id: id(),
+      field: file.field || '',
+      label: file.label || UPLOAD_LABELS[file.field] || 'Email Attachment',
+      originalName: file.original_name || file.originalName || 'Email attachment',
+      size: file.size || file.size_bytes || 0,
+      mimeType: file.mime_type || file.mimeType || '',
+      source: 'email_recovery_metadata',
+      storageStatus: 'metadata_only',
+      uploadedAt: submission?.submitted_at || now()
+    }));
+    const application = insert('employment_applications', {
+      id: applicationId,
+      user_id: user.id || null,
+      email,
+      role_slug: role.slug,
+      role_title: role.title,
+      department: role.department,
+      location: role.location,
+      employment_type: role.employmentType,
+      full_name: fullName || 'Recovered Applicant',
+      phone: parsed.data.phone || '',
+      confirmation_number: confirmation,
+      status: APPLICATION_STATUS[0],
+      source: 'email_recovery',
+      recovery_status: 'recovered_from_email',
+      recovered_at: now(),
+      recovered_by: req.user.id,
+      score: 0,
+      score_breakdown: {},
+      payload: {
+        personalInformation: { fullName, email, phone: parsed.data.phone || '' },
+        positionInformation: {
+          roleTitle: role.title,
+          department: role.department,
+          location: role.location,
+          employmentType: role.employmentType
+        },
+        recovery: {
+          source: 'email_recovery',
+          confirmationNumber: confirmation,
+          submissionAuditId: submission?.id || null
+        }
+      },
+      files: [pdfFile, ...metadataFiles],
+      submitted_at: submission?.submitted_at || now(),
+      notification_status: 'recovered'
+    });
+    if (submission) {
+      submission.employment_application_id = application.id;
+      submission.delivery = submission.delivery || 'email';
+    }
+    saveDb();
+    logActivity(req.user.id, 'email_application_recovered', {
+      employment_application_id: application.id,
+      entity_type: 'employment_application',
+      entity_id: application.id,
+      full_name: application.full_name,
+      confirmation_number: confirmation,
+      role: application.role_title
+    }, req);
+    pushNotificationsForAll();
+    return res.json({ application, recovered: true });
+  } catch (error) {
+    if (pdfFile) await removeStoredFiles([pdfFile]);
+    return res.status(500).json({ error: publicErrorMessage(error, 'Application recovery failed.') });
+  } finally {
+    if (!pdfFile || pdfFile.path !== req.file.path) {
+      await removeTemporaryUploads({ applicationPdf: [req.file] });
+    }
+  }
 });
 
 router.get('/admin/employment-applications/:id/files/:fileId/download', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {

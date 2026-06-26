@@ -86,7 +86,10 @@ export const config = {
   maxUploadRequestBytes: bytesFromEnv('PORTAL_MAX_UPLOAD_REQUEST_BYTES', defaultUploadRequestBytes),
   maxUploadFiles: bytesFromEnv('PORTAL_MAX_UPLOAD_FILES', 20),
   recruiterCanViewAllApplications: process.env.RECRUITER_CAN_VIEW_ALL_APPLICATIONS === 'true',
-  draftRetentionDays: bytesFromEnv('DRAFT_RETENTION_DAYS', 30),
+  draftRetentionDays: bytesFromEnv('DRAFT_RETENTION_DAYS', 7),
+  applicantInactiveRetentionDays: bytesFromEnv('APPLICANT_INACTIVE_RETENTION_DAYS', 10),
+  retentionWarningHours: bytesFromEnv('RETENTION_WARNING_HOURS', 48),
+  retentionJobSecret: process.env.RETENTION_JOB_SECRET || process.env.CRON_SECRET || '',
   rejectedRetentionDays: bytesFromEnv('REJECTED_RETENTION_DAYS', 365),
   withdrawnRetentionDays: bytesFromEnv('WITHDRAWN_RETENTION_DAYS', 365),
   pdfViewWatermarkEnabled: process.env.PDF_VIEW_WATERMARK_ENABLED === 'true',
@@ -154,6 +157,8 @@ export function configClass() {
     },
     retention: {
       draftsDays: config.draftRetentionDays,
+      applicantInactiveDays: config.applicantInactiveRetentionDays,
+      warningHours: config.retentionWarningHours,
       rejectedDays: config.rejectedRetentionDays,
       withdrawnDays: config.withdrawnRetentionDays
     }

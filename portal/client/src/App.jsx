@@ -6,6 +6,7 @@ const Login = lazy(() => import('./pages/Login.jsx'));
 const ChangePassword = lazy(() => import('./pages/ChangePassword.jsx'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
+const ConfirmEmailChange = lazy(() => import('./pages/ConfirmEmailChange.jsx'));
 const Register = lazy(() => import('./pages/Register.jsx'));
 const AcceptInvite = lazy(() => import('./pages/AcceptInvite.jsx'));
 const AdminPortal = lazy(() => import('./pages/AdminPortal.jsx'));
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/confirm-email-change" element={<ConfirmEmailChange />} />
         <Route path="/change-password" element={<ProtectedRoute roles={['admin', 'recruiter', 'hr', 'manager', 'read_only', 'contractor', 'applicant']}><ChangePassword /></ProtectedRoute>} />
         <Route path="/register" element={<Register />} />
         <Route path="/accept-invite" element={<AcceptInvite />} />

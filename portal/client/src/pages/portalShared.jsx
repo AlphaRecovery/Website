@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Badge from '../components/Badge.jsx';
 import DataTable from '../components/DataTable.jsx';
 import { DocumentList, MessageThread, TaskList } from '../components/Lists.jsx';
 import StatCard from '../components/StatCard.jsx';
-import { api, documentDownloadUrl, documentViewUrl, uploadDocument } from '../api/client.js';
+import { api, documentDownloadUrl, documentViewUrl, employmentFileDownloadUrl, employmentFileViewUrl, uploadDocument } from '../api/client.js';
 import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
 import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES } from '../../../shared/applicationConfig.js';
 import { useAuth } from '../auth/AuthContext.jsx';
@@ -217,7 +217,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
               <div key={item.id}>
                 <time>{toTime(item.created_at)}</time>
                 <span>{displayLabel(item.action || 'activity')}</span>
-                <small>{activityText(item, users)}</small>
+                <small>{item.target_url ? <Link to={item.target_url}>{item.summary || activityText(item, users)}</Link> : item.summary || activityText(item, users)}</small>
               </div>
             ))}
             {!activity.length && <div className="empty-state">No activity yet. New applications, uploads, messages, and status changes will appear here.</div>}
@@ -1297,12 +1297,163 @@ export function LibraryPanel({ library, onRefresh }) {
   );
 }
 
-export function ApplicationsTable({ applications = [], users = [], onRefresh, allowAssign = false, canUpdate = true }) {
+function ApplicationDetailPanel({ detail, onClose }) {
+  const [viewer, setViewer] = useState(null);
+  if (!detail) return null;
+  const app = detail.application || {};
+  const employment = detail.employment_application || {};
+  const files = employment.files || [];
+  return (
+    <section className="panel application-detail-panel">
+      <div className="record-header">
+        <div>
+          <h3>{app.full_name || 'Applicant Record'}</h3>
+          <p>{app.role_applied || employment.role_title || 'Role not recorded'} / {app.confirmation_number || 'No reference'}</p>
+        </div>
+        <button type="button" onClick={onClose}>Close Record</button>
+      </div>
+      <div className="details-grid">
+        <div><dt>Email</dt><dd>{app.email || employment.email || 'Not recorded'}</dd></div>
+        <div><dt>Phone</dt><dd>{app.phone || employment.phone || 'Not recorded'}</dd></div>
+        <div><dt>Status</dt><dd><Badge value={app.status || employment.status || 'New'} /></dd></div>
+        <div><dt>Recruiter</dt><dd>{app.assigned_recruiter?.full_name || 'Unassigned'}</dd></div>
+        <div><dt>Source</dt><dd>{employment.source === 'email_recovery' ? 'Recovered Email Submission' : displayLabel(app.source || 'portal')}</dd></div>
+        <div><dt>Submitted</dt><dd>{formatDateTime(app.created_at || employment.submitted_at)}</dd></div>
+      </div>
+      <div className="application-record-grid">
+        <section>
+          <h4>Documents</h4>
+          <div className="stack-list">
+            {files.map((file) => (
+              <article className="list-card" key={file.id}>
+                <div>
+                  <strong>{file.label || file.originalName || 'Application file'}</strong>
+                  <small>{file.originalName || 'Metadata only'}{file.storageStatus === 'metadata_only' ? ' / Email metadata only' : ''}</small>
+                </div>
+                {file.path ? (
+                  <div className="table-actions">
+                    <button type="button" onClick={() => setViewer({ title: file.label || file.originalName, src: employmentFileViewUrl(employment.id || app.employment_application_id || app.id, file.id) })}>View</button>
+                    <a className="button-link" href={employmentFileDownloadUrl(employment.id || app.employment_application_id || app.id, file.id)}>Download</a>
+                  </div>
+                ) : <Badge value="metadata only" />}
+              </article>
+            ))}
+            {(detail.documents || []).map((doc) => (
+              <article className="list-card" key={doc.id}>
+                <div><strong>{doc.name}</strong><small>{displayLabel(doc.type)} / {displayLabel(doc.status)}</small></div>
+                {doc.file_path ? <button type="button" onClick={() => setViewer({ title: doc.name, src: documentViewUrl(doc.id) })}>View</button> : <Badge value={doc.status} />}
+              </article>
+            ))}
+            {!files.length && !(detail.documents || []).length && <div className="empty-state">No documents are attached to this record.</div>}
+          </div>
+        </section>
+        <section>
+          <h4>Tasks & Messages</h4>
+          <div className="stack-list">
+            {(detail.tasks || []).map((task) => <article className="list-card" key={task.id}><div><strong>{task.title}</strong><small>{displayLabel(task.status)} / {task.description || 'No details'}</small></div></article>)}
+            {(detail.messages || []).slice(0, 5).map((message) => <article className="list-card" key={message.id}><div><strong>{message.subject || 'Portal Message'}</strong><small>{message.body}</small></div></article>)}
+            {!(detail.tasks || []).length && !(detail.messages || []).length && <div className="empty-state">No tasks or messages are linked to this record.</div>}
+          </div>
+        </section>
+        <section>
+          <h4>History</h4>
+          <div className="activity-feed detail-activity">
+            {(detail.activity || []).map((item) => (
+              <div key={item.id}>
+                <time>{toTime(item.created_at)}</time>
+                <span>{item.actor_name || 'System'}</span>
+                <small>{item.summary}</small>
+              </div>
+            ))}
+            {!(detail.activity || []).length && <div className="empty-state">No activity is linked to this record.</div>}
+          </div>
+        </section>
+        <section>
+          <h4>Application Data</h4>
+          <div className="stack-list compact-list">
+            {Object.entries(employment.payload?.personalInformation || {}).map(([key, value]) => <article key={key}><strong>{displayLabel(key)}</strong><small>{String(value || 'Not recorded')}</small></article>)}
+            {employment.payload?.recovery && <article><strong>Recovery</strong><small>{JSON.stringify(employment.payload.recovery)}</small></article>}
+            {!employment.payload && <div className="empty-state">No full application payload is available for this record.</div>}
+          </div>
+        </section>
+      </div>
+      <DocumentViewModal title={viewer?.title} src={viewer?.src} onClose={() => setViewer(null)} />
+    </section>
+  );
+}
+
+export function ApplicationsTable({ applications = [], users = [], onRefresh, allowAssign = false, canUpdate = true, allowRecover = false }) {
   const [actionError, guard] = useActionError();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelectedId] = useState(searchParams.get('application') || '');
+  const [detail, setDetail] = useState(null);
+  const [detailError, setDetailError] = useState('');
+  const [recoveryForm, setRecoveryForm] = useState({ confirmationNumber: '', email: '', roleSlug: '', fullName: '', phone: '' });
+  const [recoveryFile, setRecoveryFile] = useState(null);
+
+  useEffect(() => {
+    const id = searchParams.get('application') || selectedId;
+    if (!id) {
+      setDetail(null);
+      return;
+    }
+    let mounted = true;
+    setDetailError('');
+    api(`/api/applications/${encodeURIComponent(id)}`)
+      .then((data) => {
+        if (!mounted) return;
+        setDetail(data);
+        setSelectedId(id);
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        setDetailError(err.message);
+        setDetail(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [searchParams, selectedId]);
+
+  function openRecord(row) {
+    const id = row.employment_application_id || row.id;
+    setSelectedId(id);
+    setSearchParams({ application: id });
+  }
+
+  function closeRecord() {
+    setSelectedId('');
+    setDetail(null);
+    setSearchParams({});
+  }
+
+  async function recoverEmailApplication(event) {
+    event.preventDefault();
+    if (!recoveryFile) {
+      setDetailError('Upload the emailed application PDF before recovering the record.');
+      return;
+    }
+    await guard(async () => {
+      const form = new FormData();
+      Object.entries(recoveryForm).forEach(([key, value]) => {
+        if (value) form.append(key, value);
+      });
+      form.append('applicationPdf', recoveryFile);
+      const data = await api('/api/admin/recovery/email-application', { method: 'POST', body: form });
+      const id = data.application?.id;
+      setRecoveryForm({ confirmationNumber: '', email: '', roleSlug: '', fullName: '', phone: '' });
+      setRecoveryFile(null);
+      await onRefresh();
+      if (id) {
+        setSelectedId(id);
+        setSearchParams({ application: id });
+      }
+    });
+  }
 
   async function updateStatus(row, status) {
     await guard(async () => {
-      if (row.source === 'employment') {
+      if (row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery') {
         await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
       } else {
         await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
@@ -1313,7 +1464,7 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
 
   async function assignRecruiter(row, recruiterId) {
     await guard(async () => {
-      if (row.source === 'employment') {
+      if (row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery') {
         await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ assigned_recruiter_id: recruiterId }) });
       } else {
         await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
@@ -1323,7 +1474,7 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
   }
 
   function statusOptions(row) {
-    const standardStatuses = row.source === 'employment' ? EMPLOYMENT_APPLICATION_STATUSES : APPLICATION_STATUSES;
+    const standardStatuses = row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery' ? EMPLOYMENT_APPLICATION_STATUSES : APPLICATION_STATUSES;
     const matchingStandard = standardStatuses.find((status) => String(status).toLowerCase() === String(row.status || '').toLowerCase());
     if (!row.status || matchingStandard) return standardStatuses;
     return [row.status, ...standardStatuses];
@@ -1337,13 +1488,33 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
   return (
     <>
     <ErrorState error={actionError} />
+    <ErrorState error={detailError} />
+    {allowRecover && (
+      <form className="panel-form recovery-form" onSubmit={recoverEmailApplication}>
+        <div className="record-header">
+          <div>
+            <h3>Recover Emailed Application</h3>
+            <p>Create a portal-visible application from an old email-only submission.</p>
+          </div>
+        </div>
+        <div className="form-grid">
+          <label>Reference<input value={recoveryForm.confirmationNumber} onChange={(event) => setRecoveryForm({ ...recoveryForm, confirmationNumber: event.target.value })} placeholder="FO-2026-03760-1121EE" required /></label>
+          <label>Applicant Email<input type="email" value={recoveryForm.email} onChange={(event) => setRecoveryForm({ ...recoveryForm, email: event.target.value })} placeholder="rondae.russell@gmail.com" required /></label>
+          <label>Role Slug<input value={recoveryForm.roleSlug} onChange={(event) => setRecoveryForm({ ...recoveryForm, roleSlug: event.target.value })} placeholder="operations-manager" /></label>
+          <label>Applicant Name<input value={recoveryForm.fullName} onChange={(event) => setRecoveryForm({ ...recoveryForm, fullName: event.target.value })} placeholder="Delrondae Russell" /></label>
+          <label>Phone<input value={recoveryForm.phone} onChange={(event) => setRecoveryForm({ ...recoveryForm, phone: event.target.value })} /></label>
+          <label>Application PDF<input type="file" accept=".pdf" onChange={(event) => setRecoveryFile(event.target.files?.[0] || null)} required /></label>
+        </div>
+        <button type="submit">Recover Application</button>
+      </form>
+    )}
     <DataTable
       rows={applications}
       columns={[
         { key: 'confirmation_number', label: 'Confirmation', sortable: true, render: (row) => row.confirmation_number || 'Not assigned' },
-        { key: 'full_name', label: 'Applicant', sortable: true },
+        { key: 'full_name', label: 'Applicant', sortable: true, render: (row) => <button type="button" className="table-link-button" onClick={() => openRecord(row)}>{row.full_name}</button> },
         { key: 'role_applied', label: 'Role', sortable: true },
-        { key: 'source', label: 'Source', sortable: true, render: (row) => row.source === 'employment' ? 'Employment Application' : 'Manual / Legacy' },
+        { key: 'source', label: 'Source', sortable: true, render: (row) => row.source === 'email_recovery' ? 'Recovered Email' : row.employment_application_id || row.source === 'employment' ? 'Employment Application' : 'Manual / Legacy' },
         { key: 'employment_type', label: 'Employment Type', sortable: true, render: (row) => row.employment_type || 'Not recorded' },
         { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
         { key: 'assigned_recruiter', label: 'Recruiter', render: (row) => row.assigned_recruiter?.full_name || 'Unassigned' },
@@ -1365,11 +1536,13 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
                   {users.filter((user) => ['admin', 'recruiter'].includes(user.role)).map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}
                 </select>
               )}
+              <button type="button" onClick={() => openRecord(row)}>Open</button>
             </div>
           )
         }
       ]}
     />
+    <ApplicationDetailPanel detail={detail} onClose={closeRecord} />
     </>
   );
 }
@@ -1804,5 +1977,116 @@ export function RecentPanels({ documents = [], tasks = [], messages = [] }) {
         <MessageThread messages={messages.slice(0, 3)} />
       </div>
     </section>
+  );
+}
+
+export function AccountSettingsPanel() {
+  const { refreshUser } = useAuth();
+  const [profile, setProfile] = useState(null);
+  const [emailForm, setEmailForm] = useState({ email: '', currentPassword: '' });
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+    api('/api/auth/profile')
+      .then((data) => {
+        if (!mounted) return;
+        setProfile(data.profile);
+        setEmailForm((current) => ({ ...current, email: data.profile.pending_email || data.profile.email || '' }));
+      })
+      .catch((err) => setError(err.message));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function saveProfile(event) {
+    event.preventDefault();
+    setNotice('');
+    setError('');
+    try {
+      const data = await api('/api/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          phone: profile.phone || '',
+          location: profile.location || '',
+          notification_preferences: profile.notification_preferences || {}
+        })
+      });
+      setProfile(data.profile);
+      await refreshUser();
+      setNotice('Settings saved.');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function requestEmailChange(event) {
+    event.preventDefault();
+    setNotice('');
+    setError('');
+    try {
+      await api('/api/auth/profile/email-change', { method: 'POST', body: JSON.stringify(emailForm) });
+      setEmailForm((current) => ({ ...current, currentPassword: '' }));
+      const data = await api('/api/auth/profile');
+      setProfile(data.profile);
+      setNotice('Confirmation sent to the new email address.');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function updatePreference(key, value) {
+    setProfile((current) => ({
+      ...current,
+      notification_preferences: { ...(current.notification_preferences || {}), [key]: value }
+    }));
+  }
+
+  if (!profile) return <div className="empty-state">Loading settings...</div>;
+  const preferences = profile.notification_preferences || {};
+
+  return (
+    <div className="settings-grid">
+      <section className="panel">
+        <h3>Profile Settings</h3>
+        {notice && <div className="success-message">{notice}</div>}
+        {error && <div className="error-message">{error}</div>}
+        <form className="panel-form compact-form" onSubmit={saveProfile}>
+          <div className="form-grid">
+            <label>First Name<input value={profile.first_name || ''} readOnly /></label>
+            <label>Last Name<input value={profile.last_name || ''} readOnly /></label>
+            <label>Phone<input value={profile.phone || ''} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} /></label>
+            <label>Location<input value={profile.location || ''} onChange={(event) => setProfile({ ...profile, location: event.target.value })} /></label>
+          </div>
+          <div className="settings-checks">
+            {[
+              ['email_application_updates', 'Email application updates'],
+              ['email_document_requests', 'Email document requests'],
+              ['email_messages', 'Email portal messages'],
+              ['portal_notifications', 'Portal notifications']
+            ].map(([key, label]) => (
+              <label className="check-row" key={key}>
+                <input type="checkbox" checked={preferences[key] !== false} onChange={(event) => updatePreference(key, event.target.checked)} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <button type="submit">Save Settings</button>
+        </form>
+      </section>
+      <section className="panel">
+        <h3>Email & Security</h3>
+        <p>Current email: {profile.email}</p>
+        {profile.pending_email && <div className="empty-state">Pending confirmation: {profile.pending_email}</div>}
+        <form className="panel-form compact-form" onSubmit={requestEmailChange}>
+          <label>New Email<input type="email" value={emailForm.email} onChange={(event) => setEmailForm({ ...emailForm, email: event.target.value })} required /></label>
+          <label>Current Password<input type="password" value={emailForm.currentPassword} onChange={(event) => setEmailForm({ ...emailForm, currentPassword: event.target.value })} required /></label>
+          <button type="submit">Send Confirmation</button>
+        </form>
+        <Link className="button-link" to="/change-password">Change Password</Link>
+      </section>
+    </div>
   );
 }

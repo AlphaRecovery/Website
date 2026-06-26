@@ -1,11 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import PageHeader from '../components/PageHeader.jsx';
 import PortalLayout from '../components/PortalLayout.jsx';
 import ProgressTracker from '../components/ProgressTracker.jsx';
 import Badge from '../components/Badge.jsx';
-import { useAuth } from '../auth/AuthContext.jsx';
 import { usePortalData, currentSection } from './portalData.js';
-import { DocumentsPanel, ErrorState, JobBoardPanel, LoadingState, MessagesPanel, RecentPanels, TasksPanel } from './portalShared.jsx';
+import { AccountSettingsPanel, DocumentsPanel, ErrorState, JobBoardPanel, LoadingState, MessagesPanel, RecentPanels, TasksPanel } from './portalShared.jsx';
 import { APPLICATION_TOTAL_SECTIONS } from '../../../shared/applicationConfig.js';
 
 const paths = [
@@ -21,7 +20,6 @@ const paths = [
 ];
 
 export default function ApplicantPortal() {
-  const { user } = useAuth();
   const section = currentSection('/portal/applicant', useLocation().pathname);
   const { data, loading, error, refresh } = usePortalData(paths);
   const application = data.applications?.applications?.[0] || null;
@@ -99,15 +97,7 @@ export default function ApplicantPortal() {
       );
     }
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
-    if (section === 'settings') {
-      return (
-        <div className="panel">
-          <h3>Account Details</h3>
-          <p>{user.full_name}<br />{user.email}</p>
-          <Link className="button-link" to="/change-password">Change Password</Link>
-        </div>
-      );
-    }
+    if (section === 'settings') return <AccountSettingsPanel />;
     return (
       <>
         {applicationPanel()}

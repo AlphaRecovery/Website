@@ -59,6 +59,7 @@ function emptyDb() {
     invites: [],
     sessions: [],
     password_reset_tokens: [],
+    email_change_tokens: [],
     companies: [],
     contractors: [],
     jobs: [],

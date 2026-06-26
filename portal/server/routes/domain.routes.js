@@ -9,12 +9,37 @@ import { logActivity, publicUser } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { notificationCounts, pushNotifications, pushNotificationsForAll, registerNotificationClient } from '../notifications.js';
 import { canReviewEmploymentApplication } from '../policies.js';
+import { runRetentionCleanup } from '../retention.js';
 import { ROLE_CONFIGS } from '../../shared/applicationConfig.js';
 
 const router = express.Router();
 const siteContentPath = path.resolve(config.root, '..', 'content', 'site.json');
 const hasSiteContentFile = () => fs.existsSync(siteContentPath);
 const jobsCatalogPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data', 'jobs-catalog.json');
+const INTERNAL_ROLES = ['admin', 'recruiter', 'hr', 'manager', 'read_only', 'contractor'];
+const APPLICATION_ACTIVITY_ACTIONS = new Set([
+  'application_submitted',
+  'employment_application_submitted',
+  'application_created',
+  'application_deleted',
+  'application_assigned',
+  'status_change',
+  'document_requested',
+  'document_status_change',
+  'file_upload',
+  'file_view',
+  'file_download',
+  'file_access_denied',
+  'task_created',
+  'task_completed',
+  'message_sent',
+  'note_added',
+  'notification_failed',
+  'email_application_recovered',
+  'retention_warning_sent',
+  'draft_auto_deleted',
+  'applicant_account_auto_deleted'
+]);
 
 function defaultJobsFromRoles() {
   return ROLE_CONFIGS.map((role) => ({
@@ -598,7 +623,8 @@ function employmentApplicationAsPortalApplication(row) {
     employment_application_id: row.id,
     confirmation_number: row.confirmation_number || '',
     created_at: row.submitted_at || row.created_at,
-    source: 'employment'
+    source: row.source || 'employment',
+    recovery_status: row.recovery_status || null
   };
 }
 
@@ -615,6 +641,20 @@ function visibleEmploymentApplicationSummaries(user) {
       .map(employmentApplicationAsPortalApplication);
   }
   return [];
+}
+
+function isStaffUser(user) {
+  return INTERNAL_ROLES.includes(user?.role);
+}
+
+function applicantHasVisibleState(user, db = getDb()) {
+  if (!user || user.role !== 'applicant') return false;
+  const email = String(user.email || '').toLowerCase();
+  return (
+    db.employment_applications.some((row) => row.user_id === user.id || String(row.email || '').toLowerCase() === email) ||
+    db.applications.some((row) => row.user_id === user.id || String(row.email || '').toLowerCase() === email) ||
+    db.employment_application_drafts.some((row) => row.user_id === user.id || String(row.email || '').toLowerCase() === email)
+  );
 }
 
 function visibleEmploymentApplications(user) {
@@ -664,8 +704,106 @@ function enrichApplication(app) {
   };
 }
 
+function visibleApplicationByAnyId(user, recordId) {
+  const summary = visibleApplicationSummaries(user).find((item) => (
+    item.id === recordId ||
+    item.employment_application_id === recordId ||
+    item.confirmation_number === recordId
+  ));
+  if (!summary) return null;
+  const db = getDb();
+  const application = summary.source === 'employment'
+    ? null
+    : db.applications.find((item) => item.id === summary.id);
+  const employmentApplication = summary.employment_application_id
+    ? db.employment_applications.find((item) => item.id === summary.employment_application_id)
+    : null;
+  return { summary, application, employmentApplication };
+}
+
+function applicationDetailPayload(user, recordId) {
+  const match = visibleApplicationByAnyId(user, recordId);
+  if (!match) return null;
+  const db = getDb();
+  const applicationId = match.application?.id || null;
+  const employmentId = match.employmentApplication?.id || match.summary.employment_application_id || null;
+  const applicant = db.users.find((item) => (
+    item.id === match.summary.user_id ||
+    String(item.email || '').toLowerCase() === String(match.summary.email || '').toLowerCase()
+  ));
+  const relatedActivity = db.activity_log.filter((row) => {
+    const meta = row.metadata || {};
+    return row.entity_id === applicationId ||
+      row.entity_id === employmentId ||
+      meta.application_id === applicationId ||
+      meta.employment_application_id === employmentId ||
+      meta.confirmation_number === match.summary.confirmation_number;
+  });
+  return {
+    application: enrichApplication(match.summary),
+    source_application: match.application || null,
+    employment_application: match.employmentApplication || null,
+    applicant: applicant ? publicUser(applicant) : null,
+    documents: db.documents.filter((row) => row.application_id === applicationId || row.application_id === employmentId || row.owner_user_id === applicant?.id),
+    tasks: db.tasks.filter((row) => row.related_application_id === applicationId || row.related_employment_application_id === employmentId || row.assigned_to === applicant?.id),
+    messages: db.messages.filter((row) => row.related_application_id === applicationId || row.related_application_id === employmentId || row.sender_id === applicant?.id || row.recipient_id === applicant?.id),
+    notes: db.application_notes.filter((note) => note.application_id === applicationId || note.application_id === employmentId),
+    activity: relatedActivity.slice().reverse().map(activityDetails)
+  };
+}
+
+function applicationTargetForActivity(row) {
+  const metadata = row.metadata || {};
+  const employmentId = metadata.employment_application_id || (row.entity_type === 'employment_application' ? row.entity_id : null);
+  const applicationId = metadata.application_id || (row.entity_type === 'application' ? row.entity_id : null);
+  const id = employmentId || applicationId || '';
+  return id ? `/portal/admin/applications?application=${encodeURIComponent(id)}` : '';
+}
+
+function activityDetails(row) {
+  const db = getDb();
+  const metadata = row.metadata || {};
+  const actor = db.users.find((user) => user.id === (row.actor_user_id || row.user_id));
+  const assigned = db.users.find((user) => user.id === metadata.assigned_recruiter_id);
+  const previousAssigned = db.users.find((user) => user.id === metadata.previous_assigned_recruiter_id);
+  const ref = metadata.confirmation_number || metadata.reference || metadata.application_id || metadata.employment_application_id || row.entity_id || 'Record';
+  const objectName = metadata.full_name || metadata.role || metadata.title || ref;
+  let summary = `${objectName}: ${displayLabel(row.action || 'activity')}`;
+  if (['status_change', 'employment_application_status_change'].includes(row.action)) {
+    summary = `${objectName}: status changed from ${displayLabel(metadata.previous_status || 'not recorded')} to ${displayLabel(metadata.status || 'not recorded')}`;
+  } else if (row.action === 'application_assigned') {
+    summary = `${objectName}: assignment changed from ${previousAssigned?.full_name || 'Unassigned'} to ${assigned?.full_name || 'Unassigned'}`;
+  } else if (['application_submitted', 'employment_application_submitted'].includes(row.action)) {
+    summary = `${objectName}: submitted for ${metadata.role || 'review'}`;
+  } else if (row.action === 'document_requested') {
+    summary = `${objectName}: document requested`;
+  } else if (row.action === 'document_status_change') {
+    summary = `${objectName}: document status changed to ${displayLabel(metadata.status || 'not recorded')}`;
+  } else if (row.action === 'task_created') {
+    summary = `${objectName}: task created`;
+  } else if (row.action === 'email_application_recovered') {
+    summary = `${objectName}: recovered from emailed application ${metadata.confirmation_number || ''}`.trim();
+  }
+  return {
+    ...row,
+    actor_name: actor?.full_name || (row.user_id ? 'Unknown user' : 'System'),
+    object_name: objectName,
+    summary,
+    target_url: applicationTargetForActivity(row),
+    details: {
+      reference: ref,
+      previous_status: metadata.previous_status || null,
+      status: metadata.status || null,
+      previous_assigned_recruiter_name: previousAssigned?.full_name || null,
+      assigned_recruiter_name: assigned?.full_name || null,
+      metadata
+    }
+  };
+}
+
 function isApplicationActivity(row) {
   const metadata = row.metadata || {};
+  if (!APPLICATION_ACTIVITY_ACTIONS.has(row.action)) return false;
   return row.entity_type === 'application' ||
     row.entity_type === 'employment_application' ||
     metadata.entity_type === 'application' ||
@@ -678,27 +816,32 @@ function isApplicationActivity(row) {
 router.get('/admin/dashboard', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const db = getDb();
   const applications = visibleApplicationSummaries(req.user);
+  const applicantUsers = db.users.filter((user) => user.role === 'applicant' && applicantHasVisibleState(user, db));
   const expiringDocuments = db.documents.filter((doc) => doc.expires_at && new Date(doc.expires_at).getTime() < Date.now() + 30 * 24 * 60 * 60 * 1000);
   res.json({
     stats: {
-      totalApplicants: db.users.filter((user) => user.role === 'applicant').length,
+      totalApplicants: applicantUsers.length,
       activeContractors: db.contractors.filter((row) => row.status === 'active').length,
       pendingReviews: applications.filter((app) => ['submitted', 'received', 'review', 'interview', 'New', 'Under Review', 'Interview Scheduled'].includes(app.status)).length,
       expiringDocuments: expiringDocuments.length,
       activeCompanies: db.companies.filter((company) => company.status === 'active').length
     },
-    recentActivity: db.activity_log.filter(isApplicationActivity).slice(-10).reverse()
+    recentActivity: db.activity_log.filter(isApplicationActivity).slice(-10).reverse().map(activityDetails)
   });
 });
 
-router.get('/admin/users', requireAuth, requireRole('admin'), (req, res) => {
-  res.json({ users: getDb().users.map(publicUser) });
+router.get('/admin/users', requireAuth, requireRole('admin', 'manager'), (req, res) => {
+  const users = getDb().users
+    .filter(isStaffUser)
+    .filter((user) => req.user.role === 'admin' || user.role !== 'admin')
+    .map(publicUser);
+  res.json({ users });
 });
 
 router.get('/users/directory', requireAuth, (req, res) => {
   const users = getDb().users
     .filter((user) => {
-      if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(req.user.role)) return user.status === 'active';
+      if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(req.user.role)) return user.status === 'active' && isStaffUser(user);
       return user.status === 'active' && ['admin', 'recruiter'].includes(user.role);
     })
     .map(publicUser);
@@ -706,11 +849,21 @@ router.get('/users/directory', requireAuth, (req, res) => {
 });
 
 router.get('/admin/activity', requireAuth, requireRole('admin'), (req, res) => {
-  res.json({ activity: getDb().activity_log.slice().reverse() });
+  res.json({ activity: getDb().activity_log.slice().reverse().map(activityDetails) });
 });
 
 router.get('/notifications', requireAuth, (req, res) => {
   res.json({ notifications: notificationCounts(req.user) });
+});
+
+router.get('/jobs/retention-cleanup', async (req, res) => {
+  const authHeader = req.headers.authorization || '';
+  const tokenOk = config.retentionJobSecret && authHeader === `Bearer ${config.retentionJobSecret}`;
+  const adminOk = req.user?.role === 'admin';
+  if (!tokenOk && !adminOk) return res.status(401).json({ error: 'Unauthorized retention job request.' });
+  const execute = tokenOk || req.query.execute === 'true';
+  const summary = await runRetentionCleanup({ execute });
+  res.json(summary);
 });
 
 router.post('/notifications/seen', requireAuth, (req, res) => {
@@ -869,10 +1022,9 @@ router.get('/applications', requireAuth, (req, res) => {
 });
 
 router.get('/applications/:id', requireAuth, (req, res) => {
-  const app = visibleApplications(req.user).find((item) => item.id === req.params.id);
-  if (!app) return res.status(404).json({ error: 'Application not found' });
-  const notes = getDb().application_notes.filter((note) => note.application_id === app.id);
-  res.json({ application: enrichApplication(app), notes });
+  const detail = applicationDetailPayload(req.user, req.params.id);
+  if (!detail) return res.status(404).json({ error: 'Application not found' });
+  res.json(detail);
 });
 
 router.post('/applications', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {

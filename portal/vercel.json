@@ -9,6 +9,12 @@
       "maxDuration": 30
     }
   },
+  "crons": [
+    {
+      "path": "/api/jobs/retention-cleanup",
+      "schedule": "0 9 * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/(.*)",

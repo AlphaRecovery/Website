@@ -114,9 +114,10 @@ function stageStatusForApplicant(applicant, index) {
 }
 
 function normalizePortalApplication(app) {
+  const employmentBacked = Boolean(app.employment_application_id);
   return {
-    source: 'portal',
-    id: app.id,
+    source: employmentBacked ? 'employment' : 'portal',
+    id: app.employment_application_id || app.id,
     confirmationNumber: app.confirmation_number || '',
     name: app.full_name || 'Unnamed Applicant',
     initials: initials(app.full_name),
@@ -310,6 +311,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
       .filter((doc) => doc.application_id === selected.id || (selected.userId && doc.owner_user_id === selected.userId))
       .map(normalizeDocumentRecord),
     ...((selected.source === 'employment' ? selected.details?.files : linkedEmploymentApplication?.files) || [])
+      .filter((file) => file.path)
       .map((file) => normalizeEmploymentFile(selected.source === 'employment' ? selected : { ...selected, id: linkedEmploymentApplication.id }, file))
   ] : [];
   const selectedTasks = selected ? tasks.filter((task) => (

@@ -61,7 +61,13 @@ export function AuthProvider({ children }) {
     return data.user;
   }
 
-  const value = useMemo(() => ({ user, loading, login, logout, changePassword, roleHomes }), [user, loading]);
+  async function refreshUser() {
+    const data = await api('/api/auth/me', { suppressAuthRedirect: true });
+    setUser(data.user);
+    return data.user;
+  }
+
+  const value = useMemo(() => ({ user, loading, login, logout, changePassword, refreshUser, roleHomes }), [user, loading]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
