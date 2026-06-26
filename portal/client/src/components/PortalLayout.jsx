@@ -3,18 +3,22 @@ import { useEffect, useState } from 'react';
 
 export default function PortalLayout({ children }) {
   const [navOpen, setNavOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const [isMobileNav, setIsMobileNav] = useState(false);
 
   useEffect(() => {
     const query = window.matchMedia('(max-width: 1100px)');
-    const update = () => setIsMobileNav(query.matches);
+    const update = () => {
+      setIsMobileNav(query.matches);
+      if (query.matches) setNavCollapsed(false);
+    };
     update();
     query.addEventListener('change', update);
     return () => query.removeEventListener('change', update);
   }, []);
 
   return (
-    <div className={`portal-layout${navOpen ? ' nav-open' : ''}`}>
+    <div className={`portal-layout${navOpen ? ' nav-open' : ''}${navCollapsed ? ' nav-collapsed' : ''}`}>
       <header className="portal-mobile-bar">
         <button
           type="button"
@@ -34,6 +38,19 @@ export default function PortalLayout({ children }) {
         </div>
       </header>
       <button
+        type="button"
+        className="portal-collapse-button"
+        aria-label={navCollapsed ? 'Show navigation' : 'Hide navigation'}
+        aria-controls="portal-sidebar"
+        aria-expanded={!navCollapsed}
+        onClick={() => {
+          setNavOpen(false);
+          setNavCollapsed((collapsed) => !collapsed);
+        }}
+      >
+        <span />
+      </button>
+      <button
         className="portal-nav-backdrop"
         type="button"
         aria-label="Close navigation menu"
@@ -41,7 +58,12 @@ export default function PortalLayout({ children }) {
         tabIndex={navOpen ? 0 : -1}
         onClick={() => setNavOpen(false)}
       />
-      <Sidebar mobileOpen={navOpen} isMobileNav={isMobileNav} onNavigate={() => setNavOpen(false)} />
+      <Sidebar
+        mobileOpen={navOpen}
+        isCollapsed={navCollapsed && !isMobileNav}
+        isMobileNav={isMobileNav}
+        onNavigate={() => setNavOpen(false)}
+      />
       <main className="portal-main">{children}</main>
     </div>
   );

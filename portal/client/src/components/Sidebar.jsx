@@ -73,7 +73,7 @@ const nav = {
   ]
 };
 
-export default function Sidebar({ mobileOpen = false, isMobileNav = false, onNavigate }) {
+export default function Sidebar({ mobileOpen = false, isCollapsed = false, isMobileNav = false, onNavigate }) {
   const { user, logout } = useAuth();
   const items = nav[user.role] || [];
   const location = useLocation();
@@ -131,10 +131,10 @@ export default function Sidebar({ mobileOpen = false, isMobileNav = false, onNav
 
   return (
     <aside
-      className={`sidebar${mobileOpen ? ' open' : ''}`}
+      className={`sidebar${mobileOpen ? ' open' : ''}${isCollapsed ? ' collapsed' : ''}`}
       id="portal-sidebar"
-      aria-hidden={isMobileNav && !mobileOpen ? 'true' : undefined}
-      inert={isMobileNav && !mobileOpen ? '' : undefined}
+      aria-hidden={(isMobileNav && !mobileOpen) || isCollapsed ? 'true' : undefined}
+      inert={(isMobileNav && !mobileOpen) || isCollapsed ? '' : undefined}
     >
       <div className="sidebar-brand">
         <span>ALPHA</span>

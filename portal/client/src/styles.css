@@ -195,9 +195,15 @@ code {
 }
 
 .portal-layout {
+  --portal-sidebar-width: 280px;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: var(--portal-sidebar-width) minmax(0, 1fr);
+  transition: grid-template-columns 0.22s ease;
+}
+
+.portal-layout.nav-collapsed {
+  grid-template-columns: 0 minmax(0, 1fr);
 }
 
 .portal-mobile-bar,
@@ -224,6 +230,38 @@ code {
   background: var(--white);
   display: block;
   transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.portal-collapse-button {
+  position: fixed;
+  top: 0.85rem;
+  left: calc(var(--portal-sidebar-width) + 0.85rem);
+  z-index: 1750;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: #030303;
+  color: var(--white);
+  transition: left 0.22s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.portal-layout.nav-collapsed .portal-collapse-button {
+  left: 0.85rem;
+}
+
+.portal-collapse-button span {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: translateX(2px) rotate(-45deg);
+}
+
+.portal-layout.nav-collapsed .portal-collapse-button span {
+  transform: translateX(-2px) rotate(135deg);
 }
 
 .portal-layout.nav-open .portal-menu-button span:nth-child(1) {
@@ -260,10 +298,17 @@ code {
   min-height: 100vh;
   position: sticky;
   top: 0;
+  width: var(--portal-sidebar-width);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line);
   background: #030303;
+  transform: translateX(0);
+  transition: transform 0.22s ease;
+}
+
+.sidebar.collapsed {
+  transform: translateX(-100%);
 }
 
 .sidebar-brand {
@@ -2344,7 +2389,7 @@ button.danger {
 
 .roc-workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 0.82fr) minmax(620px, 1.86fr) minmax(250px, 0.68fr);
+  grid-template-columns: minmax(300px, 0.78fr) minmax(680px, 1.9fr) minmax(270px, 0.7fr);
   gap: 0.55rem;
   align-items: stretch;
 }
@@ -2657,7 +2702,7 @@ button.danger {
 
 .roc-timeline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
   align-items: start;
   gap: 0.85rem;
 }
@@ -2692,15 +2737,18 @@ button.danger {
   height: 42px;
   display: grid;
   place-items: center;
-  border: 1px solid #777;
+  border: 1px solid rgba(207, 0, 0, 0.58);
   border-radius: 50%;
-  background: #050505;
+  background: transparent;
+  color: var(--roc-red);
+  font-weight: 800;
 }
 
 .roc-timeline .complete span,
 .roc-timeline .current span {
   border-color: var(--roc-red);
   background: var(--roc-red);
+  color: #fff;
 }
 
 .roc-timeline strong {
@@ -4318,6 +4366,10 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   .portal-layout {
     grid-template-columns: 1fr;
     padding-top: 58px;
+  }
+
+  .portal-collapse-button {
+    display: none;
   }
 
   .portal-mobile-bar {
