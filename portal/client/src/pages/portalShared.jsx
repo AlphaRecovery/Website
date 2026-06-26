@@ -1980,7 +1980,7 @@ export function RecentPanels({ documents = [], tasks = [], messages = [] }) {
   );
 }
 
-export function AccountSettingsPanel() {
+export function AccountSettingsPanel({ children = null }) {
   const { refreshUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [emailForm, setEmailForm] = useState({ email: '', currentPassword: '' });
@@ -2087,6 +2087,7 @@ export function AccountSettingsPanel() {
         </form>
         <Link className="button-link" to="/change-password">Change Password</Link>
       </section>
+      {children && <section className="settings-wide">{children}</section>}
     </div>
   );
 }

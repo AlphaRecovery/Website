@@ -30,6 +30,10 @@ function warningMs() {
   return config.retentionWarningHours * 60 * 60 * 1000;
 }
 
+function ageDays(value, fallback = 0) {
+  return Math.floor(ageMs(value, fallback) / cutoffMs(1));
+}
+
 function normalizeEmail(value = '') {
   return String(value || '').toLowerCase();
 }
@@ -93,7 +97,14 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     draftsDeleted: 0,
     accountWarnings: 0,
     accountsDeleted: 0,
-    skippedProtectedUsers: 0
+    skippedProtectedUsers: 0,
+    details: {
+      draftWarnings: [],
+      draftsDeleted: [],
+      accountWarnings: [],
+      accountsDeleted: [],
+      skippedProtectedUsers: []
+    }
   };
 
   for (const draft of [...(db.employment_application_drafts || [])]) {
@@ -104,6 +115,15 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     const canDelete = draftAge >= draftDeleteAge && warningSentAt && ageMs(warningSentAt) >= warningMs();
     if (shouldWarn) {
       summary.draftWarnings += 1;
+      summary.details.draftWarnings.push({
+        id: draft.id,
+        user_id: user?.id || draft.user_id || null,
+        email: draft.email || user?.email || '',
+        role_title: draft.role_title || '',
+        role_slug: draft.role_slug || '',
+        age_days: ageDays(draft.updated_at || draft.created_at),
+        warning_window_hours: config.retentionWarningHours
+      });
       if (execute) {
         draft.retention_warning_sent_at = currentIso;
         await sendRetentionWarning({
@@ -124,6 +144,15 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     }
     if (canDelete) {
       summary.draftsDeleted += 1;
+      summary.details.draftsDeleted.push({
+        id: draft.id,
+        user_id: user?.id || draft.user_id || null,
+        email: draft.email || user?.email || '',
+        role_title: draft.role_title || '',
+        role_slug: draft.role_slug || '',
+        age_days: ageDays(draft.updated_at || draft.created_at),
+        warned_age_hours: Math.floor(ageMs(warningSentAt) / (60 * 60 * 1000))
+      });
       if (execute) {
         db.employment_application_drafts = db.employment_application_drafts.filter((item) => item.id !== draft.id);
         logSystemActivity('draft_auto_deleted', {
@@ -140,6 +169,12 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     if (user.role !== 'applicant') continue;
     if (isProtectedUser(user, db)) {
       summary.skippedProtectedUsers += 1;
+      summary.details.skippedProtectedUsers.push({
+        id: user.id,
+        email: user.email || '',
+        full_name: user.full_name || '',
+        reason: 'active_application_or_draft'
+      });
       continue;
     }
     const lastActive = user.last_active_at || user.updated_at || user.created_at;
@@ -149,6 +184,13 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     const canDelete = accountAge >= accountDeleteAge && warningSentAt && ageMs(warningSentAt) >= warningMs();
     if (shouldWarn) {
       summary.accountWarnings += 1;
+      summary.details.accountWarnings.push({
+        id: user.id,
+        email: user.email || '',
+        full_name: user.full_name || '',
+        age_days: ageDays(lastActive),
+        warning_window_hours: config.retentionWarningHours
+      });
       if (execute) {
         user.retention_warning_sent_at = currentIso;
         await sendRetentionWarning({
@@ -167,6 +209,13 @@ export async function runRetentionCleanup({ execute = false } = {}) {
     }
     if (canDelete) {
       summary.accountsDeleted += 1;
+      summary.details.accountsDeleted.push({
+        id: user.id,
+        email: user.email || '',
+        full_name: user.full_name || '',
+        age_days: ageDays(lastActive),
+        warned_age_hours: Math.floor(ageMs(warningSentAt) / (60 * 60 * 1000))
+      });
       if (execute) {
         db.users = db.users.filter((item) => item.id !== user.id);
         db.sessions = db.sessions.filter((session) => session.user_id !== user.id);

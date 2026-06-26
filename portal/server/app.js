@@ -11,6 +11,7 @@ import contactRoutes from './routes/contact.routes.js';
 import domainRoutes from './routes/domain.routes.js';
 import documentRoutes from './routes/documents.routes.js';
 import employmentRoutes from './routes/employment.routes.js';
+import retentionRoutes from './routes/retention.routes.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
 
 validateProductionConfig();
@@ -100,6 +101,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', domainRoutes);
 app.use('/api', documentRoutes);
 app.use('/api', employmentRoutes);
+app.use('/api', retentionRoutes);
 
 if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
   const dist = path.join(config.root, 'client', 'dist');

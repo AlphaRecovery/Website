@@ -9,6 +9,7 @@ import { usePortalData, currentSection } from './portalData.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import {
   ApplicationsTable,
+  AccountSettingsPanel,
   CompaniesPanel,
   ContractorsTable,
   DocumentsPanel,
@@ -22,7 +23,7 @@ import {
   TasksPanel
 } from './portalShared.jsx';
 import { ROLES, displayLabel } from '../../../shared/constants.js';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 function pathsForRole(role) {
   const paths = [
@@ -190,128 +191,72 @@ function InviteUsers({ users = [], currentUser, onRefresh }) {
   );
 }
 
-function AccountSettings({ users = [], currentUser, onRefresh }) {
-  const { refreshUser } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [emailForm, setEmailForm] = useState({ email: '', currentPassword: '' });
-  const [notice, setNotice] = useState('');
+function RetentionDryRun() {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const canManageUsers = ['admin', 'manager'].includes(currentUser.role);
 
-  useEffect(() => {
-    let mounted = true;
-    api('/api/auth/profile')
-      .then((data) => {
-        if (!mounted) return;
-        setProfile(data.profile);
-        setEmailForm((current) => ({ ...current, email: data.profile.pending_email || data.profile.email || '' }));
-      })
-      .catch((err) => setError(err.message));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  async function saveProfile(event) {
-    event.preventDefault();
-    setNotice('');
+  async function loadDryRun() {
+    setLoading(true);
     setError('');
     try {
-      const data = await api('/api/auth/profile', {
-        method: 'PATCH',
-        body: JSON.stringify({
-          phone: profile.phone || '',
-          location: profile.location || '',
-          notification_preferences: profile.notification_preferences || {}
-        })
-      });
-      setProfile(data.profile);
-      await refreshUser();
-      setNotice('Settings saved.');
+      const data = await api('/api/admin/retention-cleanup/dry-run');
+      setSummary(data);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
   }
 
-  async function requestEmailChange(event) {
-    event.preventDefault();
-    setNotice('');
-    setError('');
-    try {
-      await api('/api/auth/profile/email-change', {
-        method: 'POST',
-        body: JSON.stringify(emailForm)
-      });
-      setEmailForm((current) => ({ ...current, currentPassword: '' }));
-      const data = await api('/api/auth/profile');
-      setProfile(data.profile);
-      setNotice('Confirmation sent to the new email address.');
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-
-  function updatePreference(key, value) {
-    setProfile((current) => ({
-      ...current,
-      notification_preferences: {
-        ...(current.notification_preferences || {}),
-        [key]: value
-      }
-    }));
-  }
-
-  if (!profile) return <div className="empty-state">Loading settings...</div>;
-  const preferences = profile.notification_preferences || {};
+  const totals = summary ? [
+    ['Draft warnings', summary.draftWarnings],
+    ['Draft deletions', summary.draftsDeleted],
+    ['Account warnings', summary.accountWarnings],
+    ['Account deletions', summary.accountsDeleted],
+    ['Protected applicants', summary.skippedProtectedUsers]
+  ] : [];
+  const detailRows = [
+    ...(summary?.details?.draftWarnings || []).map((row) => ({ ...row, action: 'Warn draft owner', type: 'Draft' })),
+    ...(summary?.details?.draftsDeleted || []).map((row) => ({ ...row, action: 'Delete draft', type: 'Draft' })),
+    ...(summary?.details?.accountWarnings || []).map((row) => ({ ...row, action: 'Warn inactive applicant', type: 'Applicant' })),
+    ...(summary?.details?.accountsDeleted || []).map((row) => ({ ...row, action: 'Delete inactive account', type: 'Applicant' }))
+  ];
 
   return (
-    <div className="settings-grid">
-      <section className="panel">
-        <h3>Profile Settings</h3>
-        {notice && <div className="success-message">{notice}</div>}
-        {error && <div className="error-message">{error}</div>}
-        <form className="panel-form compact-form" onSubmit={saveProfile}>
-          <div className="form-grid">
-            <label>First Name<input value={profile.first_name || ''} readOnly /></label>
-            <label>Last Name<input value={profile.last_name || ''} readOnly /></label>
-            <label>Phone<input value={profile.phone || ''} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} /></label>
-            <label>Location<input value={profile.location || ''} onChange={(event) => setProfile({ ...profile, location: event.target.value })} /></label>
-          </div>
-          <div className="settings-checks">
-            {[
-              ['email_application_updates', 'Email application updates'],
-              ['email_document_requests', 'Email document requests'],
-              ['email_messages', 'Email portal messages'],
-              ['portal_notifications', 'Portal notifications']
-            ].map(([key, label]) => (
-              <label className="check-row" key={key}>
-                <input type="checkbox" checked={preferences[key] !== false} onChange={(event) => updatePreference(key, event.target.checked)} />
-                {label}
-              </label>
+    <section className="panel retention-panel">
+      <div className="panel-heading-row">
+        <div>
+          <h3>Retention Dry Run</h3>
+          <p>Preview applicant draft and inactive-account cleanup before the scheduled job makes changes.</p>
+        </div>
+        <button type="button" onClick={loadDryRun} disabled={loading}>{loading ? 'Checking...' : 'Run Dry Run'}</button>
+      </div>
+      {error && <div className="error-message">{error}</div>}
+      {summary && (
+        <>
+          <div className="retention-summary">
+            {totals.map(([label, value]) => (
+              <div key={label}>
+                <span>{label}</span>
+                <strong>{value}</strong>
+              </div>
             ))}
           </div>
-          <button type="submit">Save Settings</button>
-        </form>
-      </section>
-
-      <section className="panel">
-        <h3>Email & Security</h3>
-        <p>Current email: {profile.email}</p>
-        {profile.pending_email && <div className="empty-state">Pending confirmation: {profile.pending_email}</div>}
-        <form className="panel-form compact-form" onSubmit={requestEmailChange}>
-          <label>New Email<input type="email" value={emailForm.email} onChange={(event) => setEmailForm({ ...emailForm, email: event.target.value })} required /></label>
-          <label>Current Password<input type="password" value={emailForm.currentPassword} onChange={(event) => setEmailForm({ ...emailForm, currentPassword: event.target.value })} required /></label>
-          <button type="submit">Send Confirmation</button>
-        </form>
-        <Link className="button-link" to="/change-password">Change Password</Link>
-      </section>
-
-      {canManageUsers && (
-        <section className="settings-wide">
-          <InviteUsers users={users} currentUser={currentUser} onRefresh={onRefresh} />
-        </section>
+          <DataTable
+            rows={detailRows}
+            columns={[
+              { key: 'action', label: 'Action', sortable: true },
+              { key: 'type', label: 'Record', sortable: true },
+              { key: 'email', label: 'Email', sortable: true },
+              { key: 'role_title', label: 'Role / Name', sortable: true, render: (row) => row.role_title || row.full_name || 'Not recorded' },
+              { key: 'age_days', label: 'Age', sortable: true, render: (row) => `${row.age_days || 0} days` }
+            ]}
+          />
+          {!detailRows.length && <div className="empty-state">No warning or deletion candidates in the current dry run.</div>}
+        </>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -342,19 +287,28 @@ export default function AdminPortal() {
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
     if (section === 'activity') {
       return (
-        <DataTable
-          rows={data.activity?.activity || []}
-          columns={[
-            { key: 'action', label: 'Action', sortable: true, render: (row) => <Badge value={row.action} /> },
-            { key: 'actor_name', label: 'User', sortable: true, render: (row) => row.actor_name || 'System' },
-            { key: 'summary', label: 'Details', sortable: true, render: (row) => row.target_url ? <Link to={row.target_url}>{row.summary}</Link> : row.summary },
-            { key: 'created_at', label: 'Time', sortable: true, render: (row) => new Date(row.created_at).toLocaleString() }
-          ]}
-        />
+        <>
+          <RetentionDryRun />
+          <DataTable
+            rows={data.activity?.activity || []}
+            columns={[
+              { key: 'action', label: 'Action', sortable: true, render: (row) => <Badge value={row.action} /> },
+              { key: 'actor_name', label: 'User', sortable: true, render: (row) => row.actor_name || 'System' },
+              { key: 'summary', label: 'Details', sortable: true, render: (row) => row.target_url ? <Link to={row.target_url}>{row.summary}</Link> : row.summary },
+              { key: 'created_at', label: 'Time', sortable: true, render: (row) => new Date(row.created_at).toLocaleString() }
+            ]}
+          />
+        </>
       );
     }
     if (section === 'invite-users') return ['admin', 'manager'].includes(user.role) ? <InviteUsers users={users} currentUser={user} onRefresh={refresh} /> : <div className="empty-state">Only Admin and Manager roles can manage user access.</div>;
-    if (section === 'settings') return <AccountSettings users={users} currentUser={user} onRefresh={refresh} />;
+    if (section === 'settings') {
+      return (
+        <AccountSettingsPanel>
+          {['admin', 'manager'].includes(user.role) && <InviteUsers users={users} currentUser={user} onRefresh={refresh} />}
+        </AccountSettingsPanel>
+      );
+    }
     return (
       <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} />
     );

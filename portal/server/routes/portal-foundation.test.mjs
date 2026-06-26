@@ -235,6 +235,37 @@ test('retention warns before deleting and never deletes protected applicant user
   assert.ok(getDb().users.some((user) => user.id === protectedUser.id));
 });
 
+test('admin retention dry-run reports candidates without mutating records', async (t) => {
+  const baseUrl = await withServer(t);
+  const old = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+  const admin = await createUser({ email: 'admin-retention@example.com', role: 'admin', full_name: 'Admin User' });
+  const manager = await createUser({ email: 'manager-retention@example.com', role: 'manager', full_name: 'Manager User' });
+  const applicant = await createUser({ email: 'draft-owner@example.com', role: 'applicant', full_name: 'Draft Owner', created_at: old });
+  insert('employment_application_drafts', {
+    user_id: applicant.id,
+    email: applicant.email,
+    role_slug: 'operations-manager',
+    role_title: 'Operations Manager',
+    section: 2,
+    payload: {},
+    updated_at: old
+  });
+  await saveDbNow();
+
+  const managerLogin = await json(baseUrl, '/api/auth/login', { method: 'POST', body: { email: manager.email, password: 'password-123' } });
+  const denied = await json(baseUrl, '/api/admin/retention-cleanup/dry-run', { cookie: managerLogin.cookie });
+  assert.equal(denied.response.status, 403);
+
+  const adminLogin = await json(baseUrl, '/api/auth/login', { method: 'POST', body: { email: admin.email, password: 'password-123' } });
+  const report = await json(baseUrl, '/api/admin/retention-cleanup/dry-run', { cookie: adminLogin.cookie });
+  assert.equal(report.response.status, 200);
+  assert.equal(report.body.execute, false);
+  assert.equal(report.body.draftWarnings, 1);
+  assert.equal(report.body.draftsDeleted, 0);
+  assert.equal(report.body.details.draftWarnings[0].email, applicant.email);
+  assert.equal(getDb().employment_application_drafts[0].retention_warning_sent_at, undefined);
+});
+
 test.after(async () => {
   await fs.rm(tempRoot, { recursive: true, force: true });
 });

@@ -9,7 +9,6 @@ import { logActivity, publicUser } from '../auth.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { notificationCounts, pushNotifications, pushNotificationsForAll, registerNotificationClient } from '../notifications.js';
 import { canReviewEmploymentApplication } from '../policies.js';
-import { runRetentionCleanup } from '../retention.js';
 import { ROLE_CONFIGS } from '../../shared/applicationConfig.js';
 
 const router = express.Router();
@@ -854,16 +853,6 @@ router.get('/admin/activity', requireAuth, requireRole('admin'), (req, res) => {
 
 router.get('/notifications', requireAuth, (req, res) => {
   res.json({ notifications: notificationCounts(req.user) });
-});
-
-router.get('/jobs/retention-cleanup', async (req, res) => {
-  const authHeader = req.headers.authorization || '';
-  const tokenOk = config.retentionJobSecret && authHeader === `Bearer ${config.retentionJobSecret}`;
-  const adminOk = req.user?.role === 'admin';
-  if (!tokenOk && !adminOk) return res.status(401).json({ error: 'Unauthorized retention job request.' });
-  const execute = tokenOk || req.query.execute === 'true';
-  const summary = await runRetentionCleanup({ execute });
-  res.json(summary);
 });
 
 router.post('/notifications/seen', requireAuth, (req, res) => {
