@@ -2803,13 +2803,13 @@ button.danger {
 .roc-applicant-card {
   position: relative;
   display: grid;
-  grid-template-columns: 43px minmax(0, 1fr) auto;
-  gap: 0.55rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.13);
   background: rgba(10, 10, 10, 0.92);
   color: var(--roc-text);
-  padding: 0.58rem;
+  padding: 0.72rem 0.78rem;
   text-align: left;
   text-transform: none;
   letter-spacing: 0;
@@ -2875,7 +2875,7 @@ button.danger {
 .roc-card-title {
   display: flex;
   align-items: baseline;
-  gap: 0.4rem;
+  gap: 0.55rem;
   min-width: 0;
   line-height: 1.2;
 }
@@ -2886,13 +2886,17 @@ button.danger {
 }
 
 .roc-card-title strong {
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .roc-card-title small {
+  flex: 1 1 auto;
   color: var(--roc-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

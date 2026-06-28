@@ -681,15 +681,11 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
           <div className="roc-applicant-list">
             {filteredApplicants.map((applicant) => (
               <button type="button" key={`${applicant.source}-${applicant.id}`} className={`roc-applicant-card${selected?.id === applicant.id ? ' active' : ''}`} onClick={() => setSelectedId(applicant.id)}>
-                <span className="roc-avatar-mini">{applicant.initials}</span>
                 <span className="roc-card-primary">
-                  <span className="roc-card-title"><strong>{applicant.name}</strong><small>{applicant.position}</small></span>
-                  <small>{applicant.department}</small>
-                </span>
-                <span className="roc-card-meta">
-                  <small>{applicant.confirmationNumber || 'Not assigned'}</small>
-                  <small>Applied: {formatDate(applicant.applied)}</small>
-                  <em>{displayLabel(applicant.status)}</em>
+                  <span className="roc-card-title">
+                    <strong title={applicant.name}>{applicant.name}</strong>
+                    <small title={applicant.position}>{applicant.position}</small>
+                  </span>
                 </span>
               </button>
             ))}
