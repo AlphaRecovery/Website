@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { fileURLToPath } from 'node:url';
 import { getDb, id, insert, readJobs, saveDb, updateById, writeJobs } from '../data/store.js';
 import { logActivity, publicUser } from '../auth.js';
+import { PROGRAMS, DEFAULT_PROGRAM } from '../../shared/constants.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { notificationCounts, pushNotifications, pushNotificationsForAll, registerNotificationClient } from '../notifications.js';
 import { canReviewEmploymentApplication } from '../policies.js';
@@ -169,6 +170,7 @@ const jobSchema = z.object({
   slug: z.string().optional(),
   id: z.string().optional(),
   location: z.string().optional().default('Nationwide'),
+  program: z.string().optional().transform((value) => (value && PROGRAMS.includes(value) ? value : DEFAULT_PROGRAM)),
   department: z.string().optional().default('Admin'),
   employmentType: z.string().optional().default('Full Time'),
   payRange: z.string().optional().default('Based on role, experience, and assignment'),
@@ -520,6 +522,7 @@ function normalizeJob(rawJob) {
     slug,
     title,
     location: rawJob.location || 'Nationwide',
+    program: rawJob.program || 'Child Welfare',
     department: rawJob.department || 'Admin',
     employmentType: rawJob.employmentType || 'Full Time',
     payRange: rawJob.payRange || 'Based on role, experience, and assignment',

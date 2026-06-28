@@ -278,7 +278,7 @@ export default function AdminPortal() {
   function content() {
     if (section === 'recruiting') return canManageRecruiting ? <RecruitingOperations applications={applications} data={data} onRefresh={refresh} /> : <ApplicationsTable applications={applications.filter((row) => !['Hired', 'Rejected', 'archived', 'rejected'].includes(row.status))} users={users} onRefresh={refresh} canUpdate={false} />;
     if (section === 'jobs') return <JobBoardPanel jobs={data.jobs?.jobs || []} canManage={user.role === 'admin'} onRefresh={refresh} applications={applications} employmentApplications={data.library?.employmentApplications || []} users={users} activity={data.activity?.activity || []} />;
-    if (section === 'library') return <LibraryPanel library={data.library} onRefresh={refresh} />;
+    if (section === 'library') return <LibraryPanel library={data.library} onRefresh={refresh} users={users} canManage={user.role === 'admin'} />;
     if (section === 'applications') return <ApplicationsTable applications={applications} users={users} onRefresh={refresh} allowAssign={user.role === 'admin'} canUpdate={canManageApplications} allowRecover={canManageApplications} />;
     if (section === 'companies') return <CompaniesPanel companies={data.companies?.companies || []} onRefresh={refresh} canCreate={user.role === 'admin'} />;
     if (section === 'contractors') return <ContractorsTable contractors={data.contractors?.contractors || []} onRefresh={refresh} canManage={user.role === 'admin'} />;

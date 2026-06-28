@@ -36,6 +36,7 @@ export default function Login() {
   return (
     <main className="login-shell">
       <section className="login-panel">
+        <a className="login-home" href="https://www.alpharecovery.org">&larr; Alpha Recovery Home</a>
         <form className="auth-card" onSubmit={submit}>
           <p className="eyebrow">Authorized Personnel Only</p>
           <h2>Secure Access</h2>

@@ -102,7 +102,8 @@
       "postingExpirationDate": "2026-06-02",
       "positionOpenDate": "",
       "notificationSettings": ""
-    }
+    },
+    "program": "Child Welfare"
   },
   {
     "id": "quality-control-manager",
@@ -144,7 +145,8 @@
     "applyUrl": "/apply/quality-control-manager",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours. Regular use of computer, audit tracking systems, and reporting platforms. Frequent interaction with the QC Specialist team, division leadership, and operational staff."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "quality-control-specialist",
@@ -246,7 +248,8 @@
       "postingExpirationDate": "",
       "positionOpenDate": "",
       "notificationSettings": ""
-    }
+    },
+    "program": "Child Welfare"
   },
   {
     "id": "data-and-reporting-manager",
@@ -288,7 +291,8 @@
     "applyUrl": "/apply/data-and-reporting-manager",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours. Extended periods at a workstation working with data, dashboards, and reporting tools. Regular use of computer, BI platforms, and Microsoft 365."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "corporate-security-officer",
@@ -330,7 +334,8 @@
     "applyUrl": "/apply/corporate-security-officer",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours with occasional extended hours during security incidents or audits. Regular handling of sensitive personnel information requiring a secure workspace. Frequent interaction with the personnel security office, leadership, and employees."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "security-administrator",
@@ -371,7 +376,8 @@
     "applyUrl": "/apply/security-administrator",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours. Extended periods at a workstation processing security applications, tracking clearances, and maintaining records. Secure workspace required for handling sensitive personnel data."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "administrative-manager",
@@ -411,7 +417,8 @@
     "applyUrl": "/apply/administrative-manager",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours. Regular use of computer, scheduling tools, and Microsoft 365. Frequent interaction with leadership, division heads, and external stakeholders."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "administrative-specialist",
@@ -449,7 +456,8 @@
     "applyUrl": "/apply/administrative-specialist",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours. Extended periods at a workstation managing correspondence, documents, and schedules. Regular use of computer and Microsoft 365."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "training-specialist",
@@ -489,7 +497,8 @@
     "applyUrl": "/apply/training-specialist",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters with use of classroom and training facilities. Standard business hours with occasional extended hours during training delivery. Regular use of computer, learning management systems, and presentation tools. Active facilitation in front of groups."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "welfare-liaison",
@@ -530,7 +539,8 @@
     "applyUrl": "/apply/welfare-liaison",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters. Standard business hours with occasional extended hours during escalations. Frequent phone and video communication with community partners, agencies, and family members. Regular use of computer and case-management systems."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "watch-commander",
@@ -572,7 +582,8 @@
     "applyUrl": "/apply/watch-commander",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage supporting a 24/7 or extended-hours operation. High-tempo environment with frequent escalations and decisions made under time pressure. Regular use of monitoring, communication, and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "watch-supervisor",
@@ -613,7 +624,8 @@
     "applyUrl": "/apply/watch-supervisor",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage. Fast-paced environment requiring active oversight of analyst teams and field coordination. Regular use of monitoring, dispatch, and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "senior-all-source-intelligence-analyst",
@@ -654,7 +666,8 @@
     "applyUrl": "/apply/senior-all-source-intelligence-analyst",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage. Extended periods at a workstation conducting research, analysis, and case-package development. Regular use of research databases and case-management systems."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "all-source-intelligence-analyst",
@@ -695,7 +708,8 @@
     "applyUrl": "/apply/all-source-intelligence-analyst",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage. Extended periods at a workstation conducting research and analysis. Regular use of research databases, validation tools, and case-management systems."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "osint-analyst",
@@ -736,7 +750,8 @@
     "applyUrl": "/apply/osint-analyst",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage. Extended periods at a workstation conducting open-source research. Regular use of research tools, public records platforms, and case-management systems."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "real-time-operations-analyst",
@@ -777,7 +792,8 @@
     "applyUrl": "/apply/real-time-operations-analyst",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage tied to field activity, including evenings and weekends. High-tempo environment with active coordination during live field events. Regular use of communication, monitoring, and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "linguist-analyst",
@@ -817,7 +833,8 @@
     "applyUrl": "/apply/linguist-analyst",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Part-time shifts based on operational demand, including occasional evenings and weekends. Frequent live interpretation and translation work requiring focused attention. Regular use of communication and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "data-entry-specialist",
@@ -857,7 +874,8 @@
     "applyUrl": "/apply/data-entry-specialist",
     "workEnvironment": [
       "Operations-center environment at the Atlanta, GA headquarters. Shift-based coverage. Extended periods at a workstation entering and validating case data under strict timeliness requirements. Regular use of case-management and reporting systems."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "field-operations-manager",
@@ -899,7 +917,8 @@
     "applyUrl": "/apply/field-operations-manager",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters with periodic travel to field locations for oversight, training, and incident response. Standard business hours with extended hours during escalations or surge periods. Regular use of computer, dispatch, and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "operations-manager",
@@ -940,7 +959,8 @@
     "applyUrl": "/apply/operations-manager",
     "workEnvironment": [
       "Office-based role at the Atlanta, GA headquarters with periodic travel to regional field locations for oversight and team support. Standard business hours with extended hours during escalations. Regular use of computer, routing, dispatch, and case-management tools."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "case-manager",
@@ -981,7 +1001,8 @@
     "applyUrl": "/apply/case-manager",
     "workEnvironment": [
       "Hybrid field and remote role based out of the assigned region. Extensive nationwide travel to support field teams, conduct supervisory reviews, and respond to complex situations on site. Work occurs in residential settings, in vehicles, and at remote locations. Evening hours expected to meet site-visit cutoffs. Variable weather and travel conditions."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "field-interpreter",
@@ -1021,7 +1042,8 @@
     "applyUrl": "/apply/field-interpreter",
     "workEnvironment": [
       "Field-based role with extensive nationwide travel. Work occurs in residential settings during site visits, often involving sensitive or emotionally charged interactions. Evening hours expected to meet site-visit cutoffs. Variable weather and travel conditions."
-    ]
+    ],
+    "program": "Child Welfare"
   },
   {
     "id": "case-management-specialist",
@@ -1067,6 +1089,7 @@
     "applyUrl": "/apply/case-management-specialist",
     "workEnvironment": [
       "Field-based role with extensive nationwide travel. Two-person field unit conducting in-person site visits in residential settings. Evening hours expected to meet site-visit cutoffs. Physical activity including walking, standing, climbing stairs, and extended driving. Variable weather and travel conditions. Use of mobile devices and case-management tools in the field."
-    ]
+    ],
+    "program": "Child Welfare"
   }
 ]

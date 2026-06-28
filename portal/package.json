@@ -19,6 +19,7 @@
     "db:rollback": "node scripts/db-rollback.mjs",
     "db:verify": "node scripts/db-verify.mjs",
     "db:backfill": "node scripts/backfill-app-state-to-normalized.mjs",
+    "db:backfill-programs": "node scripts/backfill-job-programs.mjs",
     "db:export-jsonb": "node scripts/export-normalized-to-app-state.mjs",
     "storage:cleanup-orphans": "node scripts/cleanup-orphaned-storage.mjs",
     "retention:purge": "node scripts/purge-retained-pii.mjs",

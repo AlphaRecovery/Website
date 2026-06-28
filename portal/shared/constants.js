@@ -1,5 +1,15 @@
 export const ROLES = ['admin', 'recruiter', 'hr', 'manager', 'read_only', 'contractor', 'applicant'];
 
+// Alpha Recovery operating programs. Every role/posting belongs to one of these.
+// Keep this list in sync with assets/careers.js (PROGRAMS) on the public site.
+export const PROGRAMS = [
+  'Child Welfare',
+  'Fugitive Operations',
+  'Intelligence Operations',
+  'Autonomous Systems Division (ASD)'
+];
+export const DEFAULT_PROGRAM = 'Child Welfare';
+
 export const APPLICATION_STATUSES = ['submitted', 'received', 'review', 'interview', 'approved', 'hired', 'rejected', 'onboarding', 'archived'];
 export const COMPANY_TYPES = ['individual', 'private investigation firm', 'security company', 'social service organization', 'interpreter organization', 'other'];
 export const COMPANY_STATUSES = ['active', 'inactive', 'pending_review'];

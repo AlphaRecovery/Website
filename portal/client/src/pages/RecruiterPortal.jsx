@@ -54,7 +54,7 @@ export default function RecruiterPortal() {
   function content() {
     if (section === 'recruiting') return <RecruitingOperations applications={applications} data={data} onRefresh={refresh} />;
     if (section === 'jobs') return <JobBoardPanel jobs={data.jobs?.jobs || []} canManage onRefresh={refresh} applications={applications} employmentApplications={data.library?.employmentApplications || []} users={users} activity={data.activity?.activity || []} />;
-    if (section === 'library') return <LibraryPanel library={data.library} onRefresh={refresh} />;
+    if (section === 'library') return <LibraryPanel library={data.library} onRefresh={refresh} users={users} canManage />;
     if (section === 'applications') return <ApplicationsTable applications={applications} users={users} onRefresh={refresh} />;
     if (section === 'companies') return <CompaniesPanel companies={data.companies?.companies || []} onRefresh={refresh} />;
     if (section === 'tasks') return <TasksPanel tasks={tasks} users={users} onRefresh={refresh} canCreate />;

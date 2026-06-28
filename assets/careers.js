@@ -40,7 +40,7 @@ function renderJobCard(job) {
         <h3>${job.title}</h3>
         <p>${job.summary}</p>
         <div class="meta" style="margin-top:0.9rem;">
-          <span>${job.service || 'Child Welfare'}</span>
+          <span>${job.program || 'Child Welfare'}</span>
           <span>${job.department}</span>
           <span>${job.location}</span>
           <span>${job.employmentType}</span>
@@ -64,11 +64,9 @@ function initCareersLanding(content) {
   const jobs = openJobs(content);
   const serviceOptions = [
     'Child Welfare',
-    'Security',
-    'Intelligence',
-    'Fugitive Recovery',
-    'Crisis Management',
-    'Law Enforcement Support'
+    'Fugitive Operations',
+    'Intelligence Operations',
+    'Autonomous Systems Division (ASD)'
   ];
   const grid = document.getElementById('jobsGrid');
   const count = document.getElementById('jobCount');
@@ -82,7 +80,7 @@ function initCareersLanding(content) {
   const clearFilters = document.getElementById('clearFilters');
   if (!grid) return;
 
-  populateSelect(serviceFilter, serviceOptions, 'Service');
+  populateSelect(serviceFilter, serviceOptions, 'Program');
   populateSelect(departmentFilter, jobs.map((job) => job.department), 'Department');
   populateSelect(employmentFilter, jobs.map((job) => job.employmentType), 'Employment Type');
   populateSelect(locationFilter, jobs.map((job) => job.location), 'Location');
@@ -91,7 +89,7 @@ function initCareersLanding(content) {
   function render() {
     const keywordValue = keyword.value.trim().toLowerCase();
     const visible = jobs.filter((job) => {
-      const jobService = job.service || 'Child Welfare';
+      const jobService = job.program || 'Child Welfare';
       const haystack = `${job.title} ${job.summary} ${jobService} ${job.department} ${job.location} ${job.employmentType} ${job.clearanceRequirement}`.toLowerCase();
       return (!keywordValue || haystack.includes(keywordValue))
         && (!serviceFilter.value || jobService === serviceFilter.value)
@@ -158,6 +156,7 @@ function initJobDetail(content) {
       <aside class="job-sidebar">
         <a class="btn-red" href="${applyUrl}">Apply Now</a>
         <dl>
+          <div><dt>Program</dt><dd>${job.program || 'Child Welfare'}</dd></div>
           <div><dt>Location</dt><dd>${job.location}</dd></div>
           <div><dt>Department</dt><dd>${job.department}</dd></div>
           <div><dt>Employment Type</dt><dd>${job.employmentType}</dd></div>

@@ -84,7 +84,7 @@ function ApplicationDetail({ selected, onRefresh }) {
           <h3>{application.full_name}</h3>
           <p>{application.role_title} / {application.department} / {application.email}</p>
         </div>
-        <Badge value={`${application.score}/100`} />
+        <span className="panel-count">Score {application.score}/100</span>
       </div>
 
       <dl className="details-grid">
@@ -226,7 +226,7 @@ export default function EmploymentAdmin() {
             { key: 'employment_type', label: 'Employment Type', sortable: true },
             { key: 'department', label: 'Department', sortable: true },
             { key: 'submitted_at', label: 'Date Submitted', sortable: true, render: (row) => new Date(row.submitted_at).toLocaleDateString() },
-            { key: 'score', label: 'Score', sortable: true, render: (row) => <Badge value={`${row.score}`} /> },
+            { key: 'score', label: 'Score', sortable: true, render: (row) => <span className="panel-count">{row.score}</span> },
             { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
             { key: 'notification_status', label: 'Email', sortable: true, render: (row) => <Badge value={row.notification_status === 'failed' ? 'Submitted - Notification Failed' : (row.notification_status || 'pending')} /> },
             { key: 'id', label: 'Review', render: (row) => <button type="button" onClick={() => setSelectedId(row.id)}>Open</button> }

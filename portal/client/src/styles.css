@@ -154,6 +154,21 @@ code {
   width: min(100%, 460px);
 }
 
+.login-home {
+  justify-self: start;
+  margin-bottom: 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  transition: color 0.2s ease;
+}
+
+.login-home:hover {
+  color: var(--white);
+}
+
 .auth-card,
 .panel,
 .panel-form {
@@ -625,19 +640,39 @@ code {
   font-size: 0.68rem;
 }
 
-.activity-feed div {
-  grid-template-columns: 82px minmax(0, 1fr) minmax(120px, 0.5fr);
-  align-items: center;
+.activity-feed > div:not(.empty-state) {
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 0.2rem 0.85rem;
+  padding: 0.7rem 0;
 }
 
 .activity-feed time {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   color: var(--red);
   font-weight: 700;
 }
 
-.activity-feed small {
+.activity-feed > div:not(.empty-state) > span {
+  grid-column: 2;
+  grid-row: 1;
+  font-weight: 600;
+}
+
+.activity-feed > div:not(.empty-state) > small {
+  grid-column: 2;
+  grid-row: 2;
+  text-align: left;
   color: var(--muted);
-  text-align: right;
+  line-height: 1.45;
+}
+
+/* The empty-state message is a plain block, never the activity grid. */
+.activity-feed .empty-state {
+  display: block;
+  grid-template-columns: none;
+  text-align: left;
 }
 
 .system-list strong {
@@ -738,7 +773,38 @@ th {
   min-width: 130px;
 }
 
-.badge,
+/* Status indicator: a quiet colored dot + label, not a pill. The dot color
+   carries meaning (set per tone below); the label stays in readable text. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--white);
+  width: fit-content;
+}
+
+.badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--badge-dot, currentColor);
+  flex: none;
+}
+
+.badge-positive { --badge-dot: #16a34a; }
+.badge-negative { --badge-dot: #e11d2e; }
+.badge-progress { --badge-dot: #d97706; }
+.badge-neutral  { --badge-dot: #a80000; }
+
 .role-badge {
   display: inline-flex;
   align-items: center;
@@ -751,6 +817,14 @@ th {
   letter-spacing: 0.08em;
   font-size: 0.64rem;
   width: fit-content;
+}
+
+/* Plain inline count/meta text where a pill used to sit (panel headers, etc.) */
+.panel-count {
+  color: var(--red);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .stack-list {
@@ -3951,14 +4025,14 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    standalone login/auth pages on the existing dark treatment.
    ============================================================ */
 .portal-layout {
-  --portal-bg: #eef1f5;
+  --portal-bg: #f6f2f2;
   --portal-surface: #ffffff;
-  --portal-surface-2: #f7f9fc;
-  --portal-border: #e3e7ee;
-  --portal-border-strong: #cfd5e0;
+  --portal-surface-2: #faf6f6;
+  --portal-border: #ebe0e1;
+  --portal-border-strong: #d8c7c9;
   --portal-text: #161b24;
-  --portal-muted: #5c6473;
-  --portal-faint: #8a92a1;
+  --portal-muted: #6a5d5f;
+  --portal-faint: #9b8e90;
   --portal-red: #e11d2e;
   --portal-red-hover: #c2182a;
   --portal-red-soft: #fdecef;
@@ -3976,16 +4050,16 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .portal-layout .sidebar,
 .portal-layout .portal-mobile-bar {
-  background: var(--portal-surface);
-  border-color: var(--portal-border);
-  color: var(--portal-text);
+  background: #141414;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .portal-layout .sidebar-brand,
 .portal-layout .sidebar-user,
 .portal-layout .sidebar a,
 .portal-layout .portal-mobile-bar {
-  border-color: var(--portal-border);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .portal-layout .sidebar-brand span,
@@ -4023,14 +4097,25 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 .portal-layout .sidebar a:hover,
 .portal-layout .sidebar a.active {
-  background: var(--portal-red-soft);
-  color: var(--portal-red);
+  background: var(--portal-red);
+  color: #fff;
 }
 
 .portal-layout .nav-count {
   border-color: var(--portal-red);
   background: var(--portal-red);
   color: #fff;
+}
+
+.portal-layout .sidebar a,
+.portal-layout .sidebar-brand strong,
+.portal-layout .sidebar-user,
+.portal-layout .portal-mobile-brand strong {
+  color: #fff;
+}
+
+.portal-layout .sidebar-user small {
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .portal-layout .portal-menu-button {
@@ -4130,6 +4215,70 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-color: var(--portal-border);
 }
 
+/* Job Board: replace the dark action-bar strip with a white toolbar, and
+   make the workspace meta labels/values readable on the light card. */
+.portal-layout .jmc-action-bar {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 12px;
+}
+
+.portal-layout .jmc-meta-grid span,
+.portal-layout .jmc-settings-readout span {
+  color: var(--portal-red);
+}
+
+.portal-layout .jmc-meta-grid strong,
+.portal-layout .jmc-settings-readout strong {
+  color: var(--portal-text);
+}
+
+/* Stat cards -> compact filter "tabs": a row of bordered chips matching the
+   Overview/Requirements tab buttons, count + label inline, red when active. */
+.portal-layout .jmc-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.portal-layout .jmc-stat {
+  min-height: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--portal-border-strong);
+  border-bottom-width: 1px;
+  border-radius: 8px;
+  background: var(--portal-surface);
+}
+
+.portal-layout .jmc-stat strong {
+  font-size: 0.98rem;
+  color: var(--portal-red);
+}
+
+.portal-layout .jmc-stat span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--portal-text);
+}
+
+.portal-layout .jmc-stat.active,
+.portal-layout .jmc-stat:hover {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+}
+
+.portal-layout .jmc-stat.active strong,
+.portal-layout .jmc-stat.active span,
+.portal-layout .jmc-stat:hover strong,
+.portal-layout .jmc-stat:hover span {
+  color: var(--portal-red);
+}
+
 .portal-layout input,
 .portal-layout select,
 .portal-layout textarea {
@@ -4207,12 +4356,45 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   color: var(--portal-green);
 }
 
-.portal-layout .badge,
+/* Quiet status indicator on the light portal: dark label + colored dot, no pill. */
+.portal-layout .badge {
+  color: var(--portal-text);
+}
+
+.portal-layout .panel-count {
+  color: var(--portal-red);
+}
+
+/* The role tag: a soft red chip, softly rounded — not a hard pill, not grey. */
 .portal-layout .role-badge {
-  border-color: #f5c6cd;
-  border-radius: 999px;
+  border-color: #f3b6bc;
+  border-radius: 6px;
   background: var(--portal-red-soft);
   color: var(--portal-red);
+}
+
+/* Metric cards: drop the black-gradient dark-theme look for white-on-red. */
+.portal-layout .ops-metric {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+}
+
+.portal-layout .ops-metric strong {
+  color: var(--portal-red);
+}
+
+.portal-layout .ops-metric span {
+  color: var(--portal-text);
+}
+
+/* Status row on the light page background — readable dark text. */
+.portal-layout .ops-status-row {
+  color: var(--portal-text);
+  border-color: var(--portal-border-strong);
+}
+
+.portal-layout .page-header p {
+  color: var(--portal-muted);
 }
 
 .portal-layout .progress-tracker,
@@ -4620,17 +4802,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
    Standalone login/auth pages keep their dark treatment.
    ============================================================ */
 
-/* 1. Eliminate grey — remap muted/faint tokens to black */
+/* Secondary text uses a warm muted tone (kept out of cold blue-grey). */
 .portal-layout {
-  --portal-muted: #000;
-  --portal-faint: #000;
+  --portal-muted: #6a5d5f;
+  --portal-faint: #9b8e90;
 }
 .portal-layout .roc-shell {
-  --roc-muted: #000;
+  --roc-muted: #6a5d5f;
 }
 .application-shell {
-  --app-muted: #000;
-  --app-faint: #000;
+  --app-muted: #6a5d5f;
+  --app-faint: #9b8e90;
 }
 
 /* 2. Default text colour -> black across portal + application */
@@ -4648,7 +4830,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .portal-layout label,
 .portal-layout .stat-name,
 .portal-layout .jmc-status,
-.portal-layout .activity-feed time,
 .portal-layout .activity-feed small,
 .portal-layout .roc-activity-list time,
 .portal-layout .roc-stack small,
@@ -4712,6 +4893,82 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .portal-layout .roc-message-detail {
   background: #fff;
   border-color: var(--portal-border);
+}
+
+/* Clickable library records (job roles + templates): the whole card opens the
+   editor; the Delete action lives inside the card. One shared treatment. */
+.portal-layout .compact-list article.library-record {
+  display: grid;
+  gap: 0.5rem;
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+}
+
+.portal-layout .library-record:hover {
+  border-color: var(--portal-red);
+}
+
+.portal-layout .library-record-open {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.portal-layout .library-record-open:hover:not(:disabled) {
+  background: transparent;
+  color: inherit;
+  border: 0;
+}
+
+.portal-layout .library-record-open strong {
+  color: var(--portal-red);
+  font-weight: 600;
+}
+
+.portal-layout .library-record-open small {
+  display: block;
+  color: var(--portal-muted);
+  margin-top: 0.15rem;
+}
+
+.portal-layout .library-record-open p {
+  margin: 0.35rem 0 0;
+  color: var(--portal-text);
+}
+
+.portal-layout .library-record-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  border-top: 1px solid var(--portal-border);
+  padding-top: 0.5rem;
+}
+
+/* Program filter chips — a row of tab-like buttons that filter roles by program. */
+.portal-layout .library-program-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0.4rem 0 0.8rem;
+}
+
+/* Buttons inherit the generic portal chip styling (border/radius/hover);
+   only the active state needs an override. */
+.portal-layout .library-program-filter button.active {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
 }
 
 .portal-layout .chat-bubble.mine {

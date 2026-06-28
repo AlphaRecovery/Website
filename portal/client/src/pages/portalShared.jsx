@@ -5,7 +5,7 @@ import DataTable from '../components/DataTable.jsx';
 import { DocumentList, MessageThread, TaskList } from '../components/Lists.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { api, documentDownloadUrl, documentViewUrl, employmentFileDownloadUrl, employmentFileViewUrl, uploadDocument } from '../api/client.js';
-import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
+import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, PROGRAMS, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
 import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES } from '../../../shared/applicationConfig.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
@@ -167,7 +167,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <section className="panel ops-panel ops-large">
           <div className="record-header">
             <h3>Recent Applications</h3>
-            <Badge value={`${recentApplications.length} Records`} />
+            <span className="panel-count">{recentApplications.length} records</span>
           </div>
           <div className="ops-table">
             <div className="ops-table-head"><span>Name</span><span>Position</span><span>Date Applied</span><span>Status</span></div>
@@ -186,7 +186,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <section className="panel ops-panel">
           <div className="record-header">
             <h3>Required Actions</h3>
-            <Badge value={`${requiredActions.reduce((sum, item) => sum + item.count, 0)} Open`} />
+            <span className="panel-count">{requiredActions.reduce((sum, item) => sum + item.count, 0)} open</span>
           </div>
           <div className="action-list">
             {requiredActions.map((item) => (
@@ -210,7 +210,7 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <section className="panel ops-panel ops-large">
           <div className="record-header">
             <h3>Recent Activity</h3>
-            <Badge value={`${activity.length} Updates`} />
+            <span className="panel-count">{activity.length} updates</span>
           </div>
           <div className="activity-feed">
             {activity.map((item) => (
@@ -242,6 +242,7 @@ const emptyJob = {
   slug: '',
   id: '',
   location: 'Nationwide',
+  program: 'Child Welfare',
   department: 'Admin',
   employmentType: 'Full Time',
   payRange: 'Based on role, experience, and assignment',
@@ -309,6 +310,21 @@ const emptyJob = {
 const jobTabs = ['Overview', 'Requirements', 'Responsibilities', 'Benefits', 'Hiring Process', 'Settings', 'Activity'];
 const jobStatuses = ['open', 'draft', 'paused', 'closed', 'archived'];
 const applicationStages = ['submitted', 'received', 'review', 'interview', 'approved', 'onboarding', 'rejected', 'archived'];
+
+// Normalizes a job form into the API payload (slug/id/applyUrl defaults, etc.).
+// Shared by the Job Board editor and the Library role editor.
+function buildJobPayload(source) {
+  const slug = source.slug || jobSlug(source.title);
+  return {
+    ...source,
+    slug,
+    id: source.id || slug,
+    applicationDeadlineTime: source.applicationDeadlineTime || '23:59',
+    positionsNeeded: Math.max(1, Number(source.positionsNeeded || 1)),
+    applyUrl: source.applyUrl || `/apply/${slug}`,
+    settings: { ...emptyJob.settings, ...(source.settings || {}) }
+  };
+}
 
 function listToText(value = []) {
   return Array.isArray(value) ? value.join('\n') : '';
@@ -490,7 +506,7 @@ function FieldList({ label, value, onChange }) {
   );
 }
 
-function JobForm({ form, setForm, users = [], onSubmit, onCancel, submitLabel }) {
+function JobForm({ form, setForm, users = [], onSubmit, onCancel, submitLabel, contentOnly = false }) {
   function update(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
@@ -504,30 +520,33 @@ function JobForm({ form, setForm, users = [], onSubmit, onCancel, submitLabel })
       <div className="record-header">
         <div>
           <h3>{submitLabel}</h3>
-          <p>Every field here saves to the job record used by the portal.</p>
+          <p>{contentOnly ? 'Edit the role content — this is what appears on the public posting.' : 'Every field here saves to the job record used by the portal.'}</p>
         </div>
         <button type="button" onClick={onCancel}>Close</button>
       </div>
       <div className="form-grid">
-        <label>Title<input value={form.title || ''} onChange={(event) => update('title', event.target.value)} required /></label>
-        <label>Job ID<input value={form.id || ''} onChange={(event) => update('id', event.target.value)} placeholder={jobSlug(form.title)} /></label>
-        <label>Slug<input value={form.slug || ''} onChange={(event) => update('slug', event.target.value)} placeholder={jobSlug(form.title)} /></label>
+        <label>Role Name<input value={form.title || ''} onChange={(event) => update('title', event.target.value)} required /></label>
+        <label>Program<select value={form.program || 'Child Welfare'} onChange={(event) => update('program', event.target.value)}>{PROGRAMS.map((program) => <option key={program} value={program}>{program}</option>)}</select></label>
         <label>Department<input value={form.department || ''} onChange={(event) => update('department', event.target.value)} /></label>
         <label>Location<input value={form.location || ''} onChange={(event) => update('location', event.target.value)} /></label>
         <label>Employment Type<input value={form.employmentType || ''} onChange={(event) => update('employmentType', event.target.value)} /></label>
+        {!contentOnly && <>
+        <label>Job ID<input value={form.id || ''} onChange={(event) => update('id', event.target.value)} placeholder={jobSlug(form.title)} /></label>
+        <label>Slug<input value={form.slug || ''} onChange={(event) => update('slug', event.target.value)} placeholder={jobSlug(form.title)} /></label>
         <label>Status<select value={form.status || 'open'} onChange={(event) => update('status', event.target.value)}>{jobStatuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}</select></label>
         <label>Assigned Recruiter<select value={form.assignedRecruiterId || ''} onChange={(event) => update('assignedRecruiterId', event.target.value || null)}><option value="">Unassigned</option>{users.filter((user) => ['admin', 'recruiter'].includes(user.role)).map((user) => <option key={user.id} value={user.id}>{user.full_name}</option>)}</select></label>
         <label>Posting Close Date<input type="date" value={form.applicationDeadline || ''} onChange={(event) => update('applicationDeadline', event.target.value)} /></label>
         <label>Posting Close Time<input type="time" value={form.applicationDeadlineTime || '23:59'} onChange={(event) => update('applicationDeadlineTime', event.target.value)} /></label>
         <label>Positions Needed<input type="number" min="1" value={form.positionsNeeded || 1} onChange={(event) => update('positionsNeeded', Math.max(1, Number(event.target.value || 1)))} /></label>
         <label>Internal Position #<input value={form.internalPositionNumber || ''} onChange={(event) => update('internalPositionNumber', event.target.value)} /></label>
+        </>}
         <label>Pay Range<input value={form.payRange || ''} onChange={(event) => update('payRange', event.target.value)} /></label>
         <label>Travel<input value={form.travelRequirement || ''} onChange={(event) => update('travelRequirement', event.target.value)} /></label>
         <label>Background<input value={form.backgroundRequirement || ''} onChange={(event) => update('backgroundRequirement', event.target.value)} /></label>
         <label>Clearance<input value={form.clearanceRequirement || ''} onChange={(event) => update('clearanceRequirement', event.target.value)} /></label>
         <label>Reports To<input value={form.reportsTo || ''} onChange={(event) => update('reportsTo', event.target.value)} /></label>
         <label>Supervises<input value={form.supervises || ''} onChange={(event) => update('supervises', event.target.value)} /></label>
-        <label>Apply Link<input value={form.applyUrl || ''} onChange={(event) => update('applyUrl', event.target.value)} placeholder="/apply/role-slug" /></label>
+        {!contentOnly && <label>Apply Link<input value={form.applyUrl || ''} onChange={(event) => update('applyUrl', event.target.value)} placeholder="/apply/role-slug" /></label>}
         <label>Short Summary<textarea value={form.summary || ''} onChange={(event) => update('summary', event.target.value)} /></label>
         <label>Position Summary<textarea value={form.positionSummary || ''} onChange={(event) => update('positionSummary', event.target.value)} /></label>
         <FieldList label="Responsibilities" value={form.responsibilities} onChange={(value) => update('responsibilities', value)} />
@@ -553,9 +572,9 @@ function JobForm({ form, setForm, users = [], onSubmit, onCancel, submitLabel })
         <FieldList label="Equipment" value={form.equipment} onChange={(value) => update('equipment', value)} />
         <FieldList label="Other Benefits" value={form.otherBenefits} onChange={(value) => update('otherBenefits', value)} />
         <FieldList label="Hiring Process" value={form.hiringProcess} onChange={(value) => update('hiringProcess', value)} />
-        <label>Notification Settings<textarea value={form.settings?.notificationSettings || ''} onChange={(event) => updateSetting('notificationSettings', event.target.value)} /></label>
+        {!contentOnly && <label>Notification Settings<textarea value={form.settings?.notificationSettings || ''} onChange={(event) => updateSetting('notificationSettings', event.target.value)} /></label>}
       </div>
-      <div className="jmc-settings-grid">
+      {!contentOnly && <div className="jmc-settings-grid">
         {[
           ['publicVisibility', 'Public Visibility'],
           ['internalOnly', 'Internal Only'],
@@ -577,11 +596,11 @@ function JobForm({ form, setForm, users = [], onSubmit, onCancel, submitLabel })
         ].map(([key, label]) => (
           <label className="jmc-check" key={key}><input type="checkbox" checked={Boolean(form.settings?.[key])} onChange={(event) => updateSetting(key, event.target.checked)} />{label}</label>
         ))}
-      </div>
-      <div className="form-grid">
+      </div>}
+      {!contentOnly && <div className="form-grid">
         <label>Posting Expiration Date<input type="date" value={form.settings?.postingExpirationDate || ''} onChange={(event) => updateSetting('postingExpirationDate', event.target.value)} /></label>
         <label>Position Open Date<input type="date" value={form.settings?.positionOpenDate || ''} onChange={(event) => updateSetting('positionOpenDate', event.target.value)} /></label>
-      </div>
+      </div>}
       <div className="table-actions">
         <button type="submit">{submitLabel}</button>
         <button type="button" onClick={onCancel}>Cancel</button>
@@ -594,7 +613,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   const [selectedSlug, setSelectedSlug] = useState('');
   const [form, setForm] = useState({ ...emptyJob });
   const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState({ department: '', status: '', location: '', employmentType: '', clearance: '', recruiter: '' });
+  const [filters, setFilters] = useState({ program: '', department: '', status: '', location: '', employmentType: '', clearance: '', recruiter: '' });
   const [activeTab, setActiveTab] = useState('Overview');
   const [statFilter, setStatFilter] = useState('');
   const [modal, setModal] = useState('');
@@ -644,6 +663,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
     return jobs.filter((job) => {
       const status = statFilter && jobStatuses.includes(statFilter) ? statFilter : filters.status;
       if (status && job.status !== status) return false;
+      if (filters.program && (job.program || 'Child Welfare') !== filters.program) return false;
       if (filters.department && job.department !== filters.department) return false;
       if (filters.location && job.location !== filters.location) return false;
       if (filters.employmentType && job.employmentType !== filters.employmentType) return false;
@@ -659,7 +679,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   }, [filters, jobs, query, statFilter, timerNow]);
 
   function clearFilters() {
-    setFilters({ department: '', status: '', location: '', employmentType: '', clearance: '', recruiter: '' });
+    setFilters({ program: '', department: '', status: '', location: '', employmentType: '', clearance: '', recruiter: '' });
     setStatFilter('');
   }
 
@@ -672,16 +692,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
   }
 
   function buildPayload(source = form) {
-    const slug = source.slug || jobSlug(source.title);
-    return {
-      ...source,
-      slug,
-      id: source.id || slug,
-      applicationDeadlineTime: source.applicationDeadlineTime || '23:59',
-      positionsNeeded: Math.max(1, Number(source.positionsNeeded || 1)),
-      applyUrl: source.applyUrl || `/apply/${slug}`,
-      settings: { ...emptyJob.settings, ...(source.settings || {}) }
-    };
+    return buildJobPayload(source);
   }
 
   function startNewJob() {
@@ -887,6 +898,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
             </div>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search jobs by title, department, location, or job ID..." />
             <div className="jmc-filter-grid">
+              <label>Program<select value={filters.program} onChange={(event) => setFilters({ ...filters, program: event.target.value })}><option value="">All Programs</option>{PROGRAMS.map((program) => <option key={program} value={program}>{program}</option>)}</select></label>
               <label>Department<select value={filters.department} onChange={(event) => setFilters({ ...filters, department: event.target.value })}><option value="">All Departments</option>{uniqueOptions(jobs, 'department').map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
               <label>Status<select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">All Statuses</option>{jobStatuses.map((status) => <option key={status} value={status}>{displayLabel(status)}</option>)}</select></label>
               <label>Location<select value={filters.location} onChange={(event) => setFilters({ ...filters, location: event.target.value })}><option value="">All Locations</option>{uniqueOptions(jobs, 'location').map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
@@ -900,7 +912,7 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
                   <button type="button" className="jmc-job-main" onClick={() => { setSelectedSlug(job.slug); setActiveTab('Overview'); setCardMenu(''); }} onDoubleClick={() => previewJob(job)}>
                     <span className={`jmc-status ${job.status}`}>{displayLabel(job.status)}</span>
                     <strong>{job.title}</strong>
-                    <small>{job.department} / {job.location} / {job.employmentType}</small>
+                    <small>{job.program || 'Child Welfare'} / {job.department} / {job.location} / {job.employmentType}</small>
                     <small>Needed: {job.positionsNeeded || 1}</small>
                     <small>Close: {toDate(job.applicationDeadline)} {job.applicationDeadline ? job.applicationDeadlineTime || '23:59' : ''} / {closeCountdown(job.applicationDeadline, job.applicationDeadlineTime, timerNow)}</small>
                     <small>Created: {toDate(job.createdAt || job.postedDate)} / Updated: {relativeTime(job.modifiedAt || job.postedDate)}</small>
@@ -931,10 +943,11 @@ export function JobBoardPanel({ jobs = [], canManage = false, onRefresh, applica
                     <h3>Position Workspace</h3>
                     <p>{selectedJob.title} / {selectedJob.department} / {selectedJob.location}</p>
                   </div>
-                  <Badge value={`Job ID: ${selectedJob.id || selectedJob.slug}`} />
+                  <span className="panel-count">Job ID: {selectedJob.id || selectedJob.slug}</span>
                 </div>
                 <div className="jmc-meta-grid">
                   <div><span>Position Title</span><strong>{selectedJob.title}</strong></div>
+                  <div><span>Program</span><strong>{selectedJob.program || 'Child Welfare'}</strong></div>
                   <div><span>Department</span><strong>{selectedJob.department}</strong></div>
                   <div><span>Location</span><strong>{selectedJob.location}</strong></div>
                   <div><span>Employment Type</span><strong>{selectedJob.employmentType}</strong></div>
@@ -1166,14 +1179,62 @@ const templateDefaults = {
   status: 'active'
 };
 
-export function LibraryPanel({ library, onRefresh }) {
+export function LibraryPanel({ library, onRefresh, users = [], canManage = false }) {
   const [templateForm, setTemplateForm] = useState(templateDefaults);
   const [editingId, setEditingId] = useState('');
+  const [jobForm, setJobForm] = useState(null);
+  const [jobSlugEditing, setJobSlugEditing] = useState('');
+  const [programFilter, setProgramFilter] = useState('');
+  const [manageRoles, setManageRoles] = useState(false);
   const [actionError, guard] = useActionError();
   const jobs = library?.jobs || [];
+  const filteredJobs = programFilter ? jobs.filter((job) => (job.program || 'Child Welfare') === programFilter) : jobs;
   const employmentApplications = library?.employmentApplications || [];
   const portalApplications = library?.portalApplications || [];
   const templates = library?.templates || [];
+
+  function editRole(job) {
+    setJobSlugEditing(job.slug || '');
+    setJobForm({ ...emptyJob, ...job, settings: { ...emptyJob.settings, ...(job.settings || {}) } });
+  }
+
+  function newRole() {
+    setJobSlugEditing('');
+    setJobForm({ ...emptyJob, settings: { ...emptyJob.settings } });
+  }
+
+  function closeRoleEditor() {
+    setJobForm(null);
+    setJobSlugEditing('');
+  }
+
+  async function saveRole(event) {
+    event.preventDefault();
+    const payload = buildJobPayload(jobForm);
+    await guard(async () => {
+      if (jobSlugEditing) {
+        await api(`/api/jobs/${jobSlugEditing}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      } else {
+        await api('/api/jobs', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      closeRoleEditor();
+      onRefresh();
+    });
+  }
+
+  async function deleteRole(job) {
+    const answer = window.prompt(`This permanently deletes the "${job.title}" role and its public posting.\n\nType Delete to confirm.`);
+    if (answer === null) return;
+    if (answer.trim() !== 'Delete') {
+      window.alert('Deletion cancelled — you must type Delete exactly to confirm.');
+      return;
+    }
+    await guard(async () => {
+      await api(`/api/jobs/${job.slug}`, { method: 'DELETE' });
+      if (jobSlugEditing === job.slug) closeRoleEditor();
+      onRefresh();
+    });
+  }
 
   function editTemplate(template) {
     setEditingId(template.id);
@@ -1214,16 +1275,48 @@ export function LibraryPanel({ library, onRefresh }) {
     <div className="library-grid">
       <ErrorState error={actionError} />
       <section className="panel library-card">
-        <h3>Job Roles And Descriptions</h3>
-        <p>{jobs.length} role descriptions in the Alpha job board.</p>
-        <div className="stack-list compact-list">
-          {jobs.map((job) => (
-            <article key={job.slug}>
-              <strong>{job.title}</strong>
-              <small>{job.department} / {job.location} / {job.employmentType} / {displayLabel(job.status)}</small>
-              <p>{job.summary || job.positionSummary}</p>
-            </article>
+        <div className="record-header">
+          <div>
+            <h3>Job Roles And Descriptions</h3>
+            <p>{filteredJobs.length} role description{filteredJobs.length === 1 ? '' : 's'}{programFilter ? ` in ${programFilter}` : ' across all programs'}.{canManage ? ' Select a role to edit and save it.' : ''}</p>
+          </div>
+          {canManage && (
+            <div className="table-actions">
+              <button type="button" onClick={newRole}>New Role</button>
+              <button type="button" className={manageRoles ? 'active' : ''} onClick={() => setManageRoles((value) => !value)}>{manageRoles ? 'Done' : 'Edit'}</button>
+            </div>
+          )}
+        </div>
+        <div className="library-program-filter">
+          <button type="button" className={programFilter === '' ? 'active' : ''} onClick={() => setProgramFilter('')}>All Programs</button>
+          {PROGRAMS.map((program) => (
+            <button type="button" key={program} className={programFilter === program ? 'active' : ''} onClick={() => setProgramFilter(program)}>{program}</button>
           ))}
+        </div>
+        <div className="stack-list compact-list">
+          {filteredJobs.map((job) => (
+            canManage ? (
+              <article className="library-record" key={job.slug}>
+                <button type="button" className="library-record-open" onClick={() => editRole(job)}>
+                  <strong>{job.title}</strong>
+                  <small>{job.program || 'Child Welfare'} / {job.department} / {job.location} / {job.employmentType}</small>
+                  <p>{job.summary || job.positionSummary}</p>
+                </button>
+                {manageRoles && (
+                  <div className="library-record-actions">
+                    <button type="button" className="danger" onClick={() => deleteRole(job)}>Delete Role</button>
+                  </div>
+                )}
+              </article>
+            ) : (
+              <article key={job.slug}>
+                <strong>{job.title}</strong>
+                <small>{job.program || 'Child Welfare'} / {job.department} / {job.location} / {job.employmentType}</small>
+                <p>{job.summary || job.positionSummary}</p>
+              </article>
+            )
+          ))}
+          {!filteredJobs.length && <div className="empty-state">No roles in {programFilter || 'this view'}.</div>}
         </div>
       </section>
 
@@ -1276,23 +1369,33 @@ export function LibraryPanel({ library, onRefresh }) {
         </form>
         <div className="stack-list compact-list">
           {templates.map((template) => (
-            <article key={template.id}>
-              <div className="record-header">
-                <div>
-                  <strong>{template.title}</strong>
-                  <small>{template.type} / {template.audience}</small>
-                </div>
-                <Badge value={template.status} />
-              </div>
-              <p>{template.description || 'No description provided.'}</p>
-              <div className="table-actions">
-                <button type="button" onClick={() => editTemplate(template)}>Edit</button>
+            <article key={template.id} className="library-record">
+              <button type="button" className="library-record-open" onClick={() => editTemplate(template)}>
+                <strong>{template.title}</strong>
+                <small>{template.type} / {template.audience || 'All audiences'} / {displayLabel(template.status)}</small>
+                <p>{template.description || 'No description provided.'}</p>
+              </button>
+              <div className="library-record-actions">
                 <button type="button" className="danger" onClick={() => deleteTemplate(template)}>Delete</button>
               </div>
             </article>
           ))}
         </div>
       </section>
+
+      {jobForm && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <JobForm
+            form={jobForm}
+            setForm={setJobForm}
+            users={users}
+            onSubmit={saveRole}
+            onCancel={closeRoleEditor}
+            submitLabel={jobSlugEditing ? 'Save Role' : 'Create Role'}
+            contentOnly
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1911,7 +2014,7 @@ export function MessagesPanel({ messages = [], users = [], onRefresh }) {
                 <h3>{activeThread.otherUser?.full_name || 'Portal User'}</h3>
                 <p>{activeThread.subject}</p>
               </div>
-              <Badge value={activeThread.unread ? `${activeThread.unread} New` : 'Open'} />
+              <span className="panel-count">{activeThread.unread ? `${activeThread.unread} new` : 'Open'}</span>
             </header>
             <div className="thread-messages">
               {activeThread.messages.map((message) => (
