@@ -56,8 +56,8 @@ test('employmentApplicationRecord creates the admin-facing source-of-truth row',
   assert.equal(record.id, 'application-1');
   assert.equal(record.user_id, user.id);
   assert.equal(record.confirmation_number, 'FO-2026-01234-ABCDEF');
-  assert.equal(record.status, 'New');
-  assert.equal(record.role_title, role.title);
+  assert.equal(record.status, 'submitted');
+  assert.equal(record.role_applied, role.title);
   assert.equal(record.employment_type, role.employmentType);
   assert.equal(record.full_name, payload.personalInformation.fullName);
   assert.equal(record.phone, payload.personalInformation.phone);
@@ -89,6 +89,7 @@ test('employmentSubmissionRecord keeps a portal delivery audit linked to the app
   });
 
   assert.equal(record.delivery, 'portal');
+  assert.equal(record.application_id, 'application-1');
   assert.equal(record.employment_application_id, 'application-1');
   assert.equal(record.email_status, 'pending');
   assert.equal(record.email_to, 'hr@example.com');

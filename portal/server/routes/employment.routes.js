@@ -197,6 +197,7 @@ function confirmationNumberFor(role, payload) {
   const db = getDb();
   const exists = (candidate) => (
     (db.employment_application_submissions || []).some((row) => row.confirmation_number === candidate) ||
+    db.applications.some((row) => row.confirmation_number === candidate) ||
     db.employment_applications.some((row) => row.confirmation_number === candidate)
   );
   for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -215,7 +216,7 @@ function sanitizePayload(payload) {
 }
 
 function visibleEmploymentApplications(user) {
-  const rows = getDb().employment_applications;
+  const rows = getDb().applications;
   if (['admin', 'recruiter', 'hr', 'manager', 'read_only'].includes(user.role)) return rows.filter((row) => canReviewEmploymentApplication(user, row));
   if (user.role === 'applicant') return rows.filter((row) => row.email === user.email || row.user_id === user.id);
   return [];
@@ -223,6 +224,7 @@ function visibleEmploymentApplications(user) {
 
 function submittedApplicationFor(db, userId, roleSlug) {
   return (
+    db.applications.find((row) => row.user_id === userId && (row.role_slug === roleSlug || row.role_applied === roleSlug)) ||
     db.employment_applications.find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
     (db.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug)
   );
@@ -359,21 +361,26 @@ export function employmentApplicationRecord({ applicationId, user, role, payload
   return {
     id: applicationId,
     user_id: user.id,
+    company_id: null,
     email: personal.email.toLowerCase(),
     role_slug: role.slug,
-    role_title: role.title,
+    role_applied: role.title,
     department: role.department,
     location: role.location,
     employment_type: role.employmentType,
     full_name: personal.fullName || '',
     phone: personal.phone || '',
     confirmation_number: confirmation,
-    status: APPLICATION_STATUS[0],
+    status: 'submitted',
     score: 0,
     score_breakdown: {},
+    experience: '',
+    message: '',
+    source: 'portal',
     payload,
     files,
-    submitted_at: submittedAt
+    submitted_at: submittedAt,
+    created_at: submittedAt
   };
 }
 
@@ -390,6 +397,7 @@ export function employmentSubmissionRecord({ user, role, payload, confirmation, 
     full_name: personal.fullName || '',
     confirmation_number: confirmation,
     delivery: 'portal',
+    application_id: applicationId,
     employment_application_id: applicationId,
     email_to: emailTo,
     email_cc: emailCc,
@@ -601,7 +609,7 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
       userId: user.id,
       roleSlug: role.slug
     });
-    logActivity(user.id, 'application_submitted', { employment_application_id: application.id, entity_type: 'employment_application', entity_id: application.id, role: role.title, reference: confirmation }, req);
+    logActivity(user.id, 'application_submitted', { application_id: application.id, entity_type: 'application', entity_id: application.id, role: role.title, reference: confirmation }, req);
     pushNotificationsForAll();
 
     const staffEmail = await sendEmail({
@@ -647,14 +655,21 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
 });
 
 router.get('/admin/employment-applications', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
-  const applications = visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+  const applications = visibleEmploymentApplications(req.user)
+    .map((row) => ({
+      ...row,
+      role_title: row.role_title || row.role_applied || '',
+      submitted_at: row.submitted_at || row.created_at
+    }))
+    .slice()
+    .sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at));
   const today = new Date().toISOString().slice(0, 10);
   res.json({
     applications,
     summary: {
-      new_count: applications.filter((row) => row.status === 'New').length,
+      new_count: applications.filter((row) => ['New', 'submitted'].includes(row.status)).length,
       notification_failed_count: applications.filter((row) => row.notification_status === 'failed').length,
-      submitted_today_count: applications.filter((row) => String(row.submitted_at || '').slice(0, 10) === today).length,
+      submitted_today_count: applications.filter((row) => String(row.submitted_at || row.created_at || '').slice(0, 10) === today).length,
       assigned_to_me_count: applications.filter((row) => row.assigned_recruiter_id === req.user.id).length,
       unassigned_count: applications.filter((row) => !row.assigned_recruiter_id).length
     }
@@ -664,7 +679,7 @@ router.get('/admin/employment-applications', requireAuth, requireRole('admin', '
 router.get('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
   const application = visibleEmploymentApplications(req.user).find((row) => row.id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
-  res.json({ application });
+  res.json({ application: { ...application, role_title: application.role_title || application.role_applied || '', submitted_at: application.submitted_at || application.created_at } });
 });
 
 router.patch('/admin/employment-applications/:id', requireAuth, requireRole('admin', 'recruiter', 'hr'), (req, res) => {
@@ -689,12 +704,12 @@ router.patch('/admin/employment-applications/:id', requireAuth, requireRole('adm
     .then((application) => {
       if (!application) return res.status(404).json({ error: 'Application not found' });
       logActivity(req.user.id, patch.assigned_recruiter_id !== undefined ? 'application_assigned' : 'status_change', {
-        employment_application_id: application.id,
-        entity_type: 'employment_application',
+        application_id: application.id,
+        entity_type: 'application',
         entity_id: application.id,
         full_name: application.full_name,
         confirmation_number: application.confirmation_number,
-        role: application.role_title,
+        role: application.role_applied || application.role_title,
         previous_status: previousStatus,
         status: application.status,
         previous_assigned_recruiter_id: previousRecruiterId,
@@ -723,7 +738,8 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
 
   const db = getDb();
   const confirmation = parsed.data.confirmationNumber;
-  const existing = db.employment_applications.find((row) => row.confirmation_number === confirmation);
+  const existing = db.applications.find((row) => row.confirmation_number === confirmation) ||
+    db.employment_applications.find((row) => row.confirmation_number === confirmation);
   if (existing) {
     await removeTemporaryUploads({ applicationPdf: [req.file] });
     return res.json({ application: existing, recovered: false, duplicate: true });
@@ -763,19 +779,20 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
       storageStatus: 'metadata_only',
       uploadedAt: submission?.submitted_at || now()
     }));
-    const application = insert('employment_applications', {
+    const application = insert('applications', {
       id: applicationId,
       user_id: user.id || null,
+      company_id: null,
       email,
       role_slug: role.slug,
-      role_title: role.title,
+      role_applied: role.title,
       department: role.department,
       location: role.location,
       employment_type: role.employmentType,
       full_name: fullName || 'Recovered Applicant',
       phone: parsed.data.phone || '',
       confirmation_number: confirmation,
-      status: APPLICATION_STATUS[0],
+      status: 'submitted',
       source: 'email_recovery',
       recovery_status: 'recovered_from_email',
       recovered_at: now(),
@@ -798,20 +815,22 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
       },
       files: [pdfFile, ...metadataFiles],
       submitted_at: submission?.submitted_at || now(),
+      created_at: submission?.submitted_at || now(),
       notification_status: 'recovered'
     });
     if (submission) {
+      submission.application_id = application.id;
       submission.employment_application_id = application.id;
       submission.delivery = submission.delivery || 'email';
     }
     saveDb();
     logActivity(req.user.id, 'email_application_recovered', {
-      employment_application_id: application.id,
-      entity_type: 'employment_application',
+      application_id: application.id,
+      entity_type: 'application',
       entity_id: application.id,
       full_name: application.full_name,
       confirmation_number: confirmation,
-      role: application.role_title
+      role: application.role_applied
     }, req);
     pushNotificationsForAll();
     return res.json({ application, recovered: true });
@@ -826,10 +845,10 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
 });
 
 router.get('/admin/employment-applications/:id/files/:fileId/download', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
-  const application = getDb().employment_applications.find((row) => row.id === req.params.id);
+  const application = getDb().applications.find((row) => row.id === req.params.id || row.legacy_employment_application_id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   if (!canReviewEmploymentApplication(req.user, application)) {
-    logFileAccessDenied(req, { employment_application_id: application.id, file_id: req.params.fileId, entity_type: 'employment_application', entity_id: application.id });
+    logFileAccessDenied(req, { application_id: application.id, file_id: req.params.fileId, entity_type: 'application', entity_id: application.id });
     return res.status(403).json({ error: 'Access denied' });
   }
   const file = (application.files || []).find((item) => item.id === req.params.fileId);
@@ -841,15 +860,15 @@ router.get('/admin/employment-applications/:id/files/:fileId/download', requireA
     mimeType: file.mimeType,
     filename: file.originalName || file.label,
     disposition: 'attachment',
-    audit: { action: 'file_download', metadata: { employment_application_id: application.id, file_id: file.id, entity_type: 'employment_application', entity_id: application.id } }
+    audit: { action: 'file_download', metadata: { application_id: application.id, file_id: file.id, entity_type: 'application', entity_id: application.id } }
   }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'File download failed.') }));
 });
 
 router.get('/admin/employment-applications/:id/files/:fileId/view', requireAuth, requireRole('admin', 'recruiter', 'hr', 'manager', 'read_only'), (req, res) => {
-  const application = getDb().employment_applications.find((row) => row.id === req.params.id);
+  const application = getDb().applications.find((row) => row.id === req.params.id || row.legacy_employment_application_id === req.params.id);
   if (!application) return res.status(404).json({ error: 'Application not found' });
   if (!canReviewEmploymentApplication(req.user, application)) {
-    logFileAccessDenied(req, { employment_application_id: application.id, file_id: req.params.fileId, entity_type: 'employment_application', entity_id: application.id });
+    logFileAccessDenied(req, { application_id: application.id, file_id: req.params.fileId, entity_type: 'application', entity_id: application.id });
     return res.status(403).json({ error: 'Access denied' });
   }
   const file = (application.files || []).find((item) => item.id === req.params.fileId);
@@ -861,7 +880,7 @@ router.get('/admin/employment-applications/:id/files/:fileId/view', requireAuth,
     mimeType: file.mimeType,
     filename: file.originalName || file.label,
     disposition: 'inline',
-    audit: { action: 'file_view', metadata: { employment_application_id: application.id, file_id: file.id, entity_type: 'employment_application', entity_id: application.id } }
+    audit: { action: 'file_view', metadata: { application_id: application.id, file_id: file.id, entity_type: 'application', entity_id: application.id } }
   }).catch((error) => res.status(500).json({ error: publicErrorMessage(error, 'File view failed.') }));
 });
 

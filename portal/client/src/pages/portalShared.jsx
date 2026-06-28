@@ -554,31 +554,8 @@ function normalizeJobApplication(row, employmentById = new Map()) {
   };
 }
 
-function buildApplicationRows(applications = [], employmentApplications = []) {
-  const employmentById = new Map(employmentApplications.map((row) => [row.id, row]));
-  const linkedEmploymentIds = new Set(applications.map((row) => row.employment_application_id).filter(Boolean));
-  return [
-    ...applications.map((row) => normalizeJobApplication(row, employmentById)),
-    ...employmentApplications.filter((row) => !linkedEmploymentIds.has(row.id)).map((row) => ({
-      id: row.id,
-      confirmationNumber: row.confirmation_number || '',
-      source: 'employment',
-      employmentId: row.id,
-      userId: row.user_id || '',
-      name: row.full_name || 'Unnamed Applicant',
-      email: row.email || '',
-      phone: row.phone || '',
-      roleTitle: row.role_title || '',
-      roleSlug: row.role_slug || jobSlug(row.role_title),
-      employmentType: row.employment_type || '',
-      dateApplied: row.submitted_at || row.created_at || '',
-      status: row.status || 'New',
-      score: row.score ?? null,
-      recruiterId: row.assigned_recruiter_id || '',
-      portalRow: null,
-      employmentRow: row
-    }))
-  ];
+function buildApplicationRows(applications = []) {
+  return applications.map((row) => normalizeJobApplication(row));
 }
 
 function matchesJob(application, job) {
@@ -2100,28 +2077,20 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
 
   async function updateStatus(row, status) {
     await guard(async () => {
-      if (row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery') {
-        await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      } else {
-        await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      }
+      await api(`/api/applications/${row.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
       onRefresh();
     });
   }
 
   async function assignRecruiter(row, recruiterId) {
     await guard(async () => {
-      if (row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery') {
-        await api(`/api/admin/employment-applications/${row.employment_application_id || row.id}`, { method: 'PATCH', body: JSON.stringify({ assigned_recruiter_id: recruiterId }) });
-      } else {
-        await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
-      }
+      await api(`/api/applications/${row.id}/assign-recruiter`, { method: 'PATCH', body: JSON.stringify({ recruiter_id: recruiterId }) });
       onRefresh();
     });
   }
 
   function statusOptions(row) {
-    const standardStatuses = row.employment_application_id || row.source === 'employment' || row.source === 'email_recovery' ? EMPLOYMENT_APPLICATION_STATUSES : APPLICATION_STATUSES;
+    const standardStatuses = APPLICATION_STATUSES;
     const matchingStandard = standardStatuses.find((status) => String(status).toLowerCase() === String(row.status || '').toLowerCase());
     if (!row.status || matchingStandard) return standardStatuses;
     return [row.status, ...standardStatuses];
@@ -2161,7 +2130,7 @@ export function ApplicationsTable({ applications = [], users = [], onRefresh, al
         { key: 'confirmation_number', label: 'Confirmation', sortable: true, render: (row) => row.confirmation_number || 'Not assigned' },
         { key: 'full_name', label: 'Applicant', sortable: true, render: (row) => <button type="button" className="table-link-button" onClick={() => openRecord(row)}>{row.full_name}</button> },
         { key: 'role_applied', label: 'Role', sortable: true },
-        { key: 'source', label: 'Source', sortable: true, render: (row) => row.source === 'email_recovery' ? 'Recovered Email' : row.employment_application_id || row.source === 'employment' ? 'Employment Application' : 'Manual / Legacy' },
+        { key: 'source', label: 'Source', sortable: true, render: (row) => row.source === 'email_recovery' ? 'Recovered Email' : 'Application' },
         { key: 'employment_type', label: 'Employment Type', sortable: true, render: (row) => row.employment_type || 'Not recorded' },
         { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
         { key: 'assigned_recruiter', label: 'Recruiter', render: (row) => row.assigned_recruiter?.full_name || 'Unassigned' },

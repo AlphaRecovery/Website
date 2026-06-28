@@ -184,7 +184,8 @@ test('email recovery creates a visible application with canonical PDF and duplic
     body: form
   });
   assert.equal(duplicate.status, 200);
-  assert.equal(getDb().employment_applications.length, 1);
+  assert.equal(getDb().applications.length, 1);
+  assert.equal(getDb().employment_applications.length, 0);
 
   const list = await json(baseUrl, '/api/applications', { cookie: login.cookie });
   assert.equal(list.body.applications[0].confirmation_number, 'FO-2026-03760-1121EE');

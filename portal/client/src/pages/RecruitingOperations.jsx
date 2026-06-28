@@ -5,10 +5,8 @@ import { APPLICATION_STATUSES, displayLabel } from '../../../shared/constants.js
 import { DocumentViewModal } from './portalShared.jsx';
 
 const portalStatuses = APPLICATION_STATUSES;
-const employmentStatuses = ['New', 'Under Review', 'Interview Scheduled', 'Offer Extended', 'Hired', 'Rejected'];
 const stageLabels = ['Application Received', 'Review', 'Document Verification', 'Interview Stage', 'Background Review', 'Offer Stage', 'Onboarding', 'Hired'];
 const portalStageStatuses = ['submitted', 'review', 'review', 'interview', 'review', 'approved', 'onboarding', 'hired'];
-const employmentStageStatuses = ['New', 'Under Review', 'Under Review', 'Interview Scheduled', 'Under Review', 'Offer Extended', 'Hired', 'Hired'];
 const interviewTypes = ['phone', 'video', 'in-person', 'panel', 'technical', 'final'];
 const interviewStatuses = ['draft', 'scheduling_link_sent', 'scheduled', 'candidate_confirmed', 'rescheduled', 'cancelled', 'completed'];
 
@@ -96,7 +94,7 @@ function isApplicationActivity(item = {}) {
 }
 
 function optionsForApplicant(applicant) {
-  const standardStatuses = applicant?.source === 'employment' ? employmentStatuses : portalStatuses;
+  const standardStatuses = portalStatuses;
   const matchingStandard = standardStatuses.find((status) => String(status).toLowerCase() === String(applicant?.statusValue || applicant?.status || '').toLowerCase());
   if (!applicant?.statusValue || matchingStandard) return standardStatuses;
   return [applicant.statusValue, ...standardStatuses];
@@ -109,15 +107,14 @@ function statusValueForApplicant(applicant) {
 }
 
 function stageStatusForApplicant(applicant, index) {
-  const statuses = applicant?.source === 'employment' ? employmentStageStatuses : portalStageStatuses;
+  const statuses = portalStageStatuses;
   return statuses[Math.min(index, statuses.length - 1)];
 }
 
 function normalizePortalApplication(app) {
-  const employmentBacked = Boolean(app.employment_application_id);
   return {
-    source: employmentBacked ? 'employment' : 'portal',
-    id: app.employment_application_id || app.id,
+    source: 'portal',
+    id: app.id,
     confirmationNumber: app.confirmation_number || '',
     name: app.full_name || 'Unnamed Applicant',
     initials: initials(app.full_name),
@@ -133,31 +130,6 @@ function normalizePortalApplication(app) {
     score: app.score ?? null,
     recruiter: app.assigned_recruiter?.full_name || 'Unassigned',
     recruiterId: app.assigned_recruiter?.id || app.assigned_recruiter_id || '',
-    employment: app.employment_type || '',
-    details: app,
-    userId: app.user_id || ''
-  };
-}
-
-function normalizeEmploymentApplication(app) {
-  return {
-    source: 'employment',
-    id: app.id,
-    confirmationNumber: app.confirmation_number || '',
-    name: app.full_name || 'Unnamed Applicant',
-    initials: initials(app.full_name),
-    position: app.role_title || 'Position not recorded',
-    department: app.department || 'Department not recorded',
-    email: app.email || '',
-    phone: app.phone || '',
-    location: app.location || '',
-    applied: app.submitted_at || app.created_at,
-    status: app.status || 'New',
-    statusValue: app.status || 'New',
-    stage: statusStage(app.status),
-    score: typeof app.score === 'number' ? app.score : null,
-    recruiter: 'Unassigned',
-    recruiterId: '',
     employment: app.employment_type || '',
     details: app,
     userId: app.user_id || ''
@@ -256,14 +228,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   const interviews = data.interviews?.interviews || [];
   const rawActivityRows = data.dashboard?.recentActivity || data.activity?.activity || [];
   const activityRows = rawActivityRows.filter(isApplicationActivity);
-  const employmentApps = data.library?.employmentApplications || [];
-
-  const allApplicants = useMemo(() => [
-    ...applications.map(normalizePortalApplication),
-    ...employmentApps
-      .filter((employmentApp) => !applications.some((app) => app.employment_application_id === employmentApp.id))
-      .map(normalizeEmploymentApplication)
-  ].sort((a, b) => new Date(b.applied || 0) - new Date(a.applied || 0)), [applications, employmentApps]);
+  const allApplicants = useMemo(() => applications.map(normalizePortalApplication)
+    .sort((a, b) => new Date(b.applied || 0) - new Date(a.applied || 0)), [applications]);
 
   const pipelineApplicants = useMemo(() => allApplicants.filter(isActiveRecruitingCandidate), [allApplicants]);
 
@@ -301,27 +267,22 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   }, [pipelineApplicants, filters, query]);
 
   const selected = filteredApplicants.find((applicant) => applicant.id === selectedId) || filteredApplicants[0] || null;
-  const linkedEmploymentApplication = selected?.source === 'portal'
-    ? employmentApps.find((app) => app.id === selected.details?.employment_application_id)
-    : null;
+  const linkedEmploymentApplication = null;
   const selectedDocuments = selected ? [
     ...documents
       .filter((doc) => doc.application_id === selected.id || (selected.userId && doc.owner_user_id === selected.userId))
       .map(normalizeDocumentRecord),
-    ...((selected.source === 'employment' ? selected.details?.files : linkedEmploymentApplication?.files) || [])
+    ...((selected.details?.files || linkedEmploymentApplication?.files) || [])
       .filter((file) => file.path)
-      .map((file) => normalizeEmploymentFile(selected.source === 'employment' ? selected : { ...selected, id: linkedEmploymentApplication.id }, file))
+      .map((file) => normalizeEmploymentFile(selected, file))
   ] : [];
   const selectedTasks = selected ? tasks.filter((task) => (
     task.related_application_id === selected.id ||
-    task.related_employment_application_id === selected.id ||
-    (linkedEmploymentApplication?.id && task.related_employment_application_id === linkedEmploymentApplication.id)
+    (selected.userId && task.assigned_to === selected.userId)
   )) : [];
   const selectedMessages = selected ? messages.filter((message) => message.related_application_id === selected.id || (selected.userId && [message.sender_id, message.recipient_id].includes(selected.userId))) : [];
   const selectedInterviews = selected ? interviews.filter((interview) => (
     interview.related_application_id === selected.id ||
-    interview.related_employment_application_id === selected.id ||
-    (linkedEmploymentApplication?.id && interview.related_employment_application_id === linkedEmploymentApplication.id) ||
     (selected.userId && interview.candidate_user_id === selected.userId)
   )) : [];
   const activeMessage = selectedMessages.find((message) => message.id === activeMessageId) || selectedMessages[0] || null;
@@ -366,11 +327,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   async function setStatus(applicant, status) {
     if (!applicant) return;
     try {
-      if (applicant.source === 'employment') {
-        await api(`/api/admin/employment-applications/${applicant.id}`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      } else {
-        await api(`/api/applications/${applicant.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      }
+      await api(`/api/applications/${applicant.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
       await refreshAfter('Applicant status updated.');
     } catch (err) {
       setNotice(err.message);
@@ -379,7 +336,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
 
   function nextStatus(applicant, direction) {
     if (!applicant) return '';
-    const list = applicant.source === 'employment' ? employmentStatuses : portalStatuses;
+    const list = portalStatuses;
     const index = Math.max(0, list.indexOf(applicant.statusValue));
     return list[Math.min(list.length - 1, Math.max(0, index + direction))];
   }
@@ -403,7 +360,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         method: 'POST',
         body: JSON.stringify({
           recipient_id: form.recipient_id || selected?.userId,
-          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          related_application_id: selected?.id || null,
           subject: form.subject,
           body: form.body
         })
@@ -423,7 +380,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         method: 'POST',
         body: JSON.stringify({
           assigned_to: form.assigned_to,
-          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          related_application_id: selected?.id || null,
           title: form.title,
           description: form.description,
           due_at: form.due_at || null
@@ -457,8 +414,8 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
       evaluation_concerns: interview.evaluation?.concerns || '',
       evaluation_notes: interview.evaluation?.notes || ''
     } : {
-      related_application_id: selected?.source === 'portal' ? selected.id : null,
-      related_employment_application_id: selected?.source === 'employment' ? selected.id : linkedEmploymentApplication?.id || null,
+      related_application_id: selected?.id || null,
+      related_employment_application_id: null,
       candidate_user_id: selected?.userId || '',
       candidate_name: selected?.name || '',
       candidate_email: selected?.email || '',
@@ -523,7 +480,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         method: 'POST',
         body: JSON.stringify({
           owner_user_id: form.owner_user_id || selected?.userId,
-          application_id: selected?.source === 'portal' ? selected.id : null,
+          application_id: selected?.id || null,
           name: form.name,
           type: form.type,
           expires_at: form.expires_at || null
@@ -554,7 +511,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         method: 'POST',
         body: JSON.stringify({
           recipient_id: form.recipient_id,
-          related_application_id: selected?.source === 'portal' ? selected.id : null,
+          related_application_id: selected?.id || null,
           subject: form.subject,
           body: form.body
         })
@@ -576,7 +533,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         method: 'POST',
         body: JSON.stringify({
           recipient_id: recipientId,
-          related_application_id: activeMessage.related_application_id || (selected?.source === 'portal' ? selected.id : null),
+          related_application_id: activeMessage.related_application_id || selected?.id || null,
           related_contractor_id: activeMessage.related_contractor_id || null,
           subject: activeMessage.subject || `Application: ${selected?.position || 'Applicant'}`,
           body: messageReply
@@ -590,7 +547,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   }
 
   async function deleteApplicant() {
-    if (!selected || selected.source !== 'portal') return;
+    if (!selected) return;
     if (!window.confirm(`Delete ${selected.name}? This cannot be undone.`)) return;
     try {
       await api(`/api/applications/${selected.id}`, { method: 'DELETE' });
@@ -790,7 +747,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
                     <div><dt>Full Name:</dt><dd>{selected.name}</dd></div>
                     <div><dt>Phone:</dt><dd>{selected.phone || 'Not recorded'}</dd></div>
                     <div><dt>Email:</dt><dd className="roc-red">{selected.email || 'Not recorded'}</dd></div>
-                    <div><dt>Source:</dt><dd>{selected.source === 'employment' ? 'Employment application' : 'Portal application'}</dd></div>
+                    <div><dt>Source:</dt><dd>Application</dd></div>
                     <div><dt>Position:</dt><dd>{selected.position}</dd></div>
                   </dl>
                 )}
@@ -895,9 +852,9 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
           <h3>Applicant Reports</h3>
           {['Applicant Report', 'Interview Report', 'Hiring Report'].map((item) => <button type="button" disabled={!selected} key={item} onClick={() => generateReport(item.toLowerCase().replace(/\s+/g, '-'))}><Icon name="file" size={16} />{item}</button>)}
           <h3>Applicant Disposition</h3>
-          <button className="danger" type="button" disabled={!selected} onClick={() => setStatus(selected, selected.source === 'employment' ? 'Rejected' : 'rejected')}><Icon name="archive" size={16} />Reject Applicant</button>
-          <button className="danger" type="button" disabled={!selected || selected.source === 'employment'} onClick={() => setStatus(selected, 'archived')}><Icon name="archive" size={16} />Archive Applicant</button>
-          <button className="danger" type="button" disabled={!selected || selected.source === 'employment' || user.role !== 'admin'} onClick={deleteApplicant}><Icon name="trash" size={16} />Delete Applicant</button>
+          <button className="danger" type="button" disabled={!selected} onClick={() => setStatus(selected, 'rejected')}><Icon name="archive" size={16} />Reject Applicant</button>
+          <button className="danger" type="button" disabled={!selected} onClick={() => setStatus(selected, 'archived')}><Icon name="archive" size={16} />Archive Applicant</button>
+          <button className="danger" type="button" disabled={!selected || user.role !== 'admin'} onClick={deleteApplicant}><Icon name="trash" size={16} />Delete Applicant</button>
         </aside>
       </div>
 

@@ -89,6 +89,42 @@ function emptyDb() {
   };
 }
 
+function applicationFromEmploymentApplication(row) {
+  const fullName = row.full_name || [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
+  return {
+    id: row.id,
+    user_id: row.user_id || null,
+    company_id: null,
+    full_name: fullName || 'Unnamed Applicant',
+    email: row.email || '',
+    phone: row.phone || '',
+    role_applied: row.role_title || '',
+    role_slug: row.role_slug || '',
+    department: row.department || '',
+    location: row.location || '',
+    employment_type: row.employment_type || '',
+    experience: '',
+    message: '',
+    status: row.status || 'New',
+    score: row.score ?? 0,
+    score_breakdown: row.score_breakdown || {},
+    assigned_recruiter_id: row.assigned_recruiter_id || null,
+    assigned_at: row.assigned_at || null,
+    notification_status: row.notification_status || 'pending',
+    notification_error_code: row.notification_error_code || null,
+    confirmation_number: row.confirmation_number || '',
+    payload: row.payload || null,
+    files: row.files || [],
+    source: row.source || 'portal',
+    recovery_status: row.recovery_status || null,
+    recovered_at: row.recovered_at || null,
+    recovered_by: row.recovered_by || null,
+    submitted_at: row.submitted_at || row.created_at || now(),
+    created_at: row.submitted_at || row.created_at || now(),
+    legacy_employment_application_id: row.id
+  };
+}
+
 export async function loadDb() {
   if (db) return db;
   if (usePostgres()) {
@@ -198,6 +234,30 @@ function normalizeDb() {
       changed = true;
     }
   }
+  for (const employment of db.employment_applications || []) {
+    const existing = db.applications.find((application) => (
+      application.id === employment.id ||
+      application.legacy_employment_application_id === employment.id ||
+      application.employment_application_id === employment.id ||
+      (application.confirmation_number && application.confirmation_number === employment.confirmation_number)
+    ));
+    if (existing) {
+      const recovered = applicationFromEmploymentApplication(employment);
+      for (const key of ['payload', 'files', 'role_slug', 'location', 'employment_type', 'notification_status', 'notification_error_code']) {
+        if ((existing[key] === undefined || existing[key] === null || existing[key] === '') && recovered[key] !== undefined) {
+          existing[key] = recovered[key];
+          changed = true;
+        }
+      }
+      if (!existing.legacy_employment_application_id) {
+        existing.legacy_employment_application_id = employment.id;
+        changed = true;
+      }
+    } else {
+      db.applications.push(applicationFromEmploymentApplication(employment));
+      changed = true;
+    }
+  }
   return changed;
 }
 
@@ -284,6 +344,7 @@ export async function deleteSessionByTokenHash(tokenHash) {
 
 function duplicateEmploymentApplication(database, userId, roleSlug) {
   return (
+    (database.applications || []).find((row) => row.user_id === userId && (row.role_slug === roleSlug || row.role_applied === roleSlug)) ||
     (database.employment_applications || []).find((row) => row.user_id === userId && row.role_slug === roleSlug) ||
     (database.employment_application_submissions || []).find((row) => row.user_id === userId && row.role_slug === roleSlug)
   );
@@ -296,7 +357,7 @@ function commitEmploymentRows(database, applicationRow, submissionRow, userId, r
     error.code = 'DUPLICATE_EMPLOYMENT_APPLICATION';
     throw error;
   }
-  database.employment_applications = [...(database.employment_applications || []), applicationRow];
+  database.applications = [...(database.applications || []), applicationRow];
   database.employment_application_submissions = [...(database.employment_application_submissions || []), submissionRow];
   database.employment_application_drafts = (database.employment_application_drafts || [])
     .filter((draft) => !(draft.user_id === userId && draft.role_slug === roleSlug));
@@ -328,7 +389,7 @@ export async function commitEmploymentSubmission({ application, submission, user
       `update portal_app_state
        set data = jsonb_set(
          jsonb_set(
-           jsonb_set(data, '{employment_applications}', $2::jsonb, true),
+           jsonb_set(data, '{applications}', $2::jsonb, true),
            '{employment_application_submissions}', $3::jsonb, true
          ),
          '{employment_application_drafts}', $4::jsonb, true
@@ -337,16 +398,16 @@ export async function commitEmploymentSubmission({ application, submission, user
        where id = $1`,
       [
         'primary',
-        JSON.stringify(latest.employment_applications),
+        JSON.stringify(latest.applications),
         JSON.stringify(latest.employment_application_submissions),
         JSON.stringify(latest.employment_application_drafts)
       ]
     );
     await client.query('commit');
-    db.employment_applications = latest.employment_applications;
+    db.applications = latest.applications;
     db.employment_application_submissions = latest.employment_application_submissions;
     db.employment_application_drafts = latest.employment_application_drafts;
-    markPersisted(['employment_applications', 'employment_application_submissions', 'employment_application_drafts']);
+    markPersisted(['applications', 'employment_application_submissions', 'employment_application_drafts']);
     return { application: applicationRow, submission: submissionRow };
   } catch (error) {
     await client.query('rollback').catch(() => {});
@@ -359,7 +420,7 @@ export async function commitEmploymentSubmission({ application, submission, user
 export async function updateEmploymentNotification({ applicationId, submissionId, status, error }) {
   const errorCode = error ? sanitizeOperationalError(error, 'email_notification_failed') : undefined;
   const patchRows = (database) => {
-    const application = (database.employment_applications || []).find((row) => row.id === applicationId);
+    const application = (database.applications || []).find((row) => row.id === applicationId);
     const submission = (database.employment_application_submissions || []).find((row) => row.id === submissionId);
     if (!application || !submission) return { application, submission };
     submission.email_status = status;
@@ -396,17 +457,17 @@ export async function updateEmploymentNotification({ applicationId, submissionId
     await client.query(
       `update portal_app_state
        set data = jsonb_set(
-         jsonb_set(data, '{employment_applications}', $2::jsonb, true),
+         jsonb_set(data, '{applications}', $2::jsonb, true),
          '{employment_application_submissions}', $3::jsonb, true
        ),
        updated_at = now()
        where id = $1`,
-      ['primary', JSON.stringify(latest.employment_applications || []), JSON.stringify(latest.employment_application_submissions || [])]
+      ['primary', JSON.stringify(latest.applications || []), JSON.stringify(latest.employment_application_submissions || [])]
     );
     await client.query('commit');
-    db.employment_applications = latest.employment_applications || [];
+    db.applications = latest.applications || [];
     db.employment_application_submissions = latest.employment_application_submissions || [];
-    markPersisted(['employment_applications', 'employment_application_submissions']);
+    markPersisted(['applications', 'employment_application_submissions']);
     return patched;
   } catch (err) {
     await client.query('rollback').catch(() => {});
@@ -418,7 +479,11 @@ export async function updateEmploymentNotification({ applicationId, submissionId
 
 export async function patchEmploymentApplication(applicationId, patch) {
   const applyPatch = (database) => {
-    const application = (database.employment_applications || []).find((row) => row.id === applicationId);
+    const application = (database.applications || []).find((row) => (
+      row.id === applicationId ||
+      row.legacy_employment_application_id === applicationId ||
+      row.employment_application_id === applicationId
+    ));
     if (!application) return null;
     Object.assign(application, patch);
     return application;
@@ -438,13 +503,13 @@ export async function patchEmploymentApplication(applicationId, patch) {
     const application = applyPatch(latest);
     await client.query(
       `update portal_app_state
-       set data = jsonb_set(data, '{employment_applications}', $2::jsonb, true), updated_at = now()
+       set data = jsonb_set(data, '{applications}', $2::jsonb, true), updated_at = now()
        where id = $1`,
-      ['primary', JSON.stringify(latest.employment_applications || [])]
+      ['primary', JSON.stringify(latest.applications || [])]
     );
     await client.query('commit');
-    db.employment_applications = latest.employment_applications || [];
-    markPersisted(['employment_applications']);
+    db.applications = latest.applications || [];
+    markPersisted(['applications']);
     return application;
   } catch (err) {
     await client.query('rollback').catch(() => {});

@@ -184,14 +184,15 @@ test('applicant submission creates a durable admin-visible application before em
 
   const db = getDb();
   assert.equal(db.employment_application_drafts.length, 0);
-  assert.equal(db.employment_applications.length, 1);
+  assert.equal(db.applications.length, 1);
+  assert.equal(db.employment_applications.length, 0);
   assert.equal(db.employment_application_submissions.length, 1);
 
-  const application = db.employment_applications[0];
+  const application = db.applications[0];
   assert.equal(application.id, submission.body.applicationId);
   assert.equal(application.email, 'jordan.applicant@example.com');
   assert.equal(application.role_slug, 'administrative-specialist');
-  assert.equal(application.status, 'New');
+  assert.equal(application.status, 'submitted');
   assert.equal(application.notification_status, 'sent');
   assert.equal(application.files.length, 2);
   assert.ok(application.files.some((file) => file.field === 'applicationPdf' && file.mimeType === 'application/pdf'));
@@ -222,16 +223,16 @@ test('applicant submission creates a durable admin-visible application before em
   });
   assert.equal(adminSummary.response.status, 200);
   assert.equal(adminSummary.payload.applications.length, 1);
-  assert.equal(adminSummary.payload.applications[0].source, 'employment');
-  assert.equal(adminSummary.payload.applications[0].employment_application_id, application.id);
+  assert.equal(adminSummary.payload.applications[0].source, 'portal');
+  assert.equal(adminSummary.payload.applications[0].id, application.id);
 
   const applicantSummary = await jsonRequest(baseUrl, '/api/applications', {
     cookie: applicant.cookie
   });
   assert.equal(applicantSummary.response.status, 200);
   assert.equal(applicantSummary.payload.applications.length, 1);
-  assert.equal(applicantSummary.payload.applications[0].source, 'employment');
-  assert.equal(applicantSummary.payload.applications[0].employment_application_id, application.id);
+  assert.equal(applicantSummary.payload.applications[0].source, 'portal');
+  assert.equal(applicantSummary.payload.applications[0].id, application.id);
 
   await insert('users', {
     email: 'restricted-recruiter@example.com',

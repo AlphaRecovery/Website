@@ -196,6 +196,7 @@ test('DB commit failure after stored files cleans storage and leaves no admin re
   const applicant = await registerApplicant(baseUrl, 'db-fail@example.com');
   const result = await submit(baseUrl, applicant.cookie, validPayload('db-fail@example.com'));
   assert.equal(result.response.status, 500);
+  assert.equal(getDb().applications.length, 0);
   assert.equal(getDb().employment_applications.length, 0);
   assert.equal(getDb().employment_application_submissions.length, 0);
   assert.ok(deleted.length >= 1);
@@ -216,6 +217,7 @@ test('Supabase upload failure mid-submit leaves no rows', async (t) => {
   const applicant = await registerApplicant(baseUrl, 'upload-fail@example.com');
   const result = await submit(baseUrl, applicant.cookie, validPayload('upload-fail@example.com'));
   assert.equal(result.response.status, 500);
+  assert.equal(getDb().applications.length, 0);
   assert.equal(getDb().employment_applications.length, 0);
   assert.equal(getDb().employment_application_submissions.length, 0);
   assert.ok(deleted.length >= 1);
@@ -230,7 +232,8 @@ test('duplicate concurrent submit creates one record and one conflict', async (t
     submit(baseUrl, applicant.cookie, payload)
   ]);
   assert.deepEqual(results.map((item) => item.response.status).sort(), [200, 409]);
-  assert.equal(getDb().employment_applications.length, 1);
+  assert.equal(getDb().applications.length, 1);
+  assert.equal(getDb().employment_applications.length, 0);
   assert.equal(getDb().employment_application_submissions.length, 1);
 });
 
@@ -244,10 +247,11 @@ test('staff email failure keeps admin-visible application with sanitized error c
   const result = await submit(baseUrl, applicant.cookie, validPayload('email-fail@example.com'));
   assert.equal(result.response.status, 200);
   assert.equal(result.body.emailed, false);
-  assert.equal(getDb().employment_applications.length, 1);
-  assert.equal(getDb().employment_applications[0].notification_status, 'failed');
-  assert.equal(getDb().employment_applications[0].notification_error_code, 'email_notification_failed');
-  assert.equal(getDb().employment_applications[0].notification_error, undefined);
+  assert.equal(getDb().applications.length, 1);
+  assert.equal(getDb().employment_applications.length, 0);
+  assert.equal(getDb().applications[0].notification_status, 'failed');
+  assert.equal(getDb().applications[0].notification_error_code, 'email_notification_failed');
+  assert.equal(getDb().applications[0].notification_error, undefined);
 });
 
 test('education alternative requires an uploaded narrative', async (t) => {
@@ -258,6 +262,7 @@ test('education alternative requires an uploaded narrative', async (t) => {
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /Education Alternative Experience Narrative upload is required/);
+  assert.equal(getDb().applications.length, 0);
   assert.equal(getDb().employment_applications.length, 0);
 });
 
@@ -270,6 +275,7 @@ test('education alternative requires at least ten documented years', async (t) =
   });
   assert.equal(result.response.status, 400);
   assert.match(result.body.error, /Education alternative requires at least 10 years/);
+  assert.equal(getDb().applications.length, 0);
   assert.equal(getDb().employment_applications.length, 0);
 });
 
@@ -281,7 +287,7 @@ test('education alternative accepts ten plus years with narrative instead of deg
     files: [{ field: 'educationExperienceNarrative', body: '%PDF-1.4\nexperience narrative', name: 'experience-narrative.pdf' }]
   });
   assert.equal(result.response.status, 200, JSON.stringify(result.body));
-  const application = getDb().employment_applications[0];
+  const application = getDb().applications[0];
   assert.equal(application.role_slug, 'program-director');
   assert.equal(application.payload.education.useExperienceAlternative, true);
   assert.ok(application.files.some((file) => file.field === 'educationExperienceNarrative'));
@@ -293,7 +299,7 @@ test('unauthorized recruiter file access returns 403 and writes denied audit row
   const applicant = await registerApplicant(baseUrl, 'file-denied@example.com');
   const result = await submit(baseUrl, applicant.cookie, validPayload('file-denied@example.com'));
   assert.equal(result.response.status, 200);
-  const appRow = getDb().employment_applications[0];
+  const appRow = getDb().applications[0];
   const file = appRow.files[0];
   insert('users', {
     email: 'recruiter@example.com',
@@ -318,7 +324,7 @@ test('file responses include private no-store headers', async (t) => {
   const baseUrl = await withServer(t);
   const applicant = await registerApplicant(baseUrl, 'headers@example.com');
   await submit(baseUrl, applicant.cookie, validPayload('headers@example.com'));
-  const appRow = getDb().employment_applications[0];
+  const appRow = getDb().applications[0];
   const file = appRow.files[0];
   insert('users', {
     email: 'admin@example.com',
@@ -346,6 +352,7 @@ test('oversized request is rejected before DB or storage writes', async (t) => {
   const applicant = await registerApplicant(baseUrl, 'oversized@example.com');
   const result = await submit(baseUrl, applicant.cookie, validPayload('oversized@example.com'), 'x'.repeat(20 * 1024 * 1024));
   assert.equal(result.response.status, 413);
+  assert.equal(getDb().applications.length, 0);
   assert.equal(getDb().employment_applications.length, 0);
 });
 

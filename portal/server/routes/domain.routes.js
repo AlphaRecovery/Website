@@ -720,20 +720,16 @@ function visibleEmploymentApplications(user) {
 }
 
 function visibleApplicationSummaries(user) {
-  const employmentApplications = visibleEmploymentApplicationSummaries(user);
-  const visibleEmploymentIds = new Set(employmentApplications.map((app) => app.employment_application_id).filter(Boolean));
-  const applications = visibleApplications(user)
-    .filter((app) => !app.employment_application_id || !visibleEmploymentIds.has(app.employment_application_id))
+  return visibleApplications(user)
     .map((app) => {
       const fullName = app.full_name || [app.first_name, app.last_name].filter(Boolean).join(' ').trim();
       return {
         ...app,
         full_name: fullName || 'Unnamed Applicant',
-        role_applied: app.role_applied || app.role || app.position || '',
+        role_applied: app.role_applied || app.role_title || app.role || app.position || '',
         source: app.source || 'portal'
       };
-    });
-  return [...applications, ...employmentApplications]
+    })
     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 }
 
@@ -756,16 +752,15 @@ function enrichApplication(app) {
 function visibleApplicationByAnyId(user, recordId) {
   const summary = visibleApplicationSummaries(user).find((item) => (
     item.id === recordId ||
+    item.legacy_employment_application_id === recordId ||
     item.employment_application_id === recordId ||
     item.confirmation_number === recordId
   ));
   if (!summary) return null;
   const db = getDb();
-  const application = summary.source === 'employment'
-    ? null
-    : db.applications.find((item) => item.id === summary.id);
-  const employmentApplication = summary.employment_application_id
-    ? db.employment_applications.find((item) => item.id === summary.employment_application_id)
+  const application = db.applications.find((item) => item.id === summary.id);
+  const employmentApplication = summary.legacy_employment_application_id || summary.employment_application_id
+    ? db.employment_applications.find((item) => item.id === (summary.legacy_employment_application_id || summary.employment_application_id))
     : null;
   return { summary, application, employmentApplication };
 }
@@ -791,7 +786,7 @@ function applicationDetailPayload(user, recordId) {
   return {
     application: enrichApplication(match.summary),
     source_application: match.application || null,
-    employment_application: match.employmentApplication || null,
+    employment_application: match.application || match.employmentApplication || null,
     applicant: applicant ? publicUser(applicant) : null,
     documents: db.documents.filter((row) => row.application_id === applicationId || row.application_id === employmentId || row.owner_user_id === applicant?.id),
     tasks: db.tasks.filter((row) => row.related_application_id === applicationId || row.related_employment_application_id === employmentId || row.assigned_to === applicant?.id),
@@ -805,7 +800,7 @@ function applicationTargetForActivity(row) {
   const metadata = row.metadata || {};
   const employmentId = metadata.employment_application_id || (row.entity_type === 'employment_application' ? row.entity_id : null);
   const applicationId = metadata.application_id || (row.entity_type === 'application' ? row.entity_id : null);
-  const id = employmentId || applicationId || '';
+  const id = applicationId || employmentId || '';
   return id ? `/portal/admin/applications?application=${encodeURIComponent(id)}` : '';
 }
 
