@@ -245,10 +245,29 @@ const liveApplicationRoleSchema = z.object({
   minimumRelevantExperienceYears: z.coerce.number().min(0).optional().default(0)
 });
 
+const liveApplicationFieldSchema = z.object({
+  key: z.string().min(1),
+  originalLabel: z.string().optional().default(''),
+  label: z.string().min(1),
+  type: z.string().optional().default('text'),
+  options: z.array(z.string()).optional().default([]),
+  required: z.boolean().optional().default(false),
+  help: z.string().optional().default('')
+});
+
+const liveApplicationSectionSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  intro: z.string().optional().default(''),
+  body: z.string().optional().default(''),
+  fields: z.array(liveApplicationFieldSchema).optional().default([])
+});
+
 const liveApplicationConfigSchema = z.object({
   name: z.string().min(2).optional().default('Live Employment Application'),
   status: z.enum(['active', 'draft', 'paused']).optional().default('active'),
   sectionTitles: z.array(z.string().min(1)).optional().default([]),
+  sections: z.array(liveApplicationSectionSchema).optional().default([]),
   uploadLabels: z.record(z.string()).optional().default({}),
   roles: z.array(liveApplicationRoleSchema).optional().default([]),
   updated_at: z.string().nullable().optional()

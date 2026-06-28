@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Children, cloneElement, createContext, isValidElement, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 import {
   APPLICATION_TOTAL_SECTIONS,
+  APPLICATION_SECTION_CONFIGS as DEFAULT_SECTION_CONFIGS,
   CERTIFICATION_GROUPS,
   degreeMeetsRequirement,
   EDUCATION_REQUIREMENT_LABELS,
@@ -127,8 +128,59 @@ function mergePayload(base, current = {}) {
   };
 }
 
+const ApplicationSectionConfigContext = createContext(null);
+
+function labelKey(value = '') {
+  return String(value).trim().toLowerCase();
+}
+
+function useConfiguredField(label) {
+  const sectionConfig = useContext(ApplicationSectionConfigContext);
+  if (!sectionConfig?.fields?.length) return null;
+  const target = labelKey(label);
+  return sectionConfig.fields.find((field) => (
+    labelKey(field.originalLabel) === target ||
+    labelKey(field.label) === target
+  )) || null;
+}
+
+function htmlInputType(type, fallback = 'text') {
+  if (['email', 'tel', 'date', 'number', 'text'].includes(type)) return type;
+  return fallback;
+}
+
+function applyFieldConfig(children, fieldConfig) {
+  if (!fieldConfig) return children;
+  return Children.map(children, (child) => {
+    if (!isValidElement(child)) return child;
+    if (child.type === TextInput) {
+      return cloneElement(child, {
+        required: Boolean(fieldConfig.required),
+        type: htmlInputType(fieldConfig.type, child.props.type || 'text')
+      });
+    }
+    if (child.type === SelectInput) {
+      return cloneElement(child, {
+        required: Boolean(fieldConfig.required),
+        options: fieldConfig.options?.length ? fieldConfig.options : child.props.options
+      });
+    }
+    if (child.type === 'textarea' || child.type === 'input' || child.type === 'select') {
+      return cloneElement(child, { required: Boolean(fieldConfig.required) });
+    }
+    return child;
+  });
+}
+
 function Field({ label, children }) {
-  return <label>{label}{children}</label>;
+  const fieldConfig = useConfiguredField(label);
+  return (
+    <label>
+      {fieldConfig?.label || label}
+      {applyFieldConfig(children, fieldConfig)}
+      {fieldConfig?.help && <small>{fieldConfig.help}</small>}
+    </label>
+  );
 }
 
 function TextInput({ value, onChange, type = 'text', required = false, readOnly = false, placeholder = '' }) {
@@ -141,6 +193,16 @@ function SelectInput({ value, onChange, options, required = false }) {
       <option value="">Select</option>
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>
+  );
+}
+
+function SectionIntro({ config }) {
+  if (!config?.intro && !config?.body) return null;
+  return (
+    <div className="application-section-copy">
+      {config.intro && <p>{config.intro}</p>}
+      {config.body && <p>{config.body}</p>}
+    </div>
   );
 }
 
@@ -290,6 +352,7 @@ export default function ApplicationForm() {
   const [submittedApplication, setSubmittedApplication] = useState(null);
   const [uploadLimits, setUploadLimits] = useState(DEFAULT_UPLOAD_LIMITS);
   const [sectionTitles, setSectionTitles] = useState(DEFAULT_SECTION_TITLES);
+  const [sectionConfigs, setSectionConfigs] = useState(DEFAULT_SECTION_CONFIGS);
   const [uploadLabels, setUploadLabels] = useState(DEFAULT_UPLOAD_LABELS);
 
   useEffect(() => {
@@ -300,6 +363,7 @@ export default function ApplicationForm() {
         if (!mounted) return;
         if (data.uploadLimits) setUploadLimits(data.uploadLimits);
         if (data.applicationConfig?.sectionTitles?.length) setSectionTitles(data.applicationConfig.sectionTitles);
+        if (data.applicationConfig?.sections?.length) setSectionConfigs(data.applicationConfig.sections);
         if (data.applicationConfig?.uploadLabels) setUploadLabels({ ...DEFAULT_UPLOAD_LABELS, ...data.applicationConfig.uploadLabels });
         const draftData = await api(`/api/application/draft?roleSlug=${encodeURIComponent(roleSlug)}`);
         if (draftData.submitted) setSubmittedApplication(draftData.submitted);
@@ -707,23 +771,26 @@ export default function ApplicationForm() {
         </div>
         {error && <div className="form-error">{error}</div>}
         {saved && <div className="empty-state">{saved}</div>}
+        <SectionIntro config={sectionConfigs[section - 1]} />
 
-        {section === 1 && <PositionSection payload={payload} patch={patch} />}
-        {section === 2 && <PersonalSection payload={payload} patch={patch} />}
-        {section === 3 && <AuthorizationSection payload={payload} patch={patch} />}
-        {section === 4 && <AvailabilitySection role={role} payload={payload} patch={patch} />}
-        {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
-        {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
-        {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
-        {section === 8 && <EmploymentSection role={role} payload={payload} patch={patch} />}
-        {section === 9 && <GovernmentSection payload={payload} patch={patch} />}
-        {section === 10 && <CriminalSection payload={payload} patch={patch} />}
-        {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
-        {section === 12 && <ReferencesSection payload={payload} setTop={setTop} />}
-        {section === 13 && <BackgroundAuthorizationSection role={role} payload={payload} setBackgroundAuthorization={setBackgroundAuthorization} />}
-        {section === 14 && <StandardsSection payload={payload} setTop={setTop} />}
-        {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} isSectionApplicable={isSectionApplicable} sectionTitles={sectionTitles} uploadLabels={uploadLabels} />}
-        {section === 16 && <ApplicantCertificationSection payload={payload} setApplicantCertification={setApplicantCertification} />}
+        <ApplicationSectionConfigContext.Provider value={sectionConfigs[section - 1]}>
+          {section === 1 && <PositionSection payload={payload} patch={patch} />}
+          {section === 2 && <PersonalSection payload={payload} patch={patch} />}
+          {section === 3 && <AuthorizationSection payload={payload} patch={patch} />}
+          {section === 4 && <AvailabilitySection role={role} payload={payload} patch={patch} />}
+          {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+          {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+          {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+          {section === 8 && <EmploymentSection role={role} payload={payload} patch={patch} />}
+          {section === 9 && <GovernmentSection payload={payload} patch={patch} />}
+          {section === 10 && <CriminalSection payload={payload} patch={patch} />}
+          {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+          {section === 12 && <ReferencesSection payload={payload} setTop={setTop} />}
+          {section === 13 && <BackgroundAuthorizationSection role={role} payload={payload} setBackgroundAuthorization={setBackgroundAuthorization} />}
+          {section === 14 && <StandardsSection payload={payload} setTop={setTop} />}
+          {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} isSectionApplicable={isSectionApplicable} sectionTitles={sectionTitles} uploadLabels={uploadLabels} />}
+          {section === 16 && <ApplicantCertificationSection payload={payload} setApplicantCertification={setApplicantCertification} />}
+        </ApplicationSectionConfigContext.Provider>
 
         <div className="application-actions">
           <button type="button" disabled={section === 1} onClick={() => setSection((current) => previousApplicableSection(current - 1))}>Back</button>

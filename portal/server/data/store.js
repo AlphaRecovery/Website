@@ -89,42 +89,6 @@ function emptyDb() {
   };
 }
 
-function applicationFromEmploymentApplication(row) {
-  const fullName = row.full_name || [row.first_name, row.last_name].filter(Boolean).join(' ').trim();
-  return {
-    id: row.id,
-    user_id: row.user_id || null,
-    company_id: null,
-    full_name: fullName || 'Unnamed Applicant',
-    email: row.email || '',
-    phone: row.phone || '',
-    role_applied: row.role_title || '',
-    role_slug: row.role_slug || '',
-    department: row.department || '',
-    location: row.location || '',
-    employment_type: row.employment_type || '',
-    experience: '',
-    message: '',
-    status: row.status || 'New',
-    score: row.score ?? 0,
-    score_breakdown: row.score_breakdown || {},
-    assigned_recruiter_id: row.assigned_recruiter_id || null,
-    assigned_at: row.assigned_at || null,
-    notification_status: row.notification_status || 'pending',
-    notification_error_code: row.notification_error_code || null,
-    confirmation_number: row.confirmation_number || '',
-    payload: row.payload || null,
-    files: row.files || [],
-    source: row.source || 'portal',
-    recovery_status: row.recovery_status || null,
-    recovered_at: row.recovered_at || null,
-    recovered_by: row.recovered_by || null,
-    submitted_at: row.submitted_at || row.created_at || now(),
-    created_at: row.submitted_at || row.created_at || now(),
-    legacy_employment_application_id: row.id
-  };
-}
-
 export async function loadDb() {
   if (db) return db;
   if (usePostgres()) {
@@ -234,30 +198,14 @@ function normalizeDb() {
       changed = true;
     }
   }
-  for (const employment of db.employment_applications || []) {
-    const existing = db.applications.find((application) => (
-      application.id === employment.id ||
-      application.legacy_employment_application_id === employment.id ||
-      application.employment_application_id === employment.id ||
-      (application.confirmation_number && application.confirmation_number === employment.confirmation_number)
-    ));
-    if (existing) {
-      const recovered = applicationFromEmploymentApplication(employment);
-      for (const key of ['payload', 'files', 'role_slug', 'location', 'employment_type', 'notification_status', 'notification_error_code']) {
-        if ((existing[key] === undefined || existing[key] === null || existing[key] === '') && recovered[key] !== undefined) {
-          existing[key] = recovered[key];
-          changed = true;
-        }
-      }
-      if (!existing.legacy_employment_application_id) {
-        existing.legacy_employment_application_id = employment.id;
-        changed = true;
-      }
-    } else {
-      db.applications.push(applicationFromEmploymentApplication(employment));
-      changed = true;
-    }
-  }
+  const terminalLegacyStatuses = new Set(['approved', 'hired', 'rejected', 'archived', 'cleared', 'deleted']);
+  const applicationCount = db.applications.length;
+  db.applications = db.applications.filter((application) => {
+    if (!application.legacy_employment_application_id) return true;
+    const status = String(application.status || '').trim().toLowerCase();
+    return !terminalLegacyStatuses.has(status);
+  });
+  if (db.applications.length !== applicationCount) changed = true;
   return changed;
 }
 

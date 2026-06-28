@@ -986,17 +986,15 @@ th {
 .badge-neutral  { --badge-dot: #a80000; }
 
 .role-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border: 1px solid var(--red);
+  display: inline;
+  border: 0;
   color: var(--white);
-  background: rgba(204, 0, 0, 0.13);
-  padding: 0.26rem 0.42rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.64rem;
-  width: fit-content;
+  background: transparent;
+  padding: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: inherit;
+  width: auto;
 }
 
 /* Plain inline count/meta text where a pill used to sit (panel headers, etc.) */
@@ -2133,6 +2131,86 @@ button.danger {
 
 .library-live-application h4 {
   margin: 0;
+}
+
+.live-application-editor {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.28fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.live-section-list {
+  border: 1px solid var(--portal-border, rgba(139, 0, 0, 0.4));
+  border-radius: 6px;
+  padding: 0.8rem;
+  background: var(--portal-surface, rgba(255, 255, 255, 0.02));
+  display: grid;
+  gap: 0.55rem;
+  max-height: 720px;
+  overflow: auto;
+}
+
+.live-section-list button {
+  width: 100%;
+  display: grid;
+  gap: 0.18rem;
+  text-align: left;
+  justify-items: start;
+}
+
+.live-section-list button span {
+  font-weight: 650;
+}
+
+.live-section-editor,
+.live-upload-labels {
+  border: 1px solid var(--portal-border, rgba(139, 0, 0, 0.4));
+  border-radius: 6px;
+  padding: 1rem;
+  background: var(--portal-surface, rgba(255, 255, 255, 0.02));
+}
+
+.live-page-copy-editor textarea {
+  min-height: 110px;
+}
+
+.live-field-header {
+  margin-top: 1rem;
+}
+
+.live-field-editor-grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.live-field-editor {
+  border: 1px solid var(--portal-border, rgba(139, 0, 0, 0.4));
+  border-radius: 6px;
+  padding: 0.9rem;
+  background: var(--portal-surface-alt, rgba(255, 255, 255, 0.04));
+}
+
+.live-field-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.7rem;
+}
+
+.live-field-title strong {
+  font-size: 0.76rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.live-field-editor textarea {
+  min-height: 84px;
+}
+
+.live-upload-labels {
+  margin-top: 1rem;
 }
 
 .library-role-editor {
@@ -3846,6 +3924,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   }
 
   .library-editor-grid,
+  .live-application-editor,
   .library-role-editor,
   .ops-calendar-form > div {
     grid-template-columns: 1fr;
@@ -3934,6 +4013,20 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .application-progress small {
   color: var(--app-faint);
   font-size: 0.72rem;
+}
+
+.application-section-copy {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--app-border);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.application-section-copy p {
+  margin: 0;
+  color: var(--app-muted);
 }
 
 /* Section jump nav */
@@ -4536,7 +4629,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   padding: 0.5rem 0.85rem;
   border: 1px solid var(--portal-border-strong);
   border-bottom-width: 1px;
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--portal-surface);
 }
 
@@ -4570,7 +4663,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .portal-layout select,
 .portal-layout textarea {
   border: 1px solid var(--portal-border-strong);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--portal-surface);
   color: var(--portal-text);
   min-height: 42px;
@@ -4597,7 +4690,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 .portal-layout .jmc-card-menu-button,
 .portal-layout .jmc-card-menu button {
   border: 1px solid var(--portal-border-strong);
-  border-radius: 8px;
+  border-radius: 4px;
   background: var(--portal-surface);
   color: var(--portal-text);
   text-transform: none;
@@ -4692,7 +4785,23 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 }
 
 /* Quiet status indicator on the light portal: dark label + colored dot, no pill. */
-.portal-layout .badge {
+.portal-layout .badge,
+.portal-layout .panel-count,
+.portal-layout .role-badge,
+.portal-layout .table-sort,
+.portal-layout .table-link-button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.portal-layout .badge,
+.portal-layout .table-sort,
+.portal-layout .table-sort:hover:not(:disabled),
+.portal-layout .table-link-button,
+.portal-layout .table-link-button:hover:not(:disabled) {
   color: var(--portal-text);
 }
 
@@ -4702,10 +4811,12 @@ input[type="time"]::-webkit-calendar-picker-indicator {
 
 /* The role tag: a soft red chip, softly rounded — not a hard pill, not grey. */
 .portal-layout .role-badge {
-  border-color: #f3b6bc;
-  border-radius: 6px;
-  background: var(--portal-red-soft);
   color: var(--portal-red);
+}
+
+.portal-layout .table-sort:hover:not(:disabled),
+.portal-layout .table-link-button:hover:not(:disabled) {
+  background: transparent;
 }
 
 /* Metric cards: drop the black-gradient dark-theme look for white-on-red. */

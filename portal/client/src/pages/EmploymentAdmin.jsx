@@ -84,7 +84,6 @@ function ApplicationDetail({ selected, onRefresh }) {
           <h3>{application.full_name}</h3>
           <p>{application.role_title} / {application.department} / {application.email}</p>
         </div>
-        <span className="panel-count">Score {application.score}/100</span>
       </div>
 
       <dl className="details-grid">
@@ -95,15 +94,6 @@ function ApplicationDetail({ selected, onRefresh }) {
         <ValueBlock label="Submitted" value={new Date(application.submitted_at).toLocaleString()} />
         <ValueBlock label="Phone" value={application.phone} />
       </dl>
-
-      <div className="score-grid">
-        {Object.entries(application.score_breakdown || {}).map(([key, value]) => (
-          <div key={key}>
-          <span>{cleanKey(key)}</span>
-            <strong>{value}</strong>
-          </div>
-        ))}
-      </div>
 
       <div className="form-grid">
         <label>Status
@@ -197,7 +187,7 @@ export default function EmploymentAdmin() {
 
   return (
     <PortalLayout>
-      <PageHeader eyebrow="Recruiting Module" title="Employment Applications" description="Review submitted applications, score breakdowns, documents, status, and HR notes." />
+      <PageHeader eyebrow="Recruiting Module" title="Employment Applications" description="Review submitted applications, documents, status, and HR notes." />
       {error && <div className="form-error">{error}</div>}
       <div className="admin-link-row">
         <Link className="button-link" to="/portal/admin">Operations Portal</Link>
@@ -226,7 +216,6 @@ export default function EmploymentAdmin() {
             { key: 'employment_type', label: 'Employment Type', sortable: true },
             { key: 'department', label: 'Department', sortable: true },
             { key: 'submitted_at', label: 'Date Submitted', sortable: true, render: (row) => new Date(row.submitted_at).toLocaleDateString() },
-            { key: 'score', label: 'Score', sortable: true, render: (row) => <span className="panel-count">{row.score}</span> },
             { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
             { key: 'notification_status', label: 'Email', sortable: true, render: (row) => <Badge value={row.notification_status === 'failed' ? 'Submitted - Notification Failed' : (row.notification_status || 'pending')} /> },
             { key: 'id', label: 'Review', render: (row) => <button type="button" onClick={() => setSelectedId(row.id)}>Open</button> }

@@ -1,4 +1,4 @@
-import { APPLICATION_TOTAL_SECTIONS, ROLE_CONFIGS, SECTION_TITLES, UPLOAD_LABELS } from '../shared/applicationConfig.js';
+import { APPLICATION_SECTION_CONFIGS, APPLICATION_TOTAL_SECTIONS, ROLE_CONFIGS, SECTION_TITLES, UPLOAD_LABELS } from '../shared/applicationConfig.js';
 import { getDb, now, saveDb } from './data/store.js';
 
 const LIVE_CONFIG_ID = 'live';
@@ -13,6 +13,43 @@ function normalizeSections(sectionTitles = SECTION_TITLES) {
   return Array.from({ length: APPLICATION_TOTAL_SECTIONS }, (_, index) => {
     const title = String(titles[index] || SECTION_TITLES[index] || `Section ${index + 1}`).trim();
     return title || SECTION_TITLES[index] || `Section ${index + 1}`;
+  });
+}
+
+function normalizeField(field = {}, fallback = {}) {
+  return {
+    key: String(field.key || fallback.key || '').trim(),
+    originalLabel: String(fallback.originalLabel || fallback.label || field.originalLabel || field.label || field.key || fallback.key || '').trim(),
+    label: String(field.label || fallback.label || field.key || fallback.key || '').trim(),
+    type: String(field.type || fallback.type || 'text').trim(),
+    options: Array.isArray(field.options) ? field.options.filter(Boolean).map(String) : (fallback.options || []),
+    required: Boolean(field.required ?? fallback.required),
+    help: String(field.help || fallback.help || '').trim()
+  };
+}
+
+function normalizeApplicationSections(sections = APPLICATION_SECTION_CONFIGS, sectionTitles = SECTION_TITLES) {
+  const rows = Array.isArray(sections) ? sections : [];
+  return APPLICATION_SECTION_CONFIGS.map((fallback, index) => {
+    const match = rows[index] || rows.find((section) => section?.id === fallback.id) || {};
+    const fallbackFields = fallback.fields || [];
+    const incomingFields = Array.isArray(match.fields) ? match.fields : [];
+    const fieldByKey = Object.fromEntries(incomingFields.map((field) => [field?.key, field]).filter(([key]) => key));
+    const fallbackKeys = new Set(fallbackFields.map((field) => field.key));
+    const customFields = incomingFields
+      .filter((field) => field?.key && !fallbackKeys.has(field.key))
+      .map((field) => normalizeField(field))
+      .filter((field) => field.key && field.label);
+    return {
+      id: String(match.id || fallback.id || `section-${index + 1}`).trim(),
+      title: String(match.title || sectionTitles[index] || fallback.title || `Section ${index + 1}`).trim(),
+      intro: String(match.intro || fallback.intro || '').trim(),
+      body: String(match.body || fallback.body || '').trim(),
+      fields: [
+        ...fallbackFields.map((field) => normalizeField(fieldByKey[field.key], field)),
+        ...customFields
+      ]
+    };
   });
 }
 
@@ -54,6 +91,7 @@ export function defaultLiveApplicationConfig() {
     name: 'Live Employment Application',
     status: 'active',
     sectionTitles: normalizeSections(),
+    sections: normalizeApplicationSections(),
     uploadLabels: normalizeUploadLabels(),
     roles: normalizeRoles(),
     updated_at: null,
@@ -63,10 +101,12 @@ export function defaultLiveApplicationConfig() {
 
 export function liveApplicationConfig(database = getDb()) {
   const stored = (database.application_configs || []).find((row) => row.id === LIVE_CONFIG_ID) || {};
+  const sections = normalizeApplicationSections(stored.sections, stored.sectionTitles);
   return {
     ...defaultLiveApplicationConfig(),
     ...stored,
-    sectionTitles: normalizeSections(stored.sectionTitles),
+    sections,
+    sectionTitles: sections.map((section) => section.title),
     uploadLabels: normalizeUploadLabels(stored.uploadLabels),
     roles: normalizeRoles(stored.roles)
   };
@@ -90,13 +130,19 @@ export function liveSectionTitles(database = getDb()) {
 
 export function saveLiveApplicationConfig(patch = {}, actorId = null) {
   const db = getDb();
+  const current = liveApplicationConfig(db);
+  const merged = {
+    ...current,
+    ...patch
+  };
+  const sections = normalizeApplicationSections(merged.sections, merged.sectionTitles);
   const next = {
-    ...liveApplicationConfig(db),
-    ...patch,
+    ...merged,
     id: LIVE_CONFIG_ID,
-    sectionTitles: normalizeSections(patch.sectionTitles),
-    uploadLabels: normalizeUploadLabels(patch.uploadLabels),
-    roles: normalizeRoles(patch.roles),
+    sections,
+    sectionTitles: sections.map((section) => section.title),
+    uploadLabels: normalizeUploadLabels(merged.uploadLabels),
+    roles: normalizeRoles(merged.roles),
     updated_at: now(),
     updated_by: actorId
   };

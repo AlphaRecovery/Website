@@ -6,7 +6,7 @@ import { DocumentList, MessageThread, TaskList } from '../components/Lists.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { api, documentDownloadUrl, documentViewUrl, employmentFileDownloadUrl, employmentFileViewUrl, uploadDocument } from '../api/client.js';
 import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, PROGRAMS, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
-import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES, SECTION_TITLES, UPLOAD_LABELS } from '../../../shared/applicationConfig.js';
+import { APPLICATION_SECTION_CONFIGS, APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES, SECTION_TITLES, UPLOAD_LABELS } from '../../../shared/applicationConfig.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export function ErrorState({ error }) {
@@ -472,6 +472,61 @@ function listToText(value = []) {
 
 function textToList(value) {
   return String(value || '').split('\n').map((item) => item.trim()).filter(Boolean);
+}
+
+function normalizeLiveField(field = {}, fallback = {}) {
+  return {
+    key: String(field.key || fallback.key || '').trim(),
+    originalLabel: String(fallback.originalLabel || fallback.label || field.originalLabel || field.label || field.key || fallback.key || '').trim(),
+    label: String(field.label || fallback.label || field.key || fallback.key || '').trim(),
+    type: String(field.type || fallback.type || 'text').trim(),
+    options: Array.isArray(field.options) ? field.options.filter(Boolean).map(String) : (fallback.options || []),
+    required: Boolean(field.required ?? fallback.required),
+    help: String(field.help || fallback.help || '').trim()
+  };
+}
+
+function normalizeLiveSections(form = {}) {
+  const rows = Array.isArray(form.sections) ? form.sections : [];
+  const titles = Array.isArray(form.sectionTitles) ? form.sectionTitles : SECTION_TITLES;
+  return APPLICATION_SECTION_CONFIGS.map((fallback, index) => {
+    const match = rows[index] || rows.find((section) => section?.id === fallback.id) || {};
+    const fallbackFields = fallback.fields || [];
+    const incomingFields = Array.isArray(match.fields) ? match.fields : [];
+    const fieldByKey = Object.fromEntries(incomingFields.map((field) => [field?.key, field]).filter(([key]) => key));
+    const fallbackKeys = new Set(fallbackFields.map((field) => field.key));
+    const customFields = incomingFields
+      .filter((field) => field?.key && !fallbackKeys.has(field.key))
+      .map((field) => normalizeLiveField(field))
+      .filter((field) => field.key && field.label);
+    return {
+      id: String(match.id || fallback.id || `section-${index + 1}`).trim(),
+      title: String(match.title || titles[index] || fallback.title || `Section ${index + 1}`).trim(),
+      intro: String(match.intro ?? fallback.intro ?? '').trim(),
+      body: String(match.body ?? fallback.body ?? '').trim(),
+      fields: [
+        ...fallbackFields.map((field) => normalizeLiveField(fieldByKey[field.key], field)),
+        ...customFields
+      ]
+    };
+  });
+}
+
+function normalizeLiveForm(form = {}) {
+  const sections = normalizeLiveSections(form);
+  return {
+    ...form,
+    sectionTitles: sections.map((section) => section.title),
+    sections,
+    uploadLabels: { ...UPLOAD_LABELS, ...(form.uploadLabels || {}) },
+    roles: (form.roles || []).map((role) => ({
+      ...role,
+      travel: role.travel || [],
+      certs: role.certs || [],
+      uploads: role.uploads || {},
+      requiredEducation: role.requiredEducation || []
+    }))
+  };
 }
 
 function jobSlug(value) {
@@ -1310,6 +1365,7 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
   const [activeLibraryTab, setActiveLibraryTab] = useState('roles');
   const [liveForm, setLiveForm] = useState(null);
   const [selectedLiveRole, setSelectedLiveRole] = useState('');
+  const [selectedLiveSection, setSelectedLiveSection] = useState(APPLICATION_SECTION_CONFIGS[0]?.id || '');
   const [actionError, guard] = useActionError();
   const jobs = library?.jobs || [];
   const filteredJobs = programFilter ? jobs.filter((job) => (job.program || 'Child Welfare') === programFilter) : jobs;
@@ -1320,19 +1376,10 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
 
   useEffect(() => {
     if (!library?.applicationConfig) return;
-    setLiveForm({
-      ...library.applicationConfig,
-      sectionTitles: [...(library.applicationConfig.sectionTitles || SECTION_TITLES)],
-      uploadLabels: { ...UPLOAD_LABELS, ...(library.applicationConfig.uploadLabels || {}) },
-      roles: (library.applicationConfig.roles || []).map((role) => ({
-        ...role,
-        travel: role.travel || [],
-        certs: role.certs || [],
-        uploads: role.uploads || {},
-        requiredEducation: role.requiredEducation || []
-      }))
-    });
+    const normalized = normalizeLiveForm(library.applicationConfig);
+    setLiveForm(normalized);
     setSelectedLiveRole((current) => current || library.applicationConfig.roles?.[0]?.slug || '');
+    setSelectedLiveSection((current) => current || normalized.sections[0]?.id || '');
   }, [library?.applicationConfig]);
 
   function editRole(job) {
@@ -1417,11 +1464,34 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
     setLiveForm((current) => ({ ...current, [field]: value }));
   }
 
-  function updateLiveSection(index, value) {
-    setLiveForm((current) => ({
-      ...current,
-      sectionTitles: current.sectionTitles.map((title, itemIndex) => itemIndex === index ? value : title)
-    }));
+  function updateLiveSection(sectionId, patch) {
+    setLiveForm((current) => {
+      const sections = normalizeLiveSections(current).map((section) => (
+        section.id === sectionId ? { ...section, ...patch } : section
+      ));
+      return {
+        ...current,
+        sections,
+        sectionTitles: sections.map((section) => section.title)
+      };
+    });
+  }
+
+  function updateLiveField(sectionId, fieldKey, patch) {
+    setLiveForm((current) => {
+      const sections = normalizeLiveSections(current).map((section) => {
+        if (section.id !== sectionId) return section;
+        return {
+          ...section,
+          fields: section.fields.map((field) => field.key === fieldKey ? { ...field, ...patch } : field)
+        };
+      });
+      return {
+        ...current,
+        sections,
+        sectionTitles: sections.map((section) => section.title)
+      };
+    });
   }
 
   function updateLiveUploadLabel(field, value) {
@@ -1487,7 +1557,7 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
   async function saveLiveApplication(event) {
     event.preventDefault();
     await guard(async () => {
-      await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(liveForm) });
+      await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(normalizeLiveForm(liveForm)) });
       onRefresh();
     });
   }
@@ -1516,13 +1586,16 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
-        setLiveForm({
+        const normalized = normalizeLiveForm({
           ...liveForm,
           ...parsed,
           sectionTitles: parsed.sectionTitles || liveForm.sectionTitles,
-          uploadLabels: { ...UPLOAD_LABELS, ...(parsed.uploadLabels || {}) },
+          sections: parsed.sections || liveForm.sections,
+          uploadLabels: { ...UPLOAD_LABELS, ...(parsed.uploadLabels || liveForm.uploadLabels || {}) },
           roles: parsed.roles || liveForm.roles
         });
+        setLiveForm(normalized);
+        setSelectedLiveSection(normalized.sections[0]?.id || '');
       } catch {
         window.alert('Upload a valid live application JSON file.');
       }
@@ -1660,7 +1733,7 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
     try {
       const parsed = JSON.parse(template.body || '{}');
       await guard(async () => {
-        await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(parsed) });
+        await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(normalizeLiveForm(parsed)) });
         onRefresh();
         setActiveLibraryTab('live');
       });
@@ -1670,6 +1743,8 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
   }
 
   const selectedRole = liveForm?.roles?.find((role) => role.slug === selectedLiveRole) || liveForm?.roles?.[0] || null;
+  const liveSections = liveForm ? normalizeLiveSections(liveForm) : [];
+  const selectedSection = liveSections.find((section) => section.id === selectedLiveSection) || liveSections[0] || null;
 
   return (
     <div className="library-grid">
@@ -1750,30 +1825,73 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
               <label>Application Name<input value={liveForm.name || ''} disabled={!canManage} onChange={(event) => updateLive('name', event.target.value)} /></label>
               <label>Status<select value={liveForm.status || 'active'} disabled={!canManage} onChange={(event) => updateLive('status', event.target.value)}><option value="active">Active</option><option value="draft">Draft</option><option value="paused">Paused</option></select></label>
             </div>
-            <div className="library-editor-grid">
-              <section>
-                <div className="record-header">
-                  <h4>Application Sections</h4>
-                  <span className="panel-count">{liveForm.sectionTitles.length} sections</span>
-                </div>
-                <div className="stack-list compact-list">
-                  {liveForm.sectionTitles.map((title, index) => (
-                    <label key={index}>Section {index + 1}<input value={title} disabled={!canManage} onChange={(event) => updateLiveSection(index, event.target.value)} /></label>
-                  ))}
-                </div>
-              </section>
-              <section>
-                <div className="record-header">
-                  <h4>Upload Labels</h4>
-                  <span className="panel-count">{uploadFields.length} fields</span>
-                </div>
-                <div className="stack-list compact-list">
-                  {uploadFields.map((field) => (
-                    <label key={field}>{field}<input value={liveForm.uploadLabels?.[field] || field} disabled={!canManage} onChange={(event) => updateLiveUploadLabel(field, event.target.value)} /></label>
-                  ))}
-                </div>
-              </section>
+            <div className="live-application-editor">
+              <aside className="live-section-list" aria-label="Application pages">
+                <h4>Application Pages</h4>
+                {liveSections.map((section, index) => (
+                  <button
+                    type="button"
+                    key={section.id}
+                    className={selectedSection?.id === section.id ? 'active' : ''}
+                    onClick={() => setSelectedLiveSection(section.id)}
+                  >
+                    <strong>Page {index + 1}</strong>
+                    <span>{section.title}</span>
+                    <small>{section.fields.length} fields</small>
+                  </button>
+                ))}
+              </aside>
+              {selectedSection && (
+                <section className="live-section-editor">
+                  <div className="record-header">
+                    <div>
+                      <h4>Edit Page {liveSections.findIndex((section) => section.id === selectedSection.id) + 1}</h4>
+                      <p>Update the applicant-facing page title, instructions, legal copy, and each field control.</p>
+                    </div>
+                  </div>
+                  <div className="form-grid live-page-copy-editor">
+                    <label>Page Title<input value={selectedSection.title} disabled={!canManage} onChange={(event) => updateLiveSection(selectedSection.id, { title: event.target.value })} /></label>
+                    <label>Intro Text<textarea value={selectedSection.intro || ''} disabled={!canManage} onChange={(event) => updateLiveSection(selectedSection.id, { intro: event.target.value })} /></label>
+                    <label className="field-wide">Page Instructions / Body Copy<textarea value={selectedSection.body || ''} disabled={!canManage} onChange={(event) => updateLiveSection(selectedSection.id, { body: event.target.value })} /></label>
+                  </div>
+                  <div className="record-header live-field-header">
+                    <div>
+                      <h4>Field Content And Controls</h4>
+                      <p>These labels, helper notes, options, and required settings control what applicants complete on this page.</p>
+                    </div>
+                  </div>
+                  <div className="live-field-editor-grid">
+                    {selectedSection.fields.map((field) => (
+                      <article key={field.key} className="live-field-editor">
+                        <div className="live-field-title">
+                          <strong>{field.key}</strong>
+                          <label className="check-row"><input type="checkbox" checked={Boolean(field.required)} disabled={!canManage} onChange={(event) => updateLiveField(selectedSection.id, field.key, { required: event.target.checked })} />Required</label>
+                        </div>
+                        <div className="form-grid">
+                          <label>Field Label<input value={field.label || ''} disabled={!canManage} onChange={(event) => updateLiveField(selectedSection.id, field.key, { label: event.target.value })} /></label>
+                          <label>Control Type<select value={field.type || 'text'} disabled={!canManage} onChange={(event) => updateLiveField(selectedSection.id, field.key, { type: event.target.value })}><option value="text">Text</option><option value="email">Email</option><option value="tel">Phone</option><option value="date">Date</option><option value="number">Number</option><option value="textarea">Long Text</option><option value="select">Select</option><option value="radio">Radio</option><option value="checkbox">Checkbox</option><option value="file">Upload</option><option value="signature">Signature</option></select></label>
+                          <label>Options<textarea value={(field.options || []).join('\n')} disabled={!canManage} onChange={(event) => updateLiveField(selectedSection.id, field.key, { options: textToList(event.target.value) })} placeholder="One option per line for select, radio, or checkbox controls." /></label>
+                          <label>Help Text<textarea value={field.help || ''} disabled={!canManage} onChange={(event) => updateLiveField(selectedSection.id, field.key, { help: event.target.value })} /></label>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
+            <section className="live-upload-labels">
+              <div className="record-header">
+                <div>
+                  <h4>Upload Labels</h4>
+                  <p>Edit the document upload names used by the live application and role-specific upload requirements.</p>
+                </div>
+              </div>
+              <div className="library-upload-grid">
+                {uploadFields.map((field) => (
+                  <label key={field}>{field}<input value={liveForm.uploadLabels?.[field] || field} disabled={!canManage} onChange={(event) => updateLiveUploadLabel(field, event.target.value)} /></label>
+                ))}
+              </div>
+            </section>
             <div className="record-header">
               <div>
                 <h4>Role Application Rules</h4>

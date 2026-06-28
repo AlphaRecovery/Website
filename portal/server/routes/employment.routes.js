@@ -453,6 +453,7 @@ router.get('/application/roles', (req, res) => {
       name: applicationConfig.name,
       status: applicationConfig.status,
       sectionTitles: applicationConfig.sectionTitles,
+      sections: applicationConfig.sections,
       uploadLabels: applicationConfig.uploadLabels
     },
     uploadLimits: {
@@ -474,6 +475,7 @@ router.get('/application/roles/:slug', (req, res) => {
       name: applicationConfig.name,
       status: applicationConfig.status,
       sectionTitles: applicationConfig.sectionTitles,
+      sections: applicationConfig.sections,
       uploadLabels: applicationConfig.uploadLabels
     },
     uploadLimits: {
