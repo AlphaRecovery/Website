@@ -60,7 +60,7 @@ export default function RecruiterPortal() {
     if (section === 'tasks') return <TasksPanel tasks={tasks} users={users} onRefresh={refresh} canCreate />;
     if (section === 'messages') return <MessagesPanel messages={messages} users={users} onRefresh={refresh} />;
     return (
-      <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} />
+      <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} onRefresh={refresh} />
     );
   }
 

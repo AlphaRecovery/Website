@@ -20,10 +20,11 @@ import {
   MessagesPanel,
   OperationsDashboard,
   RecentPanels,
+  SystemStatusPanel,
   TasksPanel
 } from './portalShared.jsx';
 import { ROLES, displayLabel } from '../../../shared/constants.js';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 function pathsForRole(role) {
   const paths = [
@@ -260,6 +261,116 @@ function RetentionDryRun() {
   );
 }
 
+function AtsCompanySettings({ currentUser }) {
+  const [settings, setSettings] = useState(null);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  const canEdit = currentUser?.role === 'admin';
+
+  useEffect(() => {
+    let active = true;
+    api('/api/ats/settings')
+      .then((data) => {
+        if (active) setSettings(data.settings);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  async function saveSettings(event) {
+    event.preventDefault();
+    if (!canEdit) return;
+    setNotice('');
+    setError('');
+    try {
+      const data = await api('/api/ats/settings', {
+        method: 'PATCH',
+        body: JSON.stringify(settings)
+      });
+      setSettings(data.settings);
+      setNotice('Company ATS settings saved.');
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  function updateTheme(field, value) {
+    setSettings((current) => ({
+      ...current,
+      careers_theme: {
+        ...(current.careers_theme || {}),
+        [field]: value
+      }
+    }));
+  }
+
+  function updateCompliance(field, value) {
+    setSettings((current) => ({
+      ...current,
+      compliance: {
+        ...(current.compliance || {}),
+        [field]: value
+      }
+    }));
+  }
+
+  function updateRetention(field, value) {
+    setSettings((current) => ({
+      ...current,
+      retention: {
+        ...(current.retention || {}),
+        [field]: Number(value || 0)
+      }
+    }));
+  }
+
+  if (!settings) {
+    return (
+      <section className="panel settings-wide">
+        <h3>Company ATS Settings</h3>
+        {error ? <div className="error-message">{error}</div> : <div className="empty-state">Loading company ATS settings...</div>}
+      </section>
+    );
+  }
+
+  return (
+    <section className="panel settings-wide">
+      <div className="record-header">
+        <div>
+          <h3>Company ATS Settings</h3>
+          <p>Company profile, careers branding, compliance defaults, and retention policy live here.</p>
+        </div>
+        <span className="panel-count">{canEdit ? 'Admin editable' : 'View only'}</span>
+      </div>
+      {notice && <div className="success-message">{notice}</div>}
+      {error && <div className="error-message">{error}</div>}
+      <form className="panel-form compact-form" onSubmit={saveSettings}>
+        <div className="form-grid">
+          <label>Company Name<input value={settings.company_name || ''} disabled={!canEdit} onChange={(event) => setSettings({ ...settings, company_name: event.target.value })} /></label>
+          <label>Website URL<input value={settings.website_url || ''} disabled={!canEdit} onChange={(event) => setSettings({ ...settings, website_url: event.target.value })} /></label>
+          <label>Logo URL<input value={settings.logo_url || ''} disabled={!canEdit} onChange={(event) => setSettings({ ...settings, logo_url: event.target.value })} /></label>
+          <label>Timezone<input value={settings.timezone || ''} disabled={!canEdit} onChange={(event) => setSettings({ ...settings, timezone: event.target.value })} /></label>
+          <label>Region<input value={settings.region || ''} disabled={!canEdit} onChange={(event) => setSettings({ ...settings, region: event.target.value })} /></label>
+          <label>Primary Color<input value={settings.careers_theme?.primary_color || ''} disabled={!canEdit} onChange={(event) => updateTheme('primary_color', event.target.value)} /></label>
+          <label>Font Family<input value={settings.careers_theme?.font_family || ''} disabled={!canEdit} onChange={(event) => updateTheme('font_family', event.target.value)} /></label>
+          <label>Rejected Retention Days<input type="number" min="1" value={settings.retention?.rejected_days || 365} disabled={!canEdit} onChange={(event) => updateRetention('rejected_days', event.target.value)} /></label>
+          <label>Withdrawn Retention Days<input type="number" min="1" value={settings.retention?.withdrawn_days || 365} disabled={!canEdit} onChange={(event) => updateRetention('withdrawn_days', event.target.value)} /></label>
+        </div>
+        <label>Careers Brand Message<textarea value={settings.careers_theme?.brand_message || ''} disabled={!canEdit} onChange={(event) => updateTheme('brand_message', event.target.value)} /></label>
+        <div className="settings-checks">
+          <label className="check-row"><input type="checkbox" checked={settings.compliance?.eeoc_enabled === true} disabled={!canEdit} onChange={(event) => updateCompliance('eeoc_enabled', event.target.checked)} />EEOC collection enabled</label>
+          <label className="check-row"><input type="checkbox" checked={settings.compliance?.consent_required !== false} disabled={!canEdit} onChange={(event) => updateCompliance('consent_required', event.target.checked)} />Candidate consent required</label>
+        </div>
+        {canEdit && <button type="submit">Save Company ATS Settings</button>}
+      </form>
+    </section>
+  );
+}
+
 export default function AdminPortal() {
   const { user } = useAuth();
   const { pathname } = useLocation();
@@ -305,12 +416,14 @@ export default function AdminPortal() {
     if (section === 'settings') {
       return (
         <AccountSettingsPanel>
+          <AtsCompanySettings currentUser={user} />
+          {user.role === 'admin' && <SystemStatusPanel />}
           {['admin', 'manager'].includes(user.role) && <InviteUsers users={users} currentUser={user} onRefresh={refresh} />}
         </AccountSettingsPanel>
       );
     }
     return (
-      <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} />
+      <OperationsDashboard data={data} users={users} applications={applications} contractors={data.contractors?.contractors || []} documents={documents} tasks={tasks} messages={messages} onRefresh={refresh} />
     );
   }
 

@@ -6,7 +6,7 @@ import { DocumentList, MessageThread, TaskList } from '../components/Lists.jsx';
 import StatCard from '../components/StatCard.jsx';
 import { api, documentDownloadUrl, documentViewUrl, employmentFileDownloadUrl, employmentFileViewUrl, uploadDocument } from '../api/client.js';
 import { APPLICATION_STATUSES, COMPANY_TYPES, DOCUMENT_TYPES, PROGRAMS, TASK_STATUSES, displayLabel } from '../../../shared/constants.js';
-import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES } from '../../../shared/applicationConfig.js';
+import { APPLICATION_STATUS as EMPLOYMENT_APPLICATION_STATUSES, SECTION_TITLES, UPLOAD_LABELS } from '../../../shared/applicationConfig.js';
 import { useAuth } from '../auth/AuthContext.jsx';
 
 export function ErrorState({ error }) {
@@ -70,6 +70,22 @@ function toDate(value) {
   return new Date(value).toLocaleDateString();
 }
 
+function localDateKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+}
+
+function dateFromLocalKey(key) {
+  const [year, month, day] = String(key || '').split('-').map(Number);
+  const fallback = new Date();
+  return new Date(year || fallback.getFullYear(), (month || fallback.getMonth() + 1) - 1, day || fallback.getDate());
+}
+
 function applicationReference(app = {}) {
   return app.confirmation_number || app.confirmationNumber || app.id || 'Application';
 }
@@ -93,8 +109,13 @@ function activityText(item = {}, users = []) {
   return `${name}${ref}: ${displayLabel(item.action || 'activity')}`;
 }
 
-export function OperationsDashboard({ data = {}, users = [], applications = [], contractors = [], documents = [], tasks = [], messages = [] }) {
+export function OperationsDashboard({ data = {}, users = [], applications = [], contractors = [], documents = [], tasks = [], messages = [], onRefresh }) {
   const { user } = useAuth();
+  const [activityWindowHours, setActivityWindowHours] = useState(24);
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(localDateKey());
+  const [calendarForm, setCalendarForm] = useState({ title: '', dueTime: '09:00', assignedTo: user?.id || '', description: '' });
+  const [calendarNotice, setCalendarNotice] = useState('');
+  const [calendarError, setCalendarError] = useState('');
   const portalBase = user?.role === 'recruiter' ? '/portal/recruiter' : '/portal/admin';
   const activeUsers = users.filter((user) => user.status === 'active').length;
   const pendingApplications = applications.filter((app) => isPendingApplication(app.status));
@@ -135,7 +156,16 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
     ['Hired / Handoff', hiredApplications.length]
   ];
 
-  const activity = (data.dashboard?.recentActivity || data.activity?.activity || []).slice(0, 8);
+  const activitySource = [...(data.activity?.activity || []), ...(data.dashboard?.recentActivity || [])]
+    .filter((item, index, rows) => rows.findIndex((row) => (row.id || row.created_at) === (item.id || item.created_at)) === index)
+    .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const activityCutoff = Date.now() - activityWindowHours * 60 * 60 * 1000;
+  const activity = activitySource
+    .filter((item) => {
+      const timestamp = new Date(item.created_at).getTime();
+      return !Number.isNaN(timestamp) && timestamp >= activityCutoff;
+    })
+    .slice(0, 8);
   const metricCards = [
     ['Applications Pending', pendingApplications.length],
     ['Interviews Scheduled', interviewsScheduled],
@@ -144,6 +174,50 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
     ['Open Tasks', openTasks],
     ['Unread Messages', unreadMessages]
   ];
+  const selectedDate = dateFromLocalKey(selectedCalendarDate);
+  const firstOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+  const daysInMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0).getDate();
+  const calendarCells = [
+    ...Array.from({ length: firstOfMonth.getDay() }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), index + 1))
+  ];
+  const datedTasks = tasks
+    .filter((task) => task.due_at)
+    .slice()
+    .sort((a, b) => new Date(a.due_at) - new Date(b.due_at));
+  const tasksByDate = datedTasks.reduce((acc, task) => {
+    const key = localDateKey(task.due_at);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(task);
+    return acc;
+  }, {});
+  const selectedTasks = tasksByDate[selectedCalendarDate] || [];
+  const calendarAssignees = users.filter((row) => ['admin', 'recruiter', 'hr', 'manager'].includes(row.role));
+  const canSchedule = ['admin', 'recruiter', 'hr'].includes(user?.role);
+
+  async function scheduleCalendarTask(event) {
+    event.preventDefault();
+    if (!canSchedule) return;
+    setCalendarNotice('');
+    setCalendarError('');
+    try {
+      const dueAt = new Date(`${selectedCalendarDate}T${calendarForm.dueTime || '09:00'}`);
+      await api('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          assigned_to: calendarForm.assignedTo || user.id,
+          title: calendarForm.title,
+          description: calendarForm.description || '',
+          due_at: dueAt.toISOString()
+        })
+      });
+      setCalendarForm({ title: '', dueTime: calendarForm.dueTime || '09:00', assignedTo: calendarForm.assignedTo || user.id, description: '' });
+      setCalendarNotice('Calendar item scheduled.');
+      await onRefresh?.();
+    } catch (err) {
+      setCalendarError(err.message || 'Unable to schedule calendar item.');
+    }
+  }
 
   return (
     <section className="ops-dashboard">
@@ -151,7 +225,6 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <span>Today: {new Date().toLocaleDateString()}</span>
         <span>Active Users: {activeUsers}</span>
         <span>Pending Actions: {pendingActions}</span>
-        <span>System Status: <strong>Online</strong></span>
       </div>
 
       <div className="ops-metrics">
@@ -210,28 +283,95 @@ export function OperationsDashboard({ data = {}, users = [], applications = [], 
         <section className="panel ops-panel ops-large">
           <div className="record-header">
             <h3>Recent Activity</h3>
-            <span className="panel-count">{activity.length} updates</span>
+            <label className="ops-activity-window">
+              <span>{activity.length} updates</span>
+              <select value={activityWindowHours} onChange={(event) => setActivityWindowHours(Number(event.target.value))}>
+                <option value={24}>Last 24 hours</option>
+                <option value={48}>Last 48 hours</option>
+                <option value={96}>Last 96 hours</option>
+              </select>
+            </label>
           </div>
           <div className="activity-feed">
             {activity.map((item) => (
               <div key={item.id}>
-                <time>{toTime(item.created_at)}</time>
+                <time><strong>{toTime(item.created_at)}</strong><small>{toDate(item.created_at)}</small></time>
                 <span>{displayLabel(item.action || 'activity')}</span>
                 <small>{item.target_url ? <Link to={item.target_url}>{item.summary || activityText(item, users)}</Link> : item.summary || activityText(item, users)}</small>
               </div>
             ))}
-            {!activity.length && <div className="empty-state">No activity yet. New applications, uploads, messages, and status changes will appear here.</div>}
+            {!activity.length && <div className="empty-state">No activity in the last {activityWindowHours} hours.</div>}
           </div>
         </section>
 
-        <section className="panel ops-panel">
-          <h3>System Status</h3>
-          <div className="system-list">
-            {['Applications Database', 'Document Repository', 'Background Check System', 'Communications Hub', 'Audit & Compliance System'].map((item) => (
-              <div key={item}><span>{item}</span><strong>Online</strong></div>
-            ))}
+        <section className="panel ops-panel ops-calendar-panel">
+          <div className="record-header">
+            <h3>Calendar</h3>
+            <span className="panel-count">{selectedTasks.length} scheduled</span>
           </div>
+          <div className="ops-calendar-head">
+            <button type="button" onClick={() => setSelectedCalendarDate(localDateKey(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1)))}>Previous</button>
+            <strong>{selectedDate.toLocaleDateString([], { month: 'long', year: 'numeric' })}</strong>
+            <button type="button" onClick={() => setSelectedCalendarDate(localDateKey(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1)))}>Next</button>
+          </div>
+          <div className="ops-calendar-grid">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => <span key={day}>{day}</span>)}
+            {calendarCells.map((date, index) => {
+              const key = date ? localDateKey(date) : `blank-${index}`;
+              const isSelected = key === selectedCalendarDate;
+              const count = date ? (tasksByDate[key] || []).length : 0;
+              return date ? (
+                <button type="button" key={key} className={isSelected ? 'active' : ''} onClick={() => setSelectedCalendarDate(key)}>
+                  <span>{date.getDate()}</span>
+                  {count > 0 && <b>{count}</b>}
+                </button>
+              ) : <i key={key} />;
+            })}
+          </div>
+          <div className="ops-calendar-schedule">
+            <strong>{selectedDate.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</strong>
+            {selectedTasks.map((task) => (
+              <article key={task.id}>
+                <time>{toTime(task.due_at)}</time>
+                <span>{task.title}<small>{users.find((item) => item.id === task.assigned_to)?.full_name || 'Unassigned'} / {displayLabel(task.status)}</small></span>
+              </article>
+            ))}
+            {!selectedTasks.length && <div className="empty-state">No items scheduled for this date.</div>}
+          </div>
+          {canSchedule ? (
+            <form className="ops-calendar-form" onSubmit={scheduleCalendarTask}>
+              {calendarNotice && <div className="success-message">{calendarNotice}</div>}
+              {calendarError && <div className="error-message">{calendarError}</div>}
+              <label>Title<input value={calendarForm.title} onChange={(event) => setCalendarForm({ ...calendarForm, title: event.target.value })} required /></label>
+              <div>
+                <label>Time<input type="time" value={calendarForm.dueTime} onChange={(event) => setCalendarForm({ ...calendarForm, dueTime: event.target.value })} required /></label>
+                <label>Assign To<select value={calendarForm.assignedTo || user.id} onChange={(event) => setCalendarForm({ ...calendarForm, assignedTo: event.target.value })}>{(calendarAssignees.length ? calendarAssignees : [user]).map((item) => <option key={item.id} value={item.id}>{item.full_name || item.email}</option>)}</select></label>
+              </div>
+              <label>Details<textarea value={calendarForm.description} onChange={(event) => setCalendarForm({ ...calendarForm, description: event.target.value })} /></label>
+              <button type="submit">Schedule Item</button>
+            </form>
+          ) : <div className="empty-state">Calendar scheduling is available to Admin, Recruiter, and HR roles.</div>}
         </section>
+      </div>
+    </section>
+  );
+}
+
+export function SystemStatusPanel() {
+  const systems = ['Applications Database', 'Document Repository', 'Background Check System', 'Communications Hub', 'Audit & Compliance System'];
+  return (
+    <section className="panel settings-wide">
+      <div className="record-header">
+        <div>
+          <h3>System Status</h3>
+          <p>Operational status checks for the recruiting and onboarding portal.</p>
+        </div>
+        <span className="panel-count">Admin only</span>
+      </div>
+      <div className="system-list">
+        {systems.map((item) => (
+          <div key={item}><span>{item}</span><strong>Online</strong></div>
+        ))}
       </div>
     </section>
   );
@@ -1178,20 +1318,45 @@ const templateDefaults = {
   body: '',
   status: 'active'
 };
+const TEMPLATE_UPLOAD_MAX_BYTES = 750 * 1024;
 
 export function LibraryPanel({ library, onRefresh, users = [], canManage = false }) {
+  const { user } = useAuth();
   const [templateForm, setTemplateForm] = useState(templateDefaults);
+  const [applicationTemplateForm, setApplicationTemplateForm] = useState({ title: '', description: '', body: '' });
   const [editingId, setEditingId] = useState('');
+  const [editingApplicationTemplateId, setEditingApplicationTemplateId] = useState('');
   const [jobForm, setJobForm] = useState(null);
   const [jobSlugEditing, setJobSlugEditing] = useState('');
   const [programFilter, setProgramFilter] = useState('');
   const [manageRoles, setManageRoles] = useState(false);
+  const [activeLibraryTab, setActiveLibraryTab] = useState('roles');
+  const [liveForm, setLiveForm] = useState(null);
+  const [selectedLiveRole, setSelectedLiveRole] = useState('');
   const [actionError, guard] = useActionError();
   const jobs = library?.jobs || [];
   const filteredJobs = programFilter ? jobs.filter((job) => (job.program || 'Child Welfare') === programFilter) : jobs;
-  const employmentApplications = library?.employmentApplications || [];
-  const portalApplications = library?.portalApplications || [];
   const templates = library?.templates || [];
+  const applicationTemplates = templates.filter((template) => template.type === 'Application Template');
+  const agencyTemplates = templates.filter((template) => template.type !== 'Application Template');
+  const uploadFields = Object.keys(UPLOAD_LABELS);
+
+  useEffect(() => {
+    if (!library?.applicationConfig) return;
+    setLiveForm({
+      ...library.applicationConfig,
+      sectionTitles: [...(library.applicationConfig.sectionTitles || SECTION_TITLES)],
+      uploadLabels: { ...UPLOAD_LABELS, ...(library.applicationConfig.uploadLabels || {}) },
+      roles: (library.applicationConfig.roles || []).map((role) => ({
+        ...role,
+        travel: role.travel || [],
+        certs: role.certs || [],
+        uploads: role.uploads || {},
+        requiredEducation: role.requiredEducation || []
+      }))
+    });
+    setSelectedLiveRole((current) => current || library.applicationConfig.roles?.[0]?.slug || '');
+  }, [library?.applicationConfig]);
 
   function editRole(job) {
     setJobSlugEditing(job.slug || '');
@@ -1271,10 +1436,279 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
     });
   }
 
+  function updateLive(field, value) {
+    setLiveForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateLiveSection(index, value) {
+    setLiveForm((current) => ({
+      ...current,
+      sectionTitles: current.sectionTitles.map((title, itemIndex) => itemIndex === index ? value : title)
+    }));
+  }
+
+  function updateLiveUploadLabel(field, value) {
+    setLiveForm((current) => ({
+      ...current,
+      uploadLabels: { ...(current.uploadLabels || {}), [field]: value }
+    }));
+  }
+
+  function updateLiveRole(slug, patch) {
+    setLiveForm((current) => ({
+      ...current,
+      roles: current.roles.map((role) => role.slug === slug ? { ...role, ...patch } : role)
+    }));
+  }
+
+  function updateLiveRoleList(slug, field, value) {
+    updateLiveRole(slug, { [field]: textToList(value) });
+  }
+
+  function updateLiveRoleUpload(slug, field, value) {
+    setLiveForm((current) => ({
+      ...current,
+      roles: current.roles.map((role) => role.slug === slug ? {
+        ...role,
+        uploads: {
+          ...(role.uploads || {}),
+          [field]: value || undefined
+        }
+      } : role)
+    }));
+  }
+
+  function addLiveRole() {
+    const slug = `new-application-${Date.now().toString().slice(-5)}`;
+    const role = {
+      slug,
+      title: 'New Application Role',
+      department: '',
+      location: '',
+      employmentType: '',
+      travel: ['None'],
+      drivingRequired: false,
+      languageRole: 'none',
+      certs: [],
+      uploads: { resume: 'required' },
+      requiredEducation: [],
+      minimumRelevantExperienceYears: 0
+    };
+    setLiveForm((current) => ({ ...current, roles: [...(current.roles || []), role] }));
+    setSelectedLiveRole(slug);
+  }
+
+  function deleteLiveRole(slug) {
+    if (!window.confirm('Delete this role from the live application?')) return;
+    setLiveForm((current) => {
+      const roles = current.roles.filter((role) => role.slug !== slug);
+      setSelectedLiveRole(roles[0]?.slug || '');
+      return { ...current, roles };
+    });
+  }
+
+  async function saveLiveApplication(event) {
+    event.preventDefault();
+    await guard(async () => {
+      await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(liveForm) });
+      onRefresh();
+    });
+  }
+
+  async function resetLiveApplication() {
+    if (!window.confirm('Reset the live application back to the default application configuration?')) return;
+    await guard(async () => {
+      await api('/api/library/application-config', { method: 'DELETE' });
+      onRefresh();
+    });
+  }
+
+  function downloadLiveApplication() {
+    downloadFile('live-application-config.json', JSON.stringify(liveForm, null, 2), 'application/json');
+  }
+
+  function uploadLiveApplication(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > TEMPLATE_UPLOAD_MAX_BYTES) {
+      window.alert('Upload a JSON file smaller than 750 KB.');
+      event.target.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        setLiveForm({
+          ...liveForm,
+          ...parsed,
+          sectionTitles: parsed.sectionTitles || liveForm.sectionTitles,
+          uploadLabels: { ...UPLOAD_LABELS, ...(parsed.uploadLabels || {}) },
+          roles: parsed.roles || liveForm.roles
+        });
+      } catch {
+        window.alert('Upload a valid live application JSON file.');
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  }
+
+  function readTemplateUpload(file, { jsonOnly = false, onLoad }) {
+    const isText = file.type.startsWith('text/') || /\.(json|txt|md|html|csv)$/i.test(file.name);
+    if (file.size > TEMPLATE_UPLOAD_MAX_BYTES) {
+      window.alert('Upload a file smaller than 750 KB.');
+      return;
+    }
+    if (jsonOnly && !/\.json$/i.test(file.name)) {
+      window.alert('Upload a JSON application template.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        if (jsonOnly) {
+          const parsed = JSON.parse(String(reader.result || '{}'));
+          onLoad({
+            title: file.name.replace(/\.[^.]+$/, ''),
+            description: `Uploaded from ${file.name}.`,
+            body: JSON.stringify(parsed, null, 2)
+          });
+          return;
+        }
+        const body = isText
+          ? String(reader.result || '')
+          : JSON.stringify({
+            uploadedFile: {
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              size: file.size,
+              note: 'Binary template file imported as metadata. Store final source document in the document repository if staff need to download the original file.'
+            }
+          }, null, 2);
+        onLoad({
+          title: file.name.replace(/\.[^.]+$/, ''),
+          description: `Uploaded from ${file.name}.`,
+          body
+        });
+      } catch {
+        window.alert('The uploaded file could not be imported.');
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function uploadApplicationTemplate(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    readTemplateUpload(file, {
+      jsonOnly: true,
+      onLoad: (next) => setApplicationTemplateForm((current) => ({
+        ...current,
+        title: current.title || next.title,
+        description: current.description || next.description,
+        body: next.body
+      }))
+    });
+    event.target.value = '';
+  }
+
+  function uploadAgencyTemplate(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    readTemplateUpload(file, {
+      onLoad: (next) => setTemplateForm((current) => ({
+        ...current,
+        title: current.title || next.title,
+        description: current.description || next.description,
+        body: next.body
+      }))
+    });
+    event.target.value = '';
+  }
+
+  async function saveLiveAsTemplate() {
+    const title = window.prompt('Template name', `${liveForm?.name || 'Live Application'} Template`);
+    if (!title) return;
+    await guard(async () => {
+      await api('/api/library/templates', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          type: 'Application Template',
+          audience: 'Applicant',
+          description: 'Snapshot of the live application configuration.',
+          body: JSON.stringify(liveForm, null, 2),
+          status: 'draft'
+        })
+      });
+      onRefresh();
+      setActiveLibraryTab('application-templates');
+    });
+  }
+
+  function editApplicationTemplate(template) {
+    setEditingApplicationTemplateId(template.id);
+    setApplicationTemplateForm({
+      title: template.title || '',
+      description: template.description || '',
+      body: template.body || ''
+    });
+  }
+
+  async function saveApplicationTemplate(event) {
+    event.preventDefault();
+    await guard(async () => {
+      const payload = {
+        title: applicationTemplateForm.title,
+        type: 'Application Template',
+        audience: 'Applicant',
+        description: applicationTemplateForm.description,
+        body: applicationTemplateForm.body,
+        status: 'draft'
+      };
+      if (editingApplicationTemplateId) {
+        await api(`/api/library/templates/${editingApplicationTemplateId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+      } else {
+        await api('/api/library/templates', { method: 'POST', body: JSON.stringify(payload) });
+      }
+      setEditingApplicationTemplateId('');
+      setApplicationTemplateForm({ title: '', description: '', body: '' });
+      onRefresh();
+    });
+  }
+
+  async function publishApplicationTemplate(template) {
+    if (!window.confirm(`Publish "${template.title}" to the live application? This changes what applicants see.`)) return;
+    try {
+      const parsed = JSON.parse(template.body || '{}');
+      await guard(async () => {
+        await api('/api/library/application-config', { method: 'PATCH', body: JSON.stringify(parsed) });
+        onRefresh();
+        setActiveLibraryTab('live');
+      });
+    } catch {
+      window.alert('This application template does not contain valid JSON.');
+    }
+  }
+
+  const selectedRole = liveForm?.roles?.find((role) => role.slug === selectedLiveRole) || liveForm?.roles?.[0] || null;
+
   return (
     <div className="library-grid">
       <ErrorState error={actionError} />
-      <section className="panel library-card">
+      <div className="library-tabs">
+        {[
+          ['roles', 'Application Roles'],
+          ['live', 'Live Application'],
+          ['application-templates', 'Template Applications'],
+          ['agency-forms', 'Agency Forms']
+        ].map(([key, label]) => (
+          <button key={key} type="button" className={activeLibraryTab === key ? 'active' : ''} onClick={() => setActiveLibraryTab(key)}>{label}</button>
+        ))}
+      </div>
+
+      {activeLibraryTab === 'roles' && <section className="panel library-card">
         <div className="record-header">
           <div>
             <h3>Job Roles And Descriptions</h3>
@@ -1318,41 +1752,149 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
           ))}
           {!filteredJobs.length && <div className="empty-state">No roles in {programFilter || 'this view'}.</div>}
         </div>
-      </section>
+      </section>}
 
-      <section className="panel library-card">
-        <h3>Employment Applications</h3>
-        <p>{employmentApplications.length} full employment application record{employmentApplications.length === 1 ? '' : 's'}.</p>
-        <DataTable
-          rows={employmentApplications}
-          columns={[
-            { key: 'confirmation_number', label: 'Confirmation', sortable: true, render: (row) => row.confirmation_number || 'Not assigned' },
-            { key: 'full_name', label: 'Applicant', sortable: true },
-            { key: 'role_title', label: 'Role', sortable: true },
-            { key: 'department', label: 'Department', sortable: true },
-            { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> },
-            { key: 'submitted_at', label: 'Submitted', sortable: true, render: (row) => row.submitted_at ? new Date(row.submitted_at).toLocaleDateString() : 'Not submitted' }
-          ]}
-        />
-      </section>
+      {activeLibraryTab === 'live' && <section className="panel library-card library-live-application">
+        <div className="record-header">
+          <div>
+            <h3>Live Application Module</h3>
+            <p>This controls the current applicant-facing application. Template applications remain separate until published.</p>
+          </div>
+          {canManage && <div className="table-actions">
+            <button type="button" onClick={saveLiveAsTemplate} disabled={!liveForm}>Save As Template</button>
+            <button type="button" onClick={downloadLiveApplication} disabled={!liveForm}>Download</button>
+            <label className="button-link">Upload<input type="file" accept="application/json,.json" onChange={uploadLiveApplication} hidden /></label>
+            {user?.role === 'admin' && <button type="button" className="danger" onClick={resetLiveApplication}>Delete Live Override</button>}
+          </div>}
+        </div>
+        {liveForm ? (
+          <form className="panel-form compact-form" onSubmit={saveLiveApplication}>
+            <div className="form-grid">
+              <label>Application Name<input value={liveForm.name || ''} disabled={!canManage} onChange={(event) => updateLive('name', event.target.value)} /></label>
+              <label>Status<select value={liveForm.status || 'active'} disabled={!canManage} onChange={(event) => updateLive('status', event.target.value)}><option value="active">Active</option><option value="draft">Draft</option><option value="paused">Paused</option></select></label>
+            </div>
+            <div className="library-editor-grid">
+              <section>
+                <div className="record-header">
+                  <h4>Application Sections</h4>
+                  <span className="panel-count">{liveForm.sectionTitles.length} sections</span>
+                </div>
+                <div className="stack-list compact-list">
+                  {liveForm.sectionTitles.map((title, index) => (
+                    <label key={index}>Section {index + 1}<input value={title} disabled={!canManage} onChange={(event) => updateLiveSection(index, event.target.value)} /></label>
+                  ))}
+                </div>
+              </section>
+              <section>
+                <div className="record-header">
+                  <h4>Upload Labels</h4>
+                  <span className="panel-count">{uploadFields.length} fields</span>
+                </div>
+                <div className="stack-list compact-list">
+                  {uploadFields.map((field) => (
+                    <label key={field}>{field}<input value={liveForm.uploadLabels?.[field] || field} disabled={!canManage} onChange={(event) => updateLiveUploadLabel(field, event.target.value)} /></label>
+                  ))}
+                </div>
+              </section>
+            </div>
+            <div className="record-header">
+              <div>
+                <h4>Role Application Rules</h4>
+                <p>Controls role titles, required education, experience minimums, language/certification groups, travel, and upload requirements.</p>
+              </div>
+              {canManage && <button type="button" onClick={addLiveRole}>Add Role</button>}
+            </div>
+            <div className="library-role-editor">
+              <aside className="stack-list compact-list">
+                {liveForm.roles.map((role) => (
+                  <button type="button" key={role.slug} className={selectedRole?.slug === role.slug ? 'active' : ''} onClick={() => setSelectedLiveRole(role.slug)}>
+                    <strong>{role.title}</strong>
+                    <small>{role.department || 'No department'} / {role.slug}</small>
+                  </button>
+                ))}
+              </aside>
+              {selectedRole && <section className="panel-form compact-form">
+                <div className="form-grid">
+                  <label>Slug<input value={selectedRole.slug} disabled={!canManage} onChange={(event) => { const slug = event.target.value; updateLiveRole(selectedRole.slug, { slug }); setSelectedLiveRole(slug); }} /></label>
+                  <label>Title<input value={selectedRole.title} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { title: event.target.value })} /></label>
+                  <label>Department<input value={selectedRole.department || ''} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { department: event.target.value })} /></label>
+                  <label>Location<input value={selectedRole.location || ''} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { location: event.target.value })} /></label>
+                  <label>Employment Type<input value={selectedRole.employmentType || ''} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { employmentType: event.target.value })} /></label>
+                  <label>Minimum Relevant Experience<input type="number" min="0" value={selectedRole.minimumRelevantExperienceYears || 0} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { minimumRelevantExperienceYears: Number(event.target.value || 0) })} /></label>
+                  <label>Language Role<select value={selectedRole.languageRole || 'none'} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { languageRole: event.target.value })}><option value="none">None</option><option value="optional">Optional</option><option value="required">Required</option></select></label>
+                  <label className="check-row"><input type="checkbox" checked={Boolean(selectedRole.drivingRequired)} disabled={!canManage} onChange={(event) => updateLiveRole(selectedRole.slug, { drivingRequired: event.target.checked })} />Driving required</label>
+                  <label>Travel Options<textarea value={(selectedRole.travel || []).join('\n')} disabled={!canManage} onChange={(event) => updateLiveRoleList(selectedRole.slug, 'travel', event.target.value)} /></label>
+                  <label>Required Education<textarea value={(selectedRole.requiredEducation || []).join('\n')} disabled={!canManage} onChange={(event) => updateLiveRoleList(selectedRole.slug, 'requiredEducation', event.target.value)} placeholder="highSchool&#10;associate&#10;bachelor&#10;master&#10;doctorate" /></label>
+                  <label>Certification Groups<textarea value={(selectedRole.certs || []).join('\n')} disabled={!canManage} onChange={(event) => updateLiveRoleList(selectedRole.slug, 'certs', event.target.value)} placeholder="adminCerts&#10;securityCerts" /></label>
+                </div>
+                <h4>Upload Requirements</h4>
+                <div className="library-upload-grid">
+                  {uploadFields.map((field) => (
+                    <label key={field}>{liveForm.uploadLabels?.[field] || field}<select value={selectedRole.uploads?.[field] || ''} disabled={!canManage} onChange={(event) => updateLiveRoleUpload(selectedRole.slug, field, event.target.value)}><option value="">Not used</option><option value="required">Required</option><option value="conditional">Conditional</option><option value="optional">Optional</option></select></label>
+                  ))}
+                </div>
+                {canManage && <div className="table-actions"><button type="button" className="danger" onClick={() => deleteLiveRole(selectedRole.slug)}>Delete Role</button></div>}
+              </section>}
+            </div>
+            {canManage && <button type="submit">Save Live Application</button>}
+          </form>
+        ) : <div className="empty-state">Loading live application module...</div>}
+      </section>}
 
-      <section className="panel library-card">
-        <h3>Portal Application Records</h3>
-        <p>{portalApplications.length} portal application status record{portalApplications.length === 1 ? '' : 's'}.</p>
-        <DataTable
-          rows={portalApplications}
-          columns={[
-            { key: 'confirmation_number', label: 'Confirmation', sortable: true, render: (row) => row.confirmation_number || 'Not assigned' },
-            { key: 'full_name', label: 'Applicant', sortable: true },
-            { key: 'role_applied', label: 'Role', sortable: true },
-            { key: 'email', label: 'Email', sortable: true },
-            { key: 'status', label: 'Status', sortable: true, render: (row) => <Badge value={row.status} /> }
-          ]}
-        />
-      </section>
+      {activeLibraryTab === 'application-templates' && <section className="panel library-card">
+        <div className="record-header">
+          <div>
+            <h3>Template Applications</h3>
+            <p>Draft and edit application templates here. These do not affect the live application until published.</p>
+          </div>
+          {canManage && (
+            <div className="table-actions">
+              <label className="button-link">Upload Template<input type="file" accept="application/json,.json" onChange={uploadApplicationTemplate} hidden /></label>
+            </div>
+          )}
+        </div>
+        <form className="panel-form compact-form" onSubmit={saveApplicationTemplate}>
+          <div className="form-grid">
+            <label>Template Name<input value={applicationTemplateForm.title} onChange={(event) => setApplicationTemplateForm({ ...applicationTemplateForm, title: event.target.value })} required /></label>
+            <label>Description<textarea value={applicationTemplateForm.description} onChange={(event) => setApplicationTemplateForm({ ...applicationTemplateForm, description: event.target.value })} /></label>
+            <label className="field-wide">Application JSON<textarea value={applicationTemplateForm.body} onChange={(event) => setApplicationTemplateForm({ ...applicationTemplateForm, body: event.target.value })} placeholder="Paste or edit an application config JSON snapshot." /></label>
+          </div>
+          <div className="table-actions">
+            <button type="submit">{editingApplicationTemplateId ? 'Save Template Application' : 'Create Template Application'}</button>
+            {editingApplicationTemplateId && <button type="button" onClick={() => { setEditingApplicationTemplateId(''); setApplicationTemplateForm({ title: '', description: '', body: '' }); }}>Cancel</button>}
+          </div>
+        </form>
+        <div className="stack-list compact-list">
+          {applicationTemplates.map((template) => (
+            <article key={template.id} className="library-record">
+              <button type="button" className="library-record-open" onClick={() => editApplicationTemplate(template)}>
+                <strong>{template.title}</strong>
+                <small>{displayLabel(template.status)} / Template Application</small>
+                <p>{template.description || 'No description provided.'}</p>
+              </button>
+              <div className="library-record-actions">
+                <button type="button" onClick={() => editApplicationTemplate(template)}>Edit</button>
+                <button type="button" onClick={() => publishApplicationTemplate(template)}>Publish To Live</button>
+                <button type="button" className="danger" onClick={() => deleteTemplate(template)}>Delete</button>
+              </div>
+            </article>
+          ))}
+          {!applicationTemplates.length && <div className="empty-state">No template applications have been saved yet. Use Save As Template from the live module or create one here.</div>}
+        </div>
+      </section>}
 
-      <section className="panel library-card">
-        <h3>Templates And Agency Forms</h3>
+      {activeLibraryTab === 'agency-forms' && <section className="panel library-card">
+        <div className="record-header">
+          <div>
+            <h3>Templates And Agency Forms</h3>
+            <p>Upload, edit, save, and delete reusable forms and document templates.</p>
+          </div>
+          {canManage && (
+            <div className="table-actions">
+              <label className="button-link">Upload Form<input type="file" accept=".txt,.md,.html,.json,.csv,.pdf,.doc,.docx" onChange={uploadAgencyTemplate} hidden /></label>
+            </div>
+          )}
+        </div>
         <form className="panel-form compact-form" onSubmit={saveTemplate}>
           <div className="form-grid">
             <label>Title<input value={templateForm.title} onChange={(event) => updateTemplate('title', event.target.value)} required /></label>
@@ -1368,7 +1910,7 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
           </div>
         </form>
         <div className="stack-list compact-list">
-          {templates.map((template) => (
+          {agencyTemplates.map((template) => (
             <article key={template.id} className="library-record">
               <button type="button" className="library-record-open" onClick={() => editTemplate(template)}>
                 <strong>{template.title}</strong>
@@ -1376,12 +1918,14 @@ export function LibraryPanel({ library, onRefresh, users = [], canManage = false
                 <p>{template.description || 'No description provided.'}</p>
               </button>
               <div className="library-record-actions">
+                <button type="button" onClick={() => editTemplate(template)}>Edit</button>
                 <button type="button" className="danger" onClick={() => deleteTemplate(template)}>Delete</button>
               </div>
             </article>
           ))}
+          {!agencyTemplates.length && <div className="empty-state">No agency forms are stored yet.</div>}
         </div>
-      </section>
+      </section>}
 
       {jobForm && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">

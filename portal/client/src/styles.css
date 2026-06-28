@@ -668,6 +668,40 @@ code {
   line-height: 1.45;
 }
 
+.activity-feed time strong,
+.activity-feed time small {
+  display: block;
+}
+
+.activity-feed time small {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 500;
+}
+
+.ops-activity-window {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.ops-activity-window span {
+  color: var(--red);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ops-activity-window select {
+  min-height: 30px;
+  border: 1px solid rgba(139, 0, 0, 0.55);
+  background: #050505;
+  color: var(--white);
+  font-size: 0.68rem;
+}
+
 /* The empty-state message is a plain block, never the activity grid. */
 .activity-feed .empty-state {
   display: block;
@@ -680,6 +714,152 @@ code {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.68rem;
+}
+
+.ops-calendar-panel {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ops-calendar-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ops-calendar-head strong {
+  text-align: center;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ops-calendar-head button,
+.ops-calendar-form button {
+  min-height: 30px;
+}
+
+.ops-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.22rem;
+}
+
+.ops-calendar-grid > span {
+  color: var(--muted);
+  text-align: center;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ops-calendar-grid button,
+.ops-calendar-grid i {
+  min-height: 30px;
+  border: 1px solid rgba(139, 0, 0, 0.45);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--white);
+  padding: 0.25rem;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.ops-calendar-grid i {
+  opacity: 0.35;
+}
+
+.ops-calendar-grid button.active {
+  border-color: var(--red);
+  background: rgba(168, 0, 0, 0.18);
+}
+
+.ops-calendar-grid button b {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  min-width: 13px;
+  height: 13px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--red);
+  color: var(--white);
+  font-size: 0.52rem;
+}
+
+.ops-calendar-schedule {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.ops-calendar-schedule > strong {
+  color: var(--red);
+  font-size: 0.72rem;
+}
+
+.ops-calendar-schedule article {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid rgba(139, 0, 0, 0.35);
+}
+
+.ops-calendar-schedule article time {
+  color: var(--red);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.ops-calendar-schedule article span,
+.ops-calendar-schedule article small {
+  display: block;
+}
+
+.ops-calendar-schedule article small {
+  color: var(--muted);
+  margin-top: 0.15rem;
+  font-size: 0.64rem;
+}
+
+.ops-calendar-form {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(139, 0, 0, 0.35);
+}
+
+.ops-calendar-form > div {
+  display: grid;
+  grid-template-columns: 0.75fr 1.25fr;
+  gap: 0.45rem;
+}
+
+.ops-calendar-form label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.ops-calendar-form input,
+.ops-calendar-form select,
+.ops-calendar-form textarea {
+  min-height: 32px;
+  border: 1px solid rgba(139, 0, 0, 0.55);
+  background: #050505;
+  color: var(--white);
+  padding: 0.45rem;
+  font-size: 0.72rem;
+}
+
+.ops-calendar-form textarea {
+  min-height: 56px;
+  resize: vertical;
 }
 
 .panel {
@@ -1923,6 +2103,62 @@ button.danger {
   overflow: auto;
 }
 
+.library-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.library-tabs button.active,
+.library-role-editor aside button.active {
+  border-color: var(--portal-red, var(--red));
+  background: var(--portal-red-soft, rgba(168, 0, 0, 0.18));
+  color: var(--portal-red, var(--red));
+}
+
+.library-editor-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.library-editor-grid section,
+.library-role-editor > section {
+  border: 1px solid var(--portal-border, rgba(139, 0, 0, 0.4));
+  border-radius: 10px;
+  padding: 0.75rem;
+  background: var(--portal-surface, rgba(255, 255, 255, 0.02));
+}
+
+.library-live-application h4 {
+  margin: 0;
+}
+
+.library-role-editor {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.42fr) minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.library-role-editor aside button {
+  width: 100%;
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+}
+
+.library-upload-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.55rem;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
 .compact-list {
   display: grid;
   gap: 0.6rem;
@@ -2609,6 +2845,14 @@ button.danger {
   display: grid;
   justify-items: end;
   gap: 0.2rem;
+  max-width: 132px;
+}
+
+.roc-card-meta small {
+  max-width: 132px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .roc-card-meta em {
@@ -2622,6 +2866,34 @@ button.danger {
 
 .roc-card-meta b {
   font-size: 0.68rem;
+}
+
+.roc-card-primary {
+  min-width: 0;
+}
+
+.roc-card-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  line-height: 1.2;
+}
+
+.roc-card-title strong,
+.roc-card-title small {
+  min-width: 0;
+}
+
+.roc-card-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roc-card-title small {
+  color: var(--roc-text);
+  white-space: nowrap;
 }
 
 .roc-pagination {
@@ -3563,6 +3835,17 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     justify-items: start;
     text-align: left;
   }
+
+  .roc-card-meta,
+  .roc-card-meta small {
+    max-width: 100%;
+  }
+
+  .library-editor-grid,
+  .library-role-editor,
+  .ops-calendar-form > div {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ============================================================
@@ -4324,6 +4607,54 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   border-color: var(--portal-red);
   background: var(--portal-red-soft);
   color: var(--portal-red);
+}
+
+.portal-layout .ops-activity-window {
+  color: var(--portal-muted);
+}
+
+.portal-layout .ops-activity-window select,
+.portal-layout .ops-calendar-form input,
+.portal-layout .ops-calendar-form select,
+.portal-layout .ops-calendar-form textarea {
+  border-color: var(--portal-border-strong);
+  background: var(--portal-surface);
+  color: var(--portal-text);
+}
+
+.portal-layout .activity-feed time small,
+.portal-layout .ops-calendar-grid > span,
+.portal-layout .ops-calendar-form label,
+.portal-layout .ops-calendar-schedule article small {
+  color: var(--portal-muted);
+}
+
+.portal-layout .ops-calendar-grid button,
+.portal-layout .ops-calendar-grid i {
+  border-color: var(--portal-border);
+  background: var(--portal-surface);
+  color: var(--portal-text);
+}
+
+.portal-layout .ops-calendar-grid button.active {
+  border-color: var(--portal-red);
+  background: var(--portal-red-soft);
+  color: var(--portal-red);
+}
+
+.portal-layout .ops-calendar-schedule article,
+.portal-layout .ops-calendar-form {
+  border-color: var(--portal-border);
+}
+
+.portal-layout .roc-clear-filter,
+.portal-layout .roc-clear-filter:hover:not(:disabled) {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--portal-red);
+  padding: 0;
+  box-shadow: none;
 }
 
 .portal-layout .button-link,

@@ -268,7 +268,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
   const pipelineApplicants = useMemo(() => allApplicants.filter(isActiveRecruitingCandidate), [allApplicants]);
 
   const [query, setQuery] = useState('');
-  const [filters, setFilters] = useState({ department: '', role: '', status: '', recruiter: '', location: '', priority: '', employment: '', score: '' });
+  const [filters, setFilters] = useState({ department: '', role: '', status: '', recruiter: '', location: '', priority: '', employment: '' });
   const [selectedId, setSelectedId] = useState('');
   const [modal, setModal] = useState('');
   const [form, setForm] = useState({});
@@ -289,7 +289,6 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
     const needle = query.trim().toLowerCase();
     return pipelineApplicants.filter((applicant) => {
       const matchesQuery = !needle || [applicant.name, applicant.email, applicant.phone, applicant.id, applicant.confirmationNumber].some((value) => String(value || '').toLowerCase().includes(needle));
-      const matchesScore = !filters.score || (Number(applicant.score || 0) >= Number(filters.score));
       return matchesQuery
         && (!filters.department || applicant.department === filters.department)
         && (!filters.role || applicant.position === filters.role)
@@ -297,8 +296,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
         && (!filters.recruiter || applicant.recruiter === filters.recruiter)
         && (!filters.location || applicant.location === filters.location)
         && (!filters.priority || normalizeStatus(applicant.status) === filters.priority)
-        && (!filters.employment || applicant.employment === filters.employment)
-        && matchesScore;
+        && (!filters.employment || applicant.employment === filters.employment);
     });
   }, [pipelineApplicants, filters, query]);
 
@@ -357,7 +355,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
 
   function clearFilters() {
     setQuery('');
-    setFilters({ department: '', role: '', status: '', recruiter: '', location: '', priority: '', employment: '', score: '' });
+    setFilters({ department: '', role: '', status: '', recruiter: '', location: '', priority: '', employment: '' });
   }
 
   async function refreshAfter(message) {
@@ -668,7 +666,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
           </label>
           <div className="roc-filter-head">
             <strong>Filters</strong>
-            <button type="button" onClick={clearFilters}>Clear Filters</button>
+            <button type="button" className="roc-clear-filter" onClick={clearFilters}>Clear Filters</button>
           </div>
           <div className="roc-filter-grid">
             <select value={filters.department} onChange={(event) => updateFilter('department', event.target.value)}><option value="">All Departments</option>{departments.map((item) => <option key={item}>{item}</option>)}</select>
@@ -676,7 +674,6 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
             <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}><option value="">All Statuses</option>{statuses.map((item) => <option key={item}>{item}</option>)}</select>
             <select value={filters.recruiter} onChange={(event) => updateFilter('recruiter', event.target.value)}><option value="">All Recruiters</option>{recruiters.map((item) => <option key={item}>{item}</option>)}</select>
             <select value={filters.location} onChange={(event) => updateFilter('location', event.target.value)}><option value="">All Locations</option>{locations.map((item) => <option key={item}>{item}</option>)}</select>
-            <select value={filters.score} onChange={(event) => updateFilter('score', event.target.value)}><option value="">Any Score</option><option value="90">90+</option><option value="80">80+</option><option value="70">70+</option></select>
             <select value={filters.priority} onChange={(event) => updateFilter('priority', event.target.value)}><option value="">All Priorities</option>{['submitted', 'review', 'interview', 'approved', 'onboarding'].map((item) => <option key={item} value={item}>{displayLabel(item)}</option>)}</select>
             <select value={filters.employment} onChange={(event) => updateFilter('employment', event.target.value)}><option value="">All Types</option>{employmentTypes.map((item) => <option key={item}>{item}</option>)}</select>
           </div>
@@ -685,16 +682,14 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
             {filteredApplicants.map((applicant) => (
               <button type="button" key={`${applicant.source}-${applicant.id}`} className={`roc-applicant-card${selected?.id === applicant.id ? ' active' : ''}`} onClick={() => setSelectedId(applicant.id)}>
                 <span className="roc-avatar-mini">{applicant.initials}</span>
-                <span>
-                  <strong>{applicant.name}</strong>
-                  <small>{applicant.position}</small>
+                <span className="roc-card-primary">
+                  <span className="roc-card-title"><strong>{applicant.name}</strong><small>{applicant.position}</small></span>
                   <small>{applicant.department}</small>
                 </span>
                 <span className="roc-card-meta">
-                  <small>Confirmation: {applicant.confirmationNumber || 'Not assigned'}</small>
+                  <small>{applicant.confirmationNumber || 'Not assigned'}</small>
                   <small>Applied: {formatDate(applicant.applied)}</small>
                   <em>{displayLabel(applicant.status)}</em>
-                  {applicant.score !== null && <b>Score: {applicant.score}%</b>}
                 </span>
               </button>
             ))}
@@ -757,7 +752,7 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
                 </header>
                 {normalizeStatus(selected.status) === 'interview' ? (
                   <div className="roc-stage-grid">
-                    <div><strong>Application Review</strong><small>{selected.confirmationNumber || 'No confirmation'} / {selected.score === null ? 'No score' : `${selected.score}% score`}</small></div>
+                    <div><strong>Application Review</strong><small>{selected.confirmationNumber || 'No confirmation'}</small></div>
                     <div><strong>Documents</strong><small>{selectedDocuments.length} linked file{selectedDocuments.length === 1 ? '' : 's'}</small></div>
                     <div><strong>Interview</strong><small>{activeInterview ? `${displayLabel(activeInterview.status)} / ${activeInterview.scheduled_at ? new Date(activeInterview.scheduled_at).toLocaleString() : 'No time selected'}` : 'Not scheduled'}</small></div>
                     <div><strong>Completion Gate</strong><small>{interviewReady ? 'Ready to advance' : 'Complete interview and scorecard before advancing'}</small></div>
@@ -801,7 +796,6 @@ export default function RecruitingOperations({ applications = [], data = {}, onR
                     <div><dt>Email:</dt><dd className="roc-red">{selected.email || 'Not recorded'}</dd></div>
                     <div><dt>Source:</dt><dd>{selected.source === 'employment' ? 'Employment application' : 'Portal application'}</dd></div>
                     <div><dt>Position:</dt><dd>{selected.position}</dd></div>
-                    <div><dt>Score:</dt><dd>{selected.score === null ? 'Not scored' : `${selected.score}%`}</dd></div>
                   </dl>
                 )}
                 {activeTab.startsWith('Interview Workspace') && (

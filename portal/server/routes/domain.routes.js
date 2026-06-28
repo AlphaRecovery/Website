@@ -10,7 +10,8 @@ import { PROGRAMS, DEFAULT_PROGRAM } from '../../shared/constants.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { notificationCounts, pushNotifications, pushNotificationsForAll, registerNotificationClient } from '../notifications.js';
 import { canReviewEmploymentApplication } from '../policies.js';
-import { ROLE_CONFIGS } from '../../shared/applicationConfig.js';
+import { CERTIFICATION_GROUPS, EDUCATION_REQUIREMENT_LABELS, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
+import { liveApplicationConfig, resetLiveApplicationConfig, saveLiveApplicationConfig } from '../applicationConfigStore.js';
 
 const router = express.Router();
 const siteContentPath = path.resolve(config.root, '..', 'content', 'site.json');
@@ -227,6 +228,52 @@ const templateSchema = z.object({
   description: z.string().optional().default(''),
   body: z.string().optional().default(''),
   status: z.string().optional().default('active')
+});
+
+const liveApplicationRoleSchema = z.object({
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  department: z.string().optional().default(''),
+  location: z.string().optional().default(''),
+  employmentType: z.string().optional().default(''),
+  travel: z.array(z.string()).optional().default([]),
+  drivingRequired: z.boolean().optional().default(false),
+  languageRole: z.string().optional().default('none'),
+  certs: z.array(z.string()).optional().default([]),
+  uploads: z.record(z.string()).optional().default({}),
+  requiredEducation: z.array(z.string()).optional().default([]),
+  minimumRelevantExperienceYears: z.coerce.number().min(0).optional().default(0)
+});
+
+const liveApplicationConfigSchema = z.object({
+  name: z.string().min(2).optional().default('Live Employment Application'),
+  status: z.enum(['active', 'draft', 'paused']).optional().default('active'),
+  sectionTitles: z.array(z.string().min(1)).optional().default([]),
+  uploadLabels: z.record(z.string()).optional().default({}),
+  roles: z.array(liveApplicationRoleSchema).optional().default([]),
+  updated_at: z.string().nullable().optional()
+}).superRefine((value, ctx) => {
+  const slugs = new Set();
+  const allowedUploadFields = new Set(Object.keys(UPLOAD_LABELS));
+  const allowedUploadStatuses = new Set(['required', 'conditional', 'optional', '']);
+  const allowedEducation = new Set(Object.keys(EDUCATION_REQUIREMENT_LABELS));
+  const allowedCertGroups = new Set(Object.keys(CERTIFICATION_GROUPS));
+  value.roles.forEach((role, roleIndex) => {
+    if (slugs.has(role.slug)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', roleIndex, 'slug'], message: 'Role slugs must be unique.' });
+    }
+    slugs.add(role.slug);
+    for (const key of Object.keys(role.uploads || {})) {
+      if (!allowedUploadFields.has(key)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', roleIndex, 'uploads', key], message: 'Unsupported upload field.' });
+      if (!allowedUploadStatuses.has(role.uploads[key])) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', roleIndex, 'uploads', key], message: 'Upload status must be required, conditional, or optional.' });
+    }
+    for (const item of role.requiredEducation || []) {
+      if (!allowedEducation.has(item)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', roleIndex, 'requiredEducation'], message: 'Unsupported education requirement.' });
+    }
+    for (const item of role.certs || []) {
+      if (!allowedCertGroups.has(item)) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['roles', roleIndex, 'certs'], message: 'Unsupported certification group.' });
+    }
+  });
 });
 
 const manualApplicationSchema = z.object({
@@ -976,10 +1023,27 @@ router.get('/library', requireAuth, requireRole('admin', 'recruiter', 'hr', 'man
   const db = getDb();
   res.json({
     jobs: (content.opportunities?.jobs || []).map(normalizeJob),
-    employmentApplications: visibleEmploymentApplications(req.user).slice().sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at)),
-    portalApplications: visibleApplications(req.user).map(enrichApplication),
+    applicationConfig: liveApplicationConfig(db),
     templates: db.library_templates.slice().sort((a, b) => a.title.localeCompare(b.title))
   });
+});
+
+router.patch('/library/application-config', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {
+  const parsed = liveApplicationConfigSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid live application configuration.' });
+  const current = liveApplicationConfig(getDb());
+  if (current.updated_at && parsed.data.updated_at && parsed.data.updated_at !== current.updated_at) {
+    return res.status(409).json({ error: 'The live application changed after you loaded it. Refresh Library and reapply your changes.' });
+  }
+  const config = saveLiveApplicationConfig(parsed.data, req.user.id);
+  logActivity(req.user.id, 'live_application_config_updated', { entity_type: 'application_config', entity_id: config.id, name: config.name });
+  res.json({ applicationConfig: config });
+});
+
+router.delete('/library/application-config', requireAuth, requireRole('admin'), (req, res) => {
+  const config = resetLiveApplicationConfig(req.user.id);
+  logActivity(req.user.id, 'live_application_config_reset', { entity_type: 'application_config', entity_id: config.id, name: config.name });
+  res.json({ applicationConfig: config });
 });
 
 router.post('/library/templates', requireAuth, requireRole('admin', 'recruiter'), (req, res) => {

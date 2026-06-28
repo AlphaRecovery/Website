@@ -253,5 +253,8 @@ test('applicant submission creates a durable admin-visible application before em
     cookie: recruiterLogin.cookie
   });
   assert.equal(recruiterLibrary.response.status, 200);
-  assert.equal(recruiterLibrary.payload.employmentApplications.length, 0);
+  assert.equal(Object.hasOwn(recruiterLibrary.payload, 'employmentApplications'), false);
+  assert.equal(Object.hasOwn(recruiterLibrary.payload, 'portalApplications'), false);
+  assert.ok(recruiterLibrary.payload.applicationConfig);
+  assert.ok(Array.isArray(recruiterLibrary.payload.applicationConfig.roles));
 });

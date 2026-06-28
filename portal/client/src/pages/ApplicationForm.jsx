@@ -9,8 +9,8 @@ import {
   EDUCATION_REQUIREMENT_LABELS,
   EXPERIENCE_ALTERNATIVE_MIN_YEARS,
   LANGUAGES,
-  SECTION_TITLES,
-  UPLOAD_LABELS
+  SECTION_TITLES as DEFAULT_SECTION_TITLES,
+  UPLOAD_LABELS as DEFAULT_UPLOAD_LABELS
 } from '../../../shared/applicationConfig.js';
 
 const emptyEmployer = { employer: '', title: '', startDate: '', endDate: '', supervisor: '', phone: '', reasonForLeaving: '', duties: '' };
@@ -238,13 +238,13 @@ function getSectionUploads(sectionNumber, role, payload) {
   return uploads;
 }
 
-function requiredUploadErrors(sectionNumber, role, payload, files) {
+function requiredUploadErrors(sectionNumber, role, payload, files, uploadLabels = DEFAULT_UPLOAD_LABELS) {
   return getSectionUploads(sectionNumber, role, payload)
     .filter((item) => item.status === 'required' && !files[item.field]?.length)
-    .map((item) => `${UPLOAD_LABELS[item.field] || item.field} upload is required.`);
+    .map((item) => `${uploadLabels[item.field] || item.field} upload is required.`);
 }
 
-function summarizeSection(sectionNumber, role, payload, files) {
+function summarizeSection(sectionNumber, role, payload, files, uploadLabels = DEFAULT_UPLOAD_LABELS) {
   const personal = payload.personalInformation || {};
   const education = payload.education || {};
   const employers = payload.employmentHistory?.employers || [];
@@ -255,7 +255,7 @@ function summarizeSection(sectionNumber, role, payload, files) {
   if (sectionNumber === 2) return [personal.fullName || 'Full legal name missing', personal.email || 'Email missing'];
   if (sectionNumber === 3) return [payload.workAuthorization.authorized ? `Authorized: ${payload.workAuthorization.authorized}` : 'Authorization unanswered'];
   if (sectionNumber === 4) return [role.drivingRequired ? `Travel availability: ${payload.availability.travelAvailability || 'Missing'}` : 'Travel not required'];
-  if (sectionNumber === 5) return [payload.militaryService.served ? `Military service: ${payload.militaryService.served}` : 'Military service unanswered', ...uploads.filter((item) => files[item.field]?.length).map((item) => `${UPLOAD_LABELS[item.field]} uploaded`)];
+  if (sectionNumber === 5) return [payload.militaryService.served ? `Military service: ${payload.militaryService.served}` : 'Military service unanswered', ...uploads.filter((item) => files[item.field]?.length).map((item) => `${uploadLabels[item.field] || item.field} uploaded`)];
   if (sectionNumber === 6) {
     return [
       education.highestLevel || 'Highest education level missing',
@@ -289,6 +289,8 @@ export default function ApplicationForm() {
   const [loading, setLoading] = useState(true);
   const [submittedApplication, setSubmittedApplication] = useState(null);
   const [uploadLimits, setUploadLimits] = useState(DEFAULT_UPLOAD_LIMITS);
+  const [sectionTitles, setSectionTitles] = useState(DEFAULT_SECTION_TITLES);
+  const [uploadLabels, setUploadLabels] = useState(DEFAULT_UPLOAD_LABELS);
 
   useEffect(() => {
     let mounted = true;
@@ -297,6 +299,8 @@ export default function ApplicationForm() {
         const data = await api(`/api/application/roles/${roleSlug}`);
         if (!mounted) return;
         if (data.uploadLimits) setUploadLimits(data.uploadLimits);
+        if (data.applicationConfig?.sectionTitles?.length) setSectionTitles(data.applicationConfig.sectionTitles);
+        if (data.applicationConfig?.uploadLabels) setUploadLabels({ ...DEFAULT_UPLOAD_LABELS, ...data.applicationConfig.uploadLabels });
         const draftData = await api(`/api/application/draft?roleSlug=${encodeURIComponent(roleSlug)}`);
         if (draftData.submitted) setSubmittedApplication(draftData.submitted);
         const basePayload = initialPayload(data.role, user);
@@ -411,18 +415,18 @@ export default function ApplicationForm() {
         if (payload.militaryService.dischargeOther?.length > 1000) errors.push('Military discharge explanation must be 1000 characters or less.');
         if (!payload.militaryService.disabledVeteran) errors.push('Disabled veteran status is required.');
       }
-      errors.push(...requiredUploadErrors(5, role, payload, files));
+      errors.push(...requiredUploadErrors(5, role, payload, files, uploadLabels));
     }
 
     if (targetSection === 6) {
       if (!payload.education.highestLevel) errors.push('Highest education level is required.');
       errors.push(...requiredEducationErrors(role, payload.education));
-      errors.push(...requiredUploadErrors(6, role, payload, files));
+      errors.push(...requiredUploadErrors(6, role, payload, files, uploadLabels));
     }
 
     if (targetSection === 7) {
       if (role.languageRole === 'required' && !payload.languages.length) errors.push('At least one language is required.');
-      errors.push(...requiredUploadErrors(7, role, payload, files));
+      errors.push(...requiredUploadErrors(7, role, payload, files, uploadLabels));
     }
 
     if (targetSection === 8) {
@@ -451,7 +455,7 @@ export default function ApplicationForm() {
       if (!payload.drivingRecord.validLicense || !payload.drivingRecord.licenseNumber || !payload.drivingRecord.state) {
         errors.push('Driving record is required.');
       }
-      errors.push(...requiredUploadErrors(11, role, payload, files));
+      errors.push(...requiredUploadErrors(11, role, payload, files, uploadLabels));
     }
 
     if (targetSection === 12) {
@@ -512,7 +516,7 @@ export default function ApplicationForm() {
   }
 
   function nextApplicableSection(start) {
-    for (let index = start; index <= APPLICATION_TOTAL_SECTIONS; index += 1) {
+    for (let index = start; index <= sectionTitles.length; index += 1) {
       if (isSectionApplicable(index)) return index;
     }
     return section;
@@ -534,7 +538,7 @@ export default function ApplicationForm() {
 
   function validateAll() {
     const errors = [];
-    for (let index = 1; index <= APPLICATION_TOTAL_SECTIONS; index += 1) {
+    for (let index = 1; index <= sectionTitles.length; index += 1) {
       if (!isSectionApplicable(index)) continue;
       if (index === 16) continue;
       errors.push(...getSectionErrors(index));
@@ -667,10 +671,10 @@ export default function ApplicationForm() {
         <div className="application-progress">
           <strong>Section {visibleSectionNumber(section)} of {DISPLAY_TOTAL_SECTIONS}</strong>
           <div><span style={{ width: `${(visibleSectionNumber(section) / DISPLAY_TOTAL_SECTIONS) * 100}%` }} /></div>
-          <small>{SECTION_TITLES[section - 1]}</small>
+          <small>{sectionTitles[section - 1]}</small>
         </div>
         <nav className="section-jump">
-          {SECTION_TITLES.map((title, index) => {
+          {sectionTitles.map((title, index) => {
             const targetSection = index + 1;
             const applicable = isSectionApplicable(targetSection);
             const complete = sectionComplete(index);
@@ -694,7 +698,7 @@ export default function ApplicationForm() {
         <div className="application-card-header">
           <div>
             <span className="eyebrow">Section {visibleSectionNumber(section)}</span>
-            <h1>{SECTION_TITLES[section - 1]}</h1>
+            <h1>{sectionTitles[section - 1]}</h1>
           </div>
           <div className="exit-actions">
             <button type="button" onClick={saveAndExit}>Save and Exit</button>
@@ -708,22 +712,22 @@ export default function ApplicationForm() {
         {section === 2 && <PersonalSection payload={payload} patch={patch} />}
         {section === 3 && <AuthorizationSection payload={payload} patch={patch} />}
         {section === 4 && <AvailabilitySection role={role} payload={payload} patch={patch} />}
-        {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
-        {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
-        {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
+        {section === 5 && <MilitarySection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+        {section === 6 && <EducationSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
+        {section === 7 && <CertificationSection role={role} certOptions={certOptions} payload={payload} setTop={setTop} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
         {section === 8 && <EmploymentSection role={role} payload={payload} patch={patch} />}
         {section === 9 && <GovernmentSection payload={payload} patch={patch} />}
         {section === 10 && <CriminalSection payload={payload} patch={patch} />}
-        {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} />}
+        {section === 11 && <DrivingSection role={role} payload={payload} patch={patch} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} />}
         {section === 12 && <ReferencesSection payload={payload} setTop={setTop} />}
         {section === 13 && <BackgroundAuthorizationSection role={role} payload={payload} setBackgroundAuthorization={setBackgroundAuthorization} />}
         {section === 14 && <StandardsSection payload={payload} setTop={setTop} />}
-        {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} isSectionApplicable={isSectionApplicable} />}
+        {section === 15 && <ReviewSection role={role} payload={payload} files={files} setSection={setSection} getSectionErrors={getSectionErrors} isSectionApplicable={isSectionApplicable} sectionTitles={sectionTitles} uploadLabels={uploadLabels} />}
         {section === 16 && <ApplicantCertificationSection payload={payload} setApplicantCertification={setApplicantCertification} />}
 
         <div className="application-actions">
           <button type="button" disabled={section === 1} onClick={() => setSection((current) => previousApplicableSection(current - 1))}>Back</button>
-          {section < APPLICATION_TOTAL_SECTIONS ? <button type="button" onClick={next}>Continue</button> : <button type="button" onClick={submit}>Send Application</button>}
+          {section < sectionTitles.length ? <button type="button" onClick={next}>Continue</button> : <button type="button" onClick={submit}>Send Application</button>}
         </div>
       </section>
       {showDeleteConfirm && (
@@ -794,7 +798,7 @@ function AvailabilitySection({ role, payload, patch }) {
   </div>;
 }
 
-function MilitarySection({ role, payload, patch, files, setFiles, uploadLimits }) {
+function MilitarySection({ role, payload, patch, files, setFiles, uploadLimits, uploadLabels }) {
   const data = payload.militaryService;
   const uploads = getSectionUploads(5, role, payload);
   return <div className="stack-list">
@@ -813,11 +817,11 @@ function MilitarySection({ role, payload, patch, files, setFiles, uploadLimits }
         <Field label="Disabled Veteran Status"><SelectInput value={data.disabledVeteran} onChange={(value) => patch('militaryService', { disabledVeteran: value })} options={yesNo()} required /></Field>
       </>}
     </div>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload military documentation based on your current military status." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} intro="Upload military documentation based on your current military status." />}
   </div>;
 }
 
-function EducationSection({ role, payload, patch, files, setFiles, uploadLimits }) {
+function EducationSection({ role, payload, patch, files, setFiles, uploadLimits, uploadLabels }) {
   const data = payload.education;
   const requirements = role.requiredEducation || [];
   const useExperienceAlternative = usesExperienceEducationAlternative(data);
@@ -857,16 +861,16 @@ function EducationSection({ role, payload, patch, files, setFiles, uploadLimits 
       <div className="inline-action"><button type="button" className="danger-button" onClick={() => patch('education', { degrees: data.degrees.filter((_, itemIndex) => itemIndex !== index) || [{ ...emptyDegree }] })} disabled={data.degrees.length === 1}>Remove Education</button></div>
     </div>)}
     <button type="button" onClick={() => patch('education', { degrees: [...data.degrees, { ...emptyDegree }] })}>Add Education</button>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro={useExperienceAlternative ? 'Upload the required experience narrative document here. Do not type the narrative into the application.' : 'Upload any required degree, diploma, GED, or transcript documentation here.'} />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} intro={useExperienceAlternative ? 'Upload the required experience narrative document here. Do not type the narrative into the application.' : 'Upload any required degree, diploma, GED, or transcript documentation here.'} />}
   </div>;
 }
 
-function CertificationSection({ role, certOptions, payload, setTop, files, setFiles, uploadLimits }) {
+function CertificationSection({ role, certOptions, payload, setTop, files, setFiles, uploadLimits, uploadLabels }) {
   const records = payload.certifications.records || [];
   const selected = payload.certifications.selected || [];
   const uploads = getSectionUploads(7, role, payload);
   return <div className="stack-list">
-    <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload your resume here. Any professional license or certification documents for this section also belong here." />
+    <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} intro="Upload your resume here. Any professional license or certification documents for this section also belong here." />
     {!certOptions.length && role.languageRole === 'none' && <div className="empty-state">No specialized certifications or languages are tracked for this role beyond the required resume upload.</div>}
     {!!certOptions.length && <div className="checkbox-grid">
       {certOptions.map((cert) => <label key={`${cert.group}-${cert.name}`} className="check-row"><input type="checkbox" checked={selected.includes(cert.name)} onChange={(event) => {
@@ -1004,7 +1008,7 @@ function CriminalSection({ payload, patch }) {
   </div>;
 }
 
-function DrivingSection({ role, payload, patch, files, setFiles, uploadLimits }) {
+function DrivingSection({ role, payload, patch, files, setFiles, uploadLimits, uploadLabels }) {
   if (!role.drivingRequired) return <div className="empty-state">This section is hidden for this role because driving is not required.</div>;
   const data = payload.drivingRecord;
   const uploads = getSectionUploads(11, role, payload);
@@ -1018,7 +1022,7 @@ function DrivingSection({ role, payload, patch, files, setFiles, uploadLimits })
       <Field label="Accidents in Last 5 Years"><TextInput type="number" value={data.accidents} onChange={(value) => patch('drivingRecord', { accidents: value })} /></Field>
       <Field label="DUI History"><textarea value={data.duiHistory} onChange={(event) => patch('drivingRecord', { duiHistory: event.target.value })} /></Field>
     </div>
-    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} intro="Upload the driver's license documentation for this section here." />}
+    {!!uploads.length && <UploadFieldList uploads={uploads} files={files} setFiles={setFiles} uploadLimits={uploadLimits} uploadLabels={uploadLabels} intro="Upload the driver's license documentation for this section here." />}
   </div>;
 }
 
@@ -1148,17 +1152,17 @@ function StandardsSection({ payload, setTop }) {
   </div>;
 }
 
-function ReviewSection({ role, payload, files, setSection, getSectionErrors, isSectionApplicable }) {
+function ReviewSection({ role, payload, files, setSection, getSectionErrors, isSectionApplicable, sectionTitles, uploadLabels }) {
   return <div className="stack-list">
     <div className="legal-notice">
       <strong>Review your application section by section.</strong>
       <span>Use the edit pencil on any card to jump back to that section before final certification.</span>
     </div>
-    {SECTION_TITLES.slice(0, 14).map((title, index) => ({ title, targetSection: index + 1 }))
+    {sectionTitles.slice(0, 14).map((title, index) => ({ title, targetSection: index + 1 }))
       .filter(({ targetSection }) => isSectionApplicable(targetSection))
       .map(({ title, targetSection }) => {
       const issues = getSectionErrors(targetSection);
-      const summary = summarizeSection(targetSection, role, payload, files);
+      const summary = summarizeSection(targetSection, role, payload, files, uploadLabels);
       return (
         <article key={title} className="list-card">
           <div className="record-header">
@@ -1203,14 +1207,14 @@ function ApplicantCertificationSection({ payload, setApplicantCertification }) {
   </div>;
 }
 
-function UploadFieldList({ uploads, files, setFiles, uploadLimits = DEFAULT_UPLOAD_LIMITS, intro }) {
+function UploadFieldList({ uploads, files, setFiles, uploadLimits = DEFAULT_UPLOAD_LIMITS, uploadLabels = DEFAULT_UPLOAD_LABELS, intro }) {
   if (!uploads.length) return null;
   return <div className="stack-list">
     <p>{intro}</p>
     <p>Accepted file types: PDF, DOC, DOCX, JPG, PNG. Maximum file size: {formatMegabytes(uploadLimits.maxFileBytes)} per file and {formatMegabytes(uploadLimits.maxRequestBytes)} combined.</p>
     {uploads.map(({ field, status }) => <div className="upload-row" key={field}>
       <div>
-        <strong>{UPLOAD_LABELS[field] || field}</strong>
+        <strong>{uploadLabels[field] || field}</strong>
         <small>{fileLabel(status)}</small>
       </div>
       <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" multiple={status !== 'required'} onChange={(event) => setFiles((current) => ({ ...current, [field]: Array.from(event.target.files || []) }))} />

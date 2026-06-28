@@ -24,7 +24,8 @@ import { portalUrl, sendEmail } from '../email.js';
 import { deleteStoredFile, isRemoteStoragePath, storeUploadedFile } from '../storage.js';
 import { publicErrorMessage } from '../security.js';
 import { buildApplicationPdf } from '../applicationPdf.js';
-import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, EXPERIENCE_ALTERNATIVE_MIN_YEARS, ROLE_BY_SLUG, ROLE_CONFIGS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
+import { APPLICATION_STATUS, APPLICATION_TOTAL_SECTIONS, degreeMeetsRequirement, EXPERIENCE_ALTERNATIVE_MIN_YEARS, UPLOAD_LABELS } from '../../shared/applicationConfig.js';
+import { liveApplicationConfig, liveApplicationRoles, liveRoleBySlug, liveUploadLabels } from '../applicationConfigStore.js';
 
 const router = express.Router();
 const applicationUploadsDir = path.join(config.uploadsDir, 'employment-applications');
@@ -174,7 +175,8 @@ function validateApplication(payload, role, files = {}) {
 
   for (const item of requiredUploads(role, payload)) {
     if (!files[item.field]?.length) {
-      errors.push(`${UPLOAD_LABELS[item.field] || item.field} upload is required.`);
+      const labels = liveUploadLabels();
+      errors.push(`${labels[item.field] || item.field} upload is required.`);
     }
   }
 
@@ -236,10 +238,11 @@ function escapeHtml(value) {
 }
 
 function flattenUploadedFiles(files = {}) {
+  const labels = liveUploadLabels();
   return Object.entries(files).flatMap(([field, items]) => (
     (items || []).map((file) => ({
       field,
-      label: UPLOAD_LABELS[field] || field,
+      label: labels[field] || field,
       file
     }))
   ));
@@ -435,8 +438,15 @@ async function persistRecoveredApplicationPdf(file, applicationId, confirmation)
 }
 
 router.get('/application/roles', (req, res) => {
+  const applicationConfig = liveApplicationConfig();
   res.json({
-    roles: ROLE_CONFIGS.map(publicRole),
+    roles: applicationConfig.status === 'active' ? applicationConfig.roles.map(publicRole) : [],
+    applicationConfig: {
+      name: applicationConfig.name,
+      status: applicationConfig.status,
+      sectionTitles: applicationConfig.sectionTitles,
+      uploadLabels: applicationConfig.uploadLabels
+    },
     uploadLimits: {
       maxFileBytes: config.maxUploadFileBytes,
       maxRequestBytes: config.maxUploadRequestBytes,
@@ -446,10 +456,18 @@ router.get('/application/roles', (req, res) => {
 });
 
 router.get('/application/roles/:slug', (req, res) => {
-  const role = ROLE_BY_SLUG[req.params.slug];
+  const applicationConfig = liveApplicationConfig();
+  if (applicationConfig.status !== 'active') return res.status(423).json({ error: 'The employment application is not currently accepting submissions.' });
+  const role = liveRoleBySlug(req.params.slug);
   if (!role) return res.status(404).json({ error: 'Role not found' });
   res.json({
     role: publicRole(role),
+    applicationConfig: {
+      name: applicationConfig.name,
+      status: applicationConfig.status,
+      sectionTitles: applicationConfig.sectionTitles,
+      uploadLabels: applicationConfig.uploadLabels
+    },
     uploadLimits: {
       maxFileBytes: config.maxUploadFileBytes,
       maxRequestBytes: config.maxUploadRequestBytes,
@@ -496,8 +514,8 @@ router.post('/application/draft', requireAuth, requireRole('applicant'), (req, r
       user_id: req.user.id,
       email: req.user.email.toLowerCase(),
       role_slug: parsed.data.roleSlug,
-      role_title: ROLE_BY_SLUG[parsed.data.roleSlug]?.title || parsed.data.payload?.positionInformation?.roleTitle || '',
-      department: ROLE_BY_SLUG[parsed.data.roleSlug]?.department || '',
+      role_title: liveRoleBySlug(parsed.data.roleSlug)?.title || parsed.data.payload?.positionInformation?.roleTitle || '',
+      department: liveRoleBySlug(parsed.data.roleSlug)?.department || '',
       section: parsed.data.section,
       payload: sanitizePayload(parsed.data.payload),
       updated_at: new Date().toISOString()
@@ -522,7 +540,9 @@ router.post('/application/submit', requireAuth, requireRole('applicant'), upload
     void removeTemporaryUploads(req.files);
     return res.status(status).json({ error });
   };
-  const role = ROLE_BY_SLUG[req.body.roleSlug];
+  const applicationConfig = liveApplicationConfig();
+  if (applicationConfig.status !== 'active') return reject(423, 'The employment application is not currently accepting submissions.');
+  const role = liveRoleBySlug(req.body.roleSlug);
   if (!role) return reject(404, 'Role not found');
   let payload;
   let storedFilesForCleanup = [];
@@ -719,7 +739,8 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
     id: submission?.user_id || null,
     email
   };
-  const role = ROLE_BY_SLUG[parsed.data.roleSlug || submission?.role_slug] || {
+  const labels = liveUploadLabels();
+  const role = liveRoleBySlug(parsed.data.roleSlug || submission?.role_slug) || {
     slug: parsed.data.roleSlug || submission?.role_slug || 'recovered-email-application',
     title: submission?.role_title || 'Recovered Email Application',
     department: submission?.department || '',
@@ -734,7 +755,7 @@ router.post('/admin/recovery/email-application', requireAuth, requireRole('admin
     const metadataFiles = (submission?.uploaded_files || []).map((file) => ({
       id: id(),
       field: file.field || '',
-      label: file.label || UPLOAD_LABELS[file.field] || 'Email Attachment',
+      label: file.label || labels[file.field] || 'Email Attachment',
       originalName: file.original_name || file.originalName || 'Email attachment',
       size: file.size || file.size_bytes || 0,
       mimeType: file.mime_type || file.mimeType || '',
